@@ -59,16 +59,27 @@ export async function POST(request: Request) {
     // 4. PDF Upload Logic
     let pdfUrl = null;
     if (pdf_base64) {
+        console.log(`>>> [STORAGE] PDF Received. Size: ${(pdf_base64.length / 1024 / 1024).toFixed(2)} MB`);
+        
         const fileName = `${quoteNumber}_request.pdf`;
         const buffer = Buffer.from(pdf_base64, 'base64');
+        
         const { error: uploadError } = await supabase.storage
             .from('submittal-pdfs')
-            .upload(fileName, buffer, { contentType: 'application/pdf', upsert: true });
+            .upload(fileName, buffer, { 
+                contentType: 'application/pdf', 
+                upsert: true 
+            });
 
-        if (!uploadError) {
+        if (uploadError) {
+            console.error(">>> [STORAGE ERROR]:", uploadError.message);
+        } else {
             const { data: { publicUrl } } = supabase.storage.from('submittal-pdfs').getPublicUrl(fileName);
             pdfUrl = publicUrl;
+            console.log(">>> [STORAGE SUCCESS] URL:", pdfUrl);
         }
+    } else {
+        console.log(">>> [STORAGE] No PDF data received in payload.");
     }
 
     // 5. INSERT: Notice we only send the 'customer' ID link now
