@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         console.error(">>> [DB ERROR] Sequence RPC failed:", seqError.message);
         throw new Error(`Sequence Error: ${seqError.message}`);
     }
-    const quoteNumber = `${nextSeq}WB`;
+    const quoteNumber = `${nextSeq}WEB`;
     console.log(">>> [DB] Generated Quote Number:", quoteNumber);
 
     // 4. Customer Linking / Creation Logic
