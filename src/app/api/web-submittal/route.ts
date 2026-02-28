@@ -13,7 +13,17 @@ export async function POST(request: Request) {
 
     // 1. Generate the sequential quote number
     // We use 'WEB' as the name_code suffix for online entries
-    const { data: nextSeq } = await supabase.rpc('get_next_quote_number');
+// Inside your POST function
+    console.log("Checking database connection...");
+
+    const { data: nextSeq, error: seqError } = await supabase.rpc('get_next_quote_number');
+
+    if (seqError) {
+      console.error("RPC Error Details:", seqError.message, seqError.details, seqError.hint);
+      return NextResponse.json({ error: "Database sequence error", details: seqError.message }, { status: 500 });
+    }
+
+    console.log("Next sequence number obtained:", nextSeq);
     const quoteNumber = `${nextSeq}WEB`;
 
     // 2. Format phone to pure numeric (bigint compatibility)
