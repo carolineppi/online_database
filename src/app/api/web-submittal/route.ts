@@ -2,112 +2,138 @@ import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  console.log(">>> [WEBHOOK] Request received");
+  console.log(">>> [WEBHOOK] API Entry Point Reached");
+
+  // Use the Service Role Key via the server client to bypass RLS
   const supabase = await createClient();
 
-
   try {
-    // 1. Logic for nextSeq and Customer Linking (Keep from previous step)
+    // 1. Read the body ONCE
     const body = await request.json();
-    const { first_name, last_name, email, phone, job_name, additional_notes, pdf_base64 } = body;
+    console.log(">>> [DATA] Received from PHP:", body.email);
 
-    // Now you can log the variable 'body' as much as you want
-    console.log(">>> [DATA] Received:", body.email);
+    const { 
+      first_name, 
+      last_name, 
+      email, 
+      phone, 
+      job_name, 
+      notes, 
+      additional_notes,
+      pdf_base64 
+    } = body;
 
-    // 1. Generate the sequential quote number
-    // We use 'WEB' as the name_code suffix for online entries
-    // Inside your POST function
-    console.log("Checking database connection...");
-
-    const { data: nextSeq, error: seqError } = await supabase.rpc('get_next_quote_number');
-
-    if (seqError) {
-      console.error("RPC Error Details:", seqError.message, seqError.details, seqError.hint);
-      return NextResponse.json({ error: "Database sequence error", details: seqError.message }, { status: 500 });
-    }
-
-    console.log("Next sequence number obtained:", nextSeq);
-    const quoteNumber = `${nextSeq}WEB`;
-
-    // 2. Format phone to pure numeric (bigint compatibility)
-    // Inside your POST function
-
-    // 1. Strip everything that isn't a number
-    const rawPhone = body.phone ? body.phone.toString().replace(/\D/g, '') : '';
-
-    // 2. Validate length (US numbers are 10 digits)
-    if (rawPhone.length < 10) {
-      console.error("Invalid phone length received:", rawPhone);
-      return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
-    }
-
-    // 3. Convert to Number (BigInt)
+    // 2. Strict Phone Cleaning (BigInt compatibility)
+    // Strips all non-numeric characters so (410) 702-5050 becomes 4107025050
+    const rawPhone = phone ? phone.toString().replace(/\D/g, '') : '';
     const numericPhone = parseInt(rawPhone, 10);
+    
+    if (isNaN(numericPhone) || rawPhone.length < 10) {
+        console.error(">>> [VALIDATION ERROR] Invalid phone format:", phone);
+        return NextResponse.json({ error: "Invalid phone number format" }, { status: 400 });
+    }
 
-    // 3. Check for existing customer to maintain CRM integrity
-    let { data: customer } = await supabase
+    // 3. Get Next Quote Number from Sequence
+    console.log(">>> [DB] Fetching sequence number...");
+    const { data: nextSeq, error: seqError } = await supabase.rpc('get_next_quote_number');
+    
+    if (seqError) {
+        console.error(">>> [DB ERROR] Sequence RPC failed:", seqError.message);
+        throw new Error(`Sequence Error: ${seqError.message}`);
+    }
+    const quoteNumber = `${nextSeq}WEB`;
+    console.log(">>> [DB] Generated Quote Number:", quoteNumber);
+
+    // 4. Customer Linking / Creation Logic
+    console.log(">>> [DB] Checking for existing customer...");
+    let { data: customer, error: findError } = await supabase
       .from('customers')
       .select('id')
       .or(`email.eq.${email},phone.eq.${numericPhone}`)
       .maybeSingle();
 
-    // 4. Create new customer if no match found
+    if (findError) {
+        console.error(">>> [DB ERROR] Customer lookup failed:", findError.message);
+    }
+
     if (!customer) {
+      console.log(">>> [DB] No customer found. Creating new record...");
       const { data: newCust, error: custError } = await supabase
         .from('customers')
         .insert([{
-          first_name,
-          last_name,
-          email,
+          first_name: first_name,
+          last_name: last_name,
+          email: email,
           phone: numericPhone
         }])
         .select()
         .single();
       
-      if (custError) throw new Error(`Customer creation failed: ${custError.message}`);
-      if (!newCust) throw new Error("Customer creation returned no data.");
-      
+      if (custError) {
+          console.error(">>> [DB ERROR] Customer creation failed:", custError.message);
+          throw custError;
+      }
       customer = newCust;
     }
-  // 5. Final Safety Check (This satisfies the TypeScript compiler)
-  if (!customer?.id) {
-    throw new Error("Unable to link or create a customer for this submittal.");
-  }
 
-// 2. Upload PDF to Supabase Storage if provided
-    let pdfUrl = null;
-    if (pdf_base64) {
-      const fileName = `${quoteNumber}_original_request.pdf`;
-      const buffer = Buffer.from(pdf_base64, 'base64');
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('submittal-pdfs')
-        .upload(fileName, buffer, { contentType: 'application/pdf', upsert: true });
-
-      if (uploadData) {
-        const { data: { publicUrl } } = supabase.storage.from('submittal-pdfs').getPublicUrl(fileName);
-        pdfUrl = publicUrl;
-      }
+    if (!customer?.id) {
+        throw new Error("Critical Error: No customer ID available for linking.");
     }
 
-    // 6. Create the Quote Submittal
+    // 5. PDF Upload Logic (Optional based on payload)
+    let pdfUrl = null;
+    if (pdf_base64 && pdf_base64.length > 0) {
+        console.log(">>> [STORAGE] Uploading PDF...");
+        const fileName = `${quoteNumber}_request.pdf`;
+        const buffer = Buffer.from(pdf_base64, 'base64');
+        
+        const { error: uploadError } = await supabase.storage
+            .from('submittal-pdfs')
+            .upload(fileName, buffer, { contentType: 'application/pdf', upsert: true });
+
+        if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage.from('submittal-pdfs').getPublicUrl(fileName);
+            pdfUrl = publicUrl;
+            console.log(">>> [STORAGE] PDF available at:", pdfUrl);
+        } else {
+            console.error(">>> [STORAGE ERROR] PDF upload failed:", uploadError.message);
+        }
+    }
+
+    // 6. FINAL INSERT: The Submittal Record
+    console.log(">>> [DB] Inserting submittal record...");
     const { data: submittal, error: subError } = await supabase
       .from('quote_submittals')
       .insert([{
-        job_name,
+        job_name: job_name || "Online Request",
         quote_number: quoteNumber,
         status: 'Pending',
-        customer: customer.id, // TS now knows customer.id exists
+        customer: customer.id, // Linking the BigInt ID
         pdf_url: pdfUrl,
         customer_first_name: first_name,
         customer_last_name: last_name,
-        notes: additional_notes 
+        notes: notes || additional_notes || ""
       }])
       .select()
       .single();
 
-    return NextResponse.json({ success: true, quoteNumber });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (subError) {
+        console.error(">>> [DB ERROR] Submittal insert failed:", subError.message);
+        throw subError;
+    }
+
+    console.log(">>> [SUCCESS] Submittal created with ID:", submittal.id);
+    return NextResponse.json({ 
+        success: true, 
+        quoteNumber: quoteNumber,
+        id: submittal.id 
+    });
+
+  } catch (err: any) {
+    console.error(">>> [CRITICAL ERROR]:", err.message);
+    return NextResponse.json({ 
+        error: "Internal Server Error", 
+        details: err.message 
+    }, { status: 500 });
   }
 }
