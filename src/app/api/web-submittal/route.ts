@@ -40,9 +40,15 @@ export async function POST(request: Request) {
         .select()
         .single();
       
-      if (custError) throw custError;
+      if (custError) throw new Error(`Customer creation failed: ${custError.message}`);
+      if (!newCust) throw new Error("Customer creation returned no data.");
+      
       customer = newCust;
     }
+  // 5. Final Safety Check (This satisfies the TypeScript compiler)
+  if (!customer?.id) {
+    throw new Error("Unable to link or create a customer for this submittal.");
+  }
 
 // 2. Upload PDF to Supabase Storage if provided
     let pdfUrl = null;
@@ -60,19 +66,21 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Create the Submittal with the PDF Link
+    // 6. Create the Quote Submittal
     const { data: submittal, error: subError } = await supabase
       .from('quote_submittals')
       .insert([{
         job_name,
         quote_number: quoteNumber,
         status: 'Pending',
-        customer: customer.id,
-        pdf_url: pdfUrl, // Save the link here
+        customer: customer.id, // TS now knows customer.id exists
+        pdf_url: pdfUrl,
         customer_first_name: first_name,
-        customer_last_name: last_name
+        customer_last_name: last_name,
+        notes: additional_notes 
       }])
-      .select().single();
+      .select()
+      .single();
 
     return NextResponse.json({ success: true, quoteNumber });
   } catch (error: any) {
