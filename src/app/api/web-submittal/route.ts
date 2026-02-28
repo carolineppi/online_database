@@ -68,7 +68,7 @@ export async function POST(request: Request) {
             .from('submittal-pdfs')
             .upload(fileName, buffer, { 
                 contentType: 'application/pdf', 
-                upsert: true 
+                upsert: false
             });
 
         if (uploadError) {
