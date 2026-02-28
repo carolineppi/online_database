@@ -2,18 +2,21 @@ import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  console.log("LOG TEST: API reached successfully");
+  console.log(">>> [WEBHOOK] Request received");
   const supabase = await createClient();
-  const body = await request.json();
-  const { first_name, last_name, email, phone, job_name, pdf_base64 } = body;
+
 
   try {
     // 1. Logic for nextSeq and Customer Linking (Keep from previous step)
-    const { first_name, last_name, email, phone, job_name, additional_notes } = body;
+    const body = await request.json();
+    const { first_name, last_name, email, phone, job_name, additional_notes, pdf_base64 } = body;
+
+    // Now you can log the variable 'body' as much as you want
+    console.log(">>> [DATA] Received:", body.email);
 
     // 1. Generate the sequential quote number
     // We use 'WEB' as the name_code suffix for online entries
-// Inside your POST function
+    // Inside your POST function
     console.log("Checking database connection...");
 
     const { data: nextSeq, error: seqError } = await supabase.rpc('get_next_quote_number');
