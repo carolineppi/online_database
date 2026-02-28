@@ -2,13 +2,13 @@ import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
+  console.log("LOG TEST: API reached successfully");
   const supabase = await createClient();
   const body = await request.json();
   const { first_name, last_name, email, phone, job_name, pdf_base64 } = body;
 
   try {
     // 1. Logic for nextSeq and Customer Linking (Keep from previous step)
-    const body = await request.json();
     const { first_name, last_name, email, phone, job_name, additional_notes } = body;
 
     // 1. Generate the sequential quote number
@@ -27,7 +27,18 @@ export async function POST(request: Request) {
     const quoteNumber = `${nextSeq}WEB`;
 
     // 2. Format phone to pure numeric (bigint compatibility)
-    const rawPhone = phone.replace(/\D/g, '');
+    // Inside your POST function
+
+    // 1. Strip everything that isn't a number
+    const rawPhone = body.phone ? body.phone.toString().replace(/\D/g, '') : '';
+
+    // 2. Validate length (US numbers are 10 digits)
+    if (rawPhone.length < 10) {
+      console.error("Invalid phone length received:", rawPhone);
+      return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
+    }
+
+    // 3. Convert to Number (BigInt)
     const numericPhone = parseInt(rawPhone, 10);
 
     // 3. Check for existing customer to maintain CRM integrity
