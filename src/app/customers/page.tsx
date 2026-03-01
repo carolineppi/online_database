@@ -14,12 +14,13 @@ export default function CustomersPage() {
 
 const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
+    const cleanSearch = searchTerm.trim();
+    if (!cleanSearch) return;
 
     setLoading(true);
     setSelectedCustomer(null);
 
-    // Ensure the join is written correctly: customers -> quote_submittals -> jobs
+    // Using explicit table naming in the .or() filter often resolves search "blindness"
     const { data, error } = await supabase
       .from('customers')
       .select(`
@@ -29,17 +30,16 @@ const handleSearch = async (e: React.FormEvent) => {
           jobs (*)
         )
       `)
-      // ilike allows for case-insensitive searching
-      .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-      .limit(15);
+      .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
+      .limit(10);
 
     if (error) {
-      console.error("Search Error:", error.message);
-      alert("Search failed: " + error.message);
+      console.error("Search Error:", error);
+      alert("Search Error: " + error.message);
     } else {
+      console.log("Found Customers:", data); // Check your console to see if results are hidden by UI logic
       setResults(data || []);
     }
-    
     setLoading(false);
   };
 
