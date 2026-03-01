@@ -18,26 +18,25 @@ export default function CustomersPage() {
     if (!cleanSearch) return;
 
     setLoading(true);
-    
-    // Notice the explicit constraint hint !fk_jobs_quote_submittal
+
+    // We are now 100% sure 'fk_jobs_quote_submittal' is the constraint name
     const { data, error } = await supabase
       .from('customers')
       .select(`
         *,
         quote_submittals (
           *,
-          jobs!fk_jobs_quote_submittal (*)
+          jobs!fk_jobs_quote_submittal (*) 
         )
       `)
       .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
       .limit(10);
 
     if (error) {
-      console.error("Search Error:", error.message);
+      console.error("Search API Error:", error.message);
     } else {
-      // DIAGNOSTIC LOG: Right-click your browser, select 'Inspect', then 'Console'
-      // and look for the 'API Results' log to see if 'jobs' is null
-      console.log("API Results:", data); 
+      // Check your F12 Console for this log!
+      console.log("SEARCH DATA:", data); 
       setResults(data || []);
       setSelectedCustomer(null);
     }
