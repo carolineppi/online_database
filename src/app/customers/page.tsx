@@ -12,34 +12,34 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanSearch = searchTerm.trim();
     if (!cleanSearch) return;
 
     setLoading(true);
-    setSelectedCustomer(null);
+    // Remove setSelectedCustomer(null) and setResults([]) from here 
+    // to prevent the flicker while the new search is in flight.
 
-    // We add !fk_jobs_quote_submittal to tell Supabase exactly how to join jobs
     const { data, error } = await supabase
       .from('customers')
-      .select(`
-        *,
-        quote_submittals (
-          *,
-          jobs!fk_jobs_quote_submittal (*) 
-        )
-      `)
+      .select(`*, quote_submittals (*, jobs!fk_jobs_quote_submittal (*))`)
       .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
       .limit(10);
 
-    if (error) {
-      console.error("Search Error:", error.message);
-    } else {
+    if (!error) {
       setResults(data || []);
+      setSelectedCustomer(null); // Clear previous selection only on success
     }
     setLoading(false);
   };
+
+// 2. In your JSX, ensure the "No results" message waits for loading to finish
+{!loading && searchTerm && results.length === 0 && (
+  <div className="text-center p-8 bg-zinc-50 rounded-2xl border-2 border-dashed border-zinc-200">
+    <p className="text-zinc-500">No customers found matching "{searchTerm}"</p>
+  </div>
+)}
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -151,14 +151,14 @@ const handleSearch = async (e: React.FormEvent) => {
                 </div>
                 <div className="p-4 space-y-3">
                     {/* Inside the Won Jobs Column mapping */}
-                    {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => s.jobs && s.jobs.length > 0) // Checks if a job record exists
-                      .map((s: any) => (
+                      {selectedCustomer.quote_submittals
+                        ?.filter((s: any) => s.jobs && s.jobs.length > 0) // Look for the job record itself
+                        .map((s: any) => (
                         <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
                             <div>
                                 <p className="text-sm font-bold">{s.job_name}</p>
                                 <p className="text-xs text-zinc-500">
-                                  #{s.quote_number} • ${Number(s.jobs[0].sale_amount).toLocaleString()}
+                                  ${Number(s.jobs[0].sale_amount).toLocaleString()}
                                 </p>
                             </div>
                             <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
