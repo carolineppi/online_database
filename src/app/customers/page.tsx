@@ -99,12 +99,16 @@ export default function CustomersPage() {
                   </h3>
                   <div className="space-y-3">
                     {jobs.length > 0 ? jobs.map((j: any) => (
-                      <div key={j.id} className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex justify-between items-center">
+                      /* ADDED 'group' TO THE CLASSNAME BELOW */
+                      <div key={j.id} className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex justify-between items-center group">
                         <div>
                           <p className="text-sm font-bold text-emerald-900">{j.job_name}</p>
                           <p className="text-xs text-emerald-700">#{j.quote_number} • Converted to Job</p>
                         </div>
-                        <a href={`/submittals/${j.id}`} className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a 
+                          href={`/jobs/${j.id}`} 
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
                           View Details
                         </a>
                       </div>
