@@ -1,125 +1,155 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, User, Briefcase, FileText } from 'lucide-react';
+import { Search, Briefcase, FileText, User, X } from 'lucide-react';
+import Link from 'next/link';
 
 export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<any[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      // Fetch customers and their related submittals in one go
-      const { data, error } = await supabase
-        .from('customers')
-        .select(`
-          *,
-          quote_submittals (*)
-        `)
-        .order('last_name', { ascending: true });
-
-      if (data) setCustomers(data);
-      setLoading(false);
-    };
-
-    fetchCustomers();
-  }, []);
-
-  // ... (keep previous imports and fetch logic)
-
-  const filteredCustomers = customers.filter(c => 
-    `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   // Define the "Won" status string exactly as it appears in your DB
-  const WON_STATUS = "Won";
+  const WON_STATUS = "WON / JOB CREATED";
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchTerm.trim()) return;
+
+    setLoading(true);
+    setSelectedCustomer(null); // Reset detail view on new search
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select(`
+        *,
+        quote_submittals (*)
+      `)
+      .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+      .limit(10);
+
+    if (data) setResults(data);
+    setLoading(false);
+  };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      {/* ... (keep header and search bar) */}
-
-      <div className="grid gap-6">
-        {filteredCustomers.map(customer => {
-        // Inside your customer loop...
-        const submittals = customer.quote_submittals || [];
-
-        // Use .trim() to ignore accidental spaces and ensure exact matching
-        const WON_STATUS = "Won";
-
-        const jobs = submittals.filter((s: any) => 
-          s.status?.toString().trim() === WON_STATUS
-        );
-
-        const activeSubmittals = submittals.filter((s: any) => 
-          s.status?.toString().trim() !== WON_STATUS
-        );
-
-          return (
-            <div key={customer.id} className="bg-white border rounded-2xl shadow-sm overflow-hidden">
-              <div className="p-6 bg-zinc-50 border-b flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-zinc-900">
-                    {customer.first_name} {customer.last_name}
-                  </h2>
-                  <p className="text-sm text-zinc-500">{customer.email} • {customer.phone}</p>
-                </div>
-                <button className="px-4 py-2 bg-white border rounded-lg text-sm font-medium hover:bg-zinc-100 transition">
-                  Edit Profile
-                </button>
-              </div>
-
-              <div className="grid md:grid-cols-2 divide-x">
-                {/* 1. ACTIVE SUBMITTALS COLUMN */}
-                <div className="p-6">
-                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4 flex items-center">
-                    <FileText size={16} className="mr-2" /> Active Submittals ({activeSubmittals.length})
-                  </h3>
-                  <div className="space-y-3">
-                    {activeSubmittals.length > 0 ? activeSubmittals.map((s: any) => (
-                      <div key={s.id} className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center group">
-                        <div>
-                          <p className="text-sm font-bold text-blue-900">{s.job_name}</p>
-                          <p className="text-xs text-blue-700">#{s.quote_number} • <span className="capitalize">{s.status.toLowerCase()}</span></p>
-                        </div>
-                        <a href={`/submittals/${s.id}`} className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                          View Details
-                        </a>
-                      </div>
-                    )) : <p className="text-sm text-zinc-400 italic">No active requests.</p>}
-                  </div>
-                </div>
-
-                {/* 2. COMPLETED JOBS COLUMN */}
-                <div className="p-6 bg-zinc-50/30">
-                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4 flex items-center">
-                    <Briefcase size={16} className="mr-2" /> Won Jobs ({jobs.length})
-                  </h3>
-                  <div className="space-y-3">
-                    {jobs.length > 0 ? jobs.map((j: any) => (
-                      /* ADDED 'group' TO THE CLASSNAME BELOW */
-                      <div key={j.id} className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex justify-between items-center group">
-                        <div>
-                          <p className="text-sm font-bold text-emerald-900">{j.job_name}</p>
-                          <p className="text-xs text-emerald-700">#{j.quote_number} • Converted to Job</p>
-                        </div>
-                        <a 
-                          href={`/jobs/${j.id}`} 
-                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          View Details
-                        </a>
-                      </div>
-                    )) : <p className="text-sm text-zinc-400 italic">No jobs closed yet.</p>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+    <div className="p-8 max-w-5xl mx-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-zinc-900 mb-4">Customer Directory</h1>
+        <p className="text-zinc-500">Search by name or email to view submittals and job history.</p>
       </div>
+
+      {/* 1. SEARCH BAR SECTION */}
+      <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto mb-12">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
+        <input 
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Type customer name..."
+          className="w-full pl-12 pr-24 py-4 text-lg border-2 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
+        />
+        <button 
+          type="submit"
+          className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-5 py-2 rounded-xl font-semibold hover:bg-blue-700 transition"
+        >
+          {loading ? 'Searching...' : 'Search'}
+        </button>
+      </form>
+
+      {/* 2. SEARCH RESULTS LIST */}
+      {!selectedCustomer && results.length > 0 && (
+        <div className="grid gap-3 mb-12">
+          <p className="text-xs font-bold text-zinc-400 uppercase ml-2">Search Results</p>
+          {results.map(c => (
+            <button 
+              key={c.id}
+              onClick={() => setSelectedCustomer(c)}
+              className="flex items-center justify-between p-4 bg-white border rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-500">
+                  <User size={20} />
+                </div>
+                <div>
+                  <p className="font-bold text-zinc-900">{c.first_name} {c.last_name}</p>
+                  <p className="text-sm text-zinc-500">{c.email}</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-blue-600">View History →</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 3. DETAILED CUSTOMER VIEW */}
+      {selectedCustomer && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex justify-between items-end mb-6">
+             <div>
+                <button 
+                    onClick={() => setSelectedCustomer(null)}
+                    className="text-sm text-zinc-500 hover:text-zinc-800 flex items-center mb-2"
+                >
+                    <X size={14} className="mr-1" /> Back to results
+                </button>
+                <h2 className="text-3xl font-bold text-zinc-900">
+                    {selectedCustomer.first_name} {selectedCustomer.last_name}
+                </h2>
+                <p className="text-zinc-500">{selectedCustomer.email} • {selectedCustomer.phone}</p>
+             </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Active Submittals Column */}
+            <div className="bg-white border rounded-2xl overflow-hidden">
+                <div className="p-4 border-b bg-blue-50/50 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-blue-900 uppercase tracking-tight flex items-center">
+                        <FileText size={16} className="mr-2" /> Active Submittals
+                    </h3>
+                </div>
+                <div className="p-4 space-y-3">
+                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() !== WON_STATUS).map((s: any) => (
+                        <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
+                            <div>
+                                <p className="text-sm font-bold">{s.job_name}</p>
+                                <p className="text-xs text-zinc-500">#{s.quote_number} • {s.status}</p>
+                            </div>
+                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition">
+                                View Details
+                            </Link>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Won Jobs Column */}
+            <div className="bg-white border rounded-2xl overflow-hidden">
+                <div className="p-4 border-b bg-emerald-50/50 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-emerald-900 uppercase tracking-tight flex items-center">
+                        <Briefcase size={16} className="mr-2" /> Completed Jobs
+                    </h3>
+                </div>
+                <div className="p-4 space-y-3">
+                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() === WON_STATUS).map((j: any) => (
+                        <div key={j.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
+                            <div>
+                                <p className="text-sm font-bold">{j.job_name}</p>
+                                <p className="text-xs text-zinc-500">#{j.quote_number} • Converted</p>
+                            </div>
+                            <Link href={`/jobs/${j.id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
+                                View Job
+                            </Link>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
