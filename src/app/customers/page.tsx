@@ -43,11 +43,19 @@ export default function CustomersPage() {
 
       <div className="grid gap-6">
         {filteredCustomers.map(customer => {
-          const submittals = customer.quote_submittals || [];
-          
-          // Split submittals based on your specific "WON" logic
-          const jobs = submittals.filter((s: any) => s.status === WON_STATUS);
-          const activeSubmittals = submittals.filter((s: any) => s.status !== WON_STATUS);
+        // Inside your customer loop...
+        const submittals = customer.quote_submittals || [];
+
+        // Use .trim() to ignore accidental spaces and ensure exact matching
+        const WON_STATUS = "Won";
+
+        const jobs = submittals.filter((s: any) => 
+          s.status?.toString().toUpperCase().trim() === "Won"
+        );
+
+        const activeSubmittals = submittals.filter((s: any) => 
+          s.status?.toString().trim() !== WON_STATUS
+        );
 
           return (
             <div key={customer.id} className="bg-white border rounded-2xl shadow-sm overflow-hidden">
