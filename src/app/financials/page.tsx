@@ -45,8 +45,8 @@ export default function FinancialDashboard() {
       .select(`
         id,
         created_at,
-        total_price,
-        submittal_id,
+        sale_amount,
+        quote_id,
         quote_submittals (
           job_name,
           quote_number
@@ -61,8 +61,8 @@ export default function FinancialDashboard() {
 
     const winsCount = jobsData?.length || 0;
     
-    // 3. Calculate Revenue: Sum of the 'total_price' column in the jobs table
-    const revenue = jobsData?.reduce((acc, job) => acc + (Number(job.total_price) || 0), 0) || 0;
+    // 3. Calculate Revenue: Sum of the 'sale_amount' column in the jobs table
+    const revenue = jobsData?.reduce((acc, job) => acc + (Number(job.sale_amount) || 0), 0) || 0;
 
     setStats({
       totalQuotes: quotesCount || 0,
@@ -140,7 +140,7 @@ export default function FinancialDashboard() {
                     {new Date(job.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right font-mono font-bold text-emerald-600">
-                    ${(Number(job.total_price) || 0).toLocaleString()}
+                    ${(Number(job.sale_amount) || 0).toLocaleString()}
                   </td>
                 </tr>
               ))}
