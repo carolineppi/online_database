@@ -14,9 +14,9 @@ export default function RecentActivity() {
       const { data } = await supabase
         .from('quote_submittals')
         .select('*, customers(first_name, last_name)')
-        .eq('status', 'Pending') // Only show items that haven't been quoted yet
-        .order('created_at', { ascending: false })
-        .limit(5);
+        // This ensures that as soon as you change the status to 'Quoted', it disappears
+        .eq('status', 'Pending') 
+        .order('created_at', { ascending: false });
 
       if (data) setSubmittals(data);
     };
@@ -28,9 +28,14 @@ export default function RecentActivity() {
       .channel('schema-db-changes')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'quote_submittals' },
+        { 
+          event: '*', // Listen for INSERT, UPDATE, and DELETE
+          schema: 'public', 
+          table: 'quote_submittals' 
+        },
         (payload) => {
-          // When a new submittal arrives, re-fetch or append to list
+          // Re-fetch everything. If the status is no longer 'Pending', 
+          // the filter in fetchSubmittals will naturally exclude it.
           fetchSubmittals(); 
         }
       )
