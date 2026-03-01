@@ -18,18 +18,28 @@ export default function CustomersPage() {
     if (!cleanSearch) return;
 
     setLoading(true);
-    // Remove setSelectedCustomer(null) and setResults([]) from here 
-    // to prevent the flicker while the new search is in flight.
-
+    
+    // Notice the explicit constraint hint !fk_jobs_quote_submittal
     const { data, error } = await supabase
       .from('customers')
-      .select(`*, quote_submittals (*, jobs!fk_jobs_quote_submittal (*))`)
+      .select(`
+        *,
+        quote_submittals (
+          *,
+          jobs!fk_jobs_quote_submittal (*)
+        )
+      `)
       .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
       .limit(10);
 
-    if (!error) {
+    if (error) {
+      console.error("Search Error:", error.message);
+    } else {
+      // DIAGNOSTIC LOG: Right-click your browser, select 'Inspect', then 'Console'
+      // and look for the 'API Results' log to see if 'jobs' is null
+      console.log("API Results:", data); 
       setResults(data || []);
-      setSelectedCustomer(null); // Clear previous selection only on success
+      setSelectedCustomer(null);
     }
     setLoading(false);
   };
@@ -145,29 +155,28 @@ export default function CustomersPage() {
             {/* Won Jobs Column */}
             <div className="bg-white border rounded-2xl overflow-hidden">
                 <div className="p-4 border-b bg-emerald-50/50 flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-emerald-900 uppercase tracking-tight flex items-center">
+                    <h3 className="text-sm font-bold text-emerald-900 uppercase flex items-center">
                         <Briefcase size={16} className="mr-2" /> Completed Jobs
                     </h3>
                 </div>
                 <div className="p-4 space-y-3">
-                    {/* Inside the Won Jobs Column mapping */}
-                      {selectedCustomer.quote_submittals
-                        ?.filter((s: any) => s.jobs && s.jobs.length > 0) // Look for the job record itself
-                        .map((s: any) => (
-                        <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
+                    {selectedCustomer.quote_submittals
+                      ?.filter((s: any) => s.jobs && s.jobs.length > 0) // Strictly check for job record
+                      .map((s: any) => (
+                        <div key={s.id} className="p-3 border rounded-xl flex justify-between items-center bg-white">
                             <div>
-                                <p className="text-sm font-bold">{s.job_name}</p>
+                                <p className="text-sm font-bold text-zinc-900">{s.job_name}</p>
                                 <p className="text-xs text-zinc-500">
-                                  ${Number(s.jobs[0].sale_amount).toLocaleString()}
+                                  #{s.quote_number} • ${Number(s.jobs[0].sale_amount).toLocaleString()}
                                 </p>
                             </div>
-                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
-                                View Details
+                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600 hover:underline">
+                                View
                             </Link>
                         </div>
                     ))}
                     {selectedCustomer.quote_submittals?.filter((s: any) => s.jobs && s.jobs.length > 0).length === 0 && (
-                      <p className="text-sm text-zinc-400 italic p-2">No won jobs yet.</p>
+                      <p className="text-sm text-zinc-400 italic p-2 text-center">No completed jobs found.</p>
                     )}
                 </div>
             </div>
