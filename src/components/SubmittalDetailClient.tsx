@@ -61,13 +61,13 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
       .upsert({
         quote_id: id,
         winning_option_id: option.id,
-        total_price: option.price,
+        sale_amount: option.price,
         created_at: activeJob?.created_at || new Date().toISOString(),
       }, { onConflict: 'quote_id' });
 
     await supabase
       .from('quote_submittals')
-      .update({ status: 'WON' })
+      .update({ status: 'Won' })
       .eq('id', id);
 
     if (!jobError) {
