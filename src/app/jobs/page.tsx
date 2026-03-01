@@ -6,11 +6,11 @@ export default async function ActiveJobsPage() {
 
   // Fetch jobs with the joined submittal name
   // Inside your jobs fetch logic
-  const { data: jobs, error } = await supabase
+  const { data: activeJobs, error } = await supabase
     .from('jobs')
     .select(`
       *,
-      quote_submittals!quote_id (*)
+      quote_submittals!fk_jobs_quote_submittal (*) // <--- USE THE NEW CONSTRAINT NAME
     `)
     .order('created_at', { ascending: false });
 
@@ -24,7 +24,7 @@ export default async function ActiveJobsPage() {
       </header>
 
       {/* Pass the data to the Client Component table */}
-      <JobsTable initialJobs={jobs || []} />
+      <JobsTable initialJobs={activeJobs || []} />
     </div>
   );
 }

@@ -38,7 +38,7 @@ const fetchFinancialData = async () => {
     .gte('created_at', `${dateRange.start}T00:00:00`)
     .lte('created_at', `${dateRange.end}T23:59:59`);
 
-  // 2. Fetch jobs using your specific column: sale_amount
+    // 2. Fetch jobs using your specific column: sale_amount
   const { data: jobsData, error: jobsError } = await supabase
     .from('jobs')
     .select(`
@@ -46,7 +46,7 @@ const fetchFinancialData = async () => {
       created_at,
       sale_amount,
       quote_id,
-      quote_submittals!quote_id (
+      quote_submittals!fk_jobs_quote_submittal ( 
         job_name,
         quote_number
       )
