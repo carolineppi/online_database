@@ -49,7 +49,7 @@ export default function FinancialDashboard() {
         created_at,
         individual_quotes (price)
       `)
-      .eq('status', 'WON')
+      .eq('status', 'Won')
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
