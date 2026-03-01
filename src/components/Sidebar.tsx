@@ -1,12 +1,13 @@
 
 import Link from 'next/link';
-import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users } from 'lucide-react';
+import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSign } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Inbound Submittals', href: '/submittals', icon: FileText },
   { name: 'Active Quotes', href: '/quotes', icon: ClipboardList },
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
+  { name: 'Financials', href: '/financials', icon: DollarSign }, // Add this line
   { name: 'Customers', href: '/customers', icon: Users }, // Added link
 ];
 
