@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, User, Briefcase, FileText } from 'lucide-react';
+import { Search, User, Briefcase, FileText, Link} from 'lucide-react';
 
 export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +34,7 @@ export default function CustomersPage() {
     `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Define the "Won" status string exactly as it appears in your DB
+  // The specific status string used in your database
   const WON_STATUS = "Won";
 
   return (
@@ -43,22 +43,18 @@ export default function CustomersPage() {
 
       <div className="grid gap-6">
         {filteredCustomers.map(customer => {
-        // Inside your customer loop...
-        const submittals = customer.quote_submittals || [];
-
-        // Use .trim() to ignore accidental spaces and ensure exact matching
-        const WON_STATUS = "Won";
-
-        const jobs = submittals.filter((s: any) => 
-          s.status?.toString().toUpperCase().trim() === "Won"
-        );
-
-        const activeSubmittals = submittals.filter((s: any) => 
-          s.status?.toString().trim() !== WON_STATUS
-        );
+          const submittals = customer.quote_submittals || [];
+          
+          // Logic: Split based on the exact WON_STATUS string
+          const jobs = submittals.filter((s: any) => 
+            s.status?.toString().toUpperCase().trim() === WON_STATUS
+          );
+          const activeSubmittals = submittals.filter((s: any) => 
+            s.status?.toString().toUpperCase().trim() !== WON_STATUS
+          );
 
           return (
-            <div key={customer.id} className="bg-white border rounded-2xl shadow-sm overflow-hidden">
+            <div key={customer.id} className="bg-white border rounded-2xl shadow-sm overflow-hidden mb-6">
               <div className="p-6 bg-zinc-50 border-b flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold text-zinc-900">
@@ -66,9 +62,6 @@ export default function CustomersPage() {
                   </h2>
                   <p className="text-sm text-zinc-500">{customer.email} • {customer.phone}</p>
                 </div>
-                <button className="px-4 py-2 bg-white border rounded-lg text-sm font-medium hover:bg-zinc-100 transition">
-                  Edit Profile
-                </button>
               </div>
 
               <div className="grid md:grid-cols-2 divide-x">
@@ -82,40 +75,40 @@ export default function CustomersPage() {
                       <div key={s.id} className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center group">
                         <div>
                           <p className="text-sm font-bold text-blue-900">{s.job_name}</p>
-                          <p className="text-xs text-blue-700">#{s.quote_number} • <span className="capitalize">{s.status.toLowerCase()}</span></p>
+                          <p className="text-xs text-blue-700">#{s.quote_number} • {s.status}</p>
                         </div>
-                        <a href={`/submittals/${s.id}`} className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link 
+                          href={`/submittals/${s.id}`} 
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
                           View Details
-                        </a>
+                        </Link>
                       </div>
-                    )) : <p className="text-sm text-zinc-400 italic">No active requests.</p>}
+                    )) : <p className="text-sm text-zinc-400 italic">No active submittals.</p>}
                   </div>
                 </div>
 
                 {/* 2. COMPLETED JOBS COLUMN */}
                 <div className="p-6 bg-zinc-50/30">
                   <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4 flex items-center">
-                    <Briefcase size={16} className="mr-2" /> Won Jobs ({jobs.length})
+                    <Briefcase size={16} className="mr-2" /> Completed Jobs ({jobs.length})
                   </h3>
                   <div className="space-y-3">
                     {jobs.length > 0 ? jobs.map((j: any) => (
-                      <div key={j.id} className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex justify-between items-center">
+                      <div key={j.id} className="p-3 bg-zinc-100 border border-zinc-200 rounded-lg flex justify-between items-center group">
                         <div>
-                          <p className="text-sm font-bold text-emerald-900">{j.job_name}</p>
-                          <p className="text-xs text-emerald-700">#{j.quote_number} • Converted to Job</p>
+                          <p className="text-sm font-bold text-zinc-900">{j.job_name}</p>
+                          <p className="text-xs text-zinc-500">#{j.quote_number} • Converted</p>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
-                            Job Active
-                          </span>
-                          {j.pdf_url && (
-                            <a href={j.pdf_url} target="_blank" className="text-[10px] text-zinc-500 underline hover:text-zinc-800">
-                              View Quote PDF
-                            </a>
-                          )}
-                        </div>
+                        {/* Link to the Job Details page instead of showing the banner/PDF */}
+                        <Link 
+                          href={`/jobs/${j.id}`} 
+                          className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          View Job
+                        </Link>
                       </div>
-                    )) : <p className="text-sm text-zinc-400 italic">No jobs closed yet.</p>}
+                    )) : <p className="text-sm text-zinc-400 italic">No won jobs yet.</p>}
                   </div>
                 </div>
               </div>
