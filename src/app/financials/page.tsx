@@ -46,7 +46,7 @@ const fetchFinancialData = async () => {
       created_at,
       sale_amount,
       quote_id,
-      quote_submittals (
+      quote_submittals!quote_id (
         job_name,
         quote_number
       )
