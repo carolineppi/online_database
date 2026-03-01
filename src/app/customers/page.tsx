@@ -12,15 +12,15 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  // Define the "Won" status string exactly as it appears in your DB
-  const WON_STATUS = "Won";
+  // Updated to match your actual database status
+  const WON_STATUS = "WON";
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
 
     setLoading(true);
-    setSelectedCustomer(null); // Reset detail view on new search
+    setSelectedCustomer(null);
 
     const { data, error } = await supabase
       .from('customers')
@@ -42,14 +42,14 @@ export default function CustomersPage() {
         <p className="text-zinc-500">Search by name or email to view submittals and job history.</p>
       </div>
 
-      {/* 1. SEARCH BAR SECTION */}
+      {/* SEARCH BAR */}
       <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto mb-12">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
         <input 
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Type customer name..."
+          placeholder="Search customers..."
           className="w-full pl-12 pr-24 py-4 text-lg border-2 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
         />
         <button 
@@ -60,7 +60,7 @@ export default function CustomersPage() {
         </button>
       </form>
 
-      {/* 2. SEARCH RESULTS LIST */}
+      {/* SEARCH RESULTS */}
       {!selectedCustomer && results.length > 0 && (
         <div className="grid gap-3 mb-12">
           <p className="text-xs font-bold text-zinc-400 uppercase ml-2">Search Results</p>
@@ -85,7 +85,7 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* 3. DETAILED CUSTOMER VIEW */}
+      {/* DETAILED CUSTOMER VIEW */}
       {selectedCustomer && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="flex justify-between items-end mb-6">
@@ -112,7 +112,9 @@ export default function CustomersPage() {
                     </h3>
                 </div>
                 <div className="p-4 space-y-3">
-                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() !== WON_STATUS).map((s: any) => (
+                    {selectedCustomer.quote_submittals
+                      ?.filter((s: any) => s.status?.toString().toUpperCase().trim() !== WON_STATUS)
+                      .map((s: any) => (
                         <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
                             <div>
                                 <p className="text-sm font-bold">{s.job_name}</p>
@@ -123,6 +125,9 @@ export default function CustomersPage() {
                             </Link>
                         </div>
                     ))}
+                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() !== WON_STATUS).length === 0 && (
+                      <p className="text-sm text-zinc-400 italic p-2">No active submittals.</p>
+                    )}
                 </div>
             </div>
 
@@ -134,7 +139,9 @@ export default function CustomersPage() {
                     </h3>
                 </div>
                 <div className="p-4 space-y-3">
-                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() === WON_STATUS).map((j: any) => (
+                    {selectedCustomer.quote_submittals
+                      ?.filter((s: any) => s.status?.toString().toUpperCase().trim() === WON_STATUS)
+                      .map((j: any) => (
                         <div key={j.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
                             <div>
                                 <p className="text-sm font-bold">{j.job_name}</p>
@@ -145,6 +152,9 @@ export default function CustomersPage() {
                             </Link>
                         </div>
                     ))}
+                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() === WON_STATUS).length === 0 && (
+                      <p className="text-sm text-zinc-400 italic p-2">No won jobs yet.</p>
+                    )}
                 </div>
             </div>
           </div>
