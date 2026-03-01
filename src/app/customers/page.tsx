@@ -104,11 +104,9 @@ export default function CustomersPage() {
                           <p className="text-sm font-bold text-emerald-900">{j.job_name}</p>
                           <p className="text-xs text-emerald-700">#{j.quote_number} • Converted to Job</p>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                        <a href={`/jobs/${j.id}`} className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a href={`/submittals/${j.id}`} className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-white px-3 py-1 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
                           View Details
                         </a>
-                        </div>
                       </div>
                     )) : <p className="text-sm text-zinc-400 italic">No jobs closed yet.</p>}
                   </div>
