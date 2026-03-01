@@ -20,24 +20,22 @@ const handleSearch = async (e: React.FormEvent) => {
     setLoading(true);
     setSelectedCustomer(null);
 
-    // Using explicit table naming in the .or() filter often resolves search "blindness"
+    // We add !fk_jobs_quote_submittal to tell Supabase exactly how to join jobs
     const { data, error } = await supabase
       .from('customers')
       .select(`
         *,
         quote_submittals (
           *,
-          jobs (*)
+          jobs!fk_jobs_quote_submittal (*) 
         )
       `)
       .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
       .limit(10);
 
     if (error) {
-      console.error("Search Error:", error);
-      alert("Search Error: " + error.message);
+      console.error("Search Error:", error.message);
     } else {
-      console.log("Found Customers:", data); // Check your console to see if results are hidden by UI logic
       setResults(data || []);
     }
     setLoading(false);
@@ -152,17 +150,19 @@ const handleSearch = async (e: React.FormEvent) => {
                     </h3>
                 </div>
                 <div className="p-4 space-y-3">
+                    {/* Inside the Won Jobs Column mapping */}
                     {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => s.jobs && s.jobs.length > 0)
+                      ?.filter((s: any) => s.jobs && s.jobs.length > 0) // Checks if a job record exists
                       .map((s: any) => (
                         <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
                             <div>
                                 <p className="text-sm font-bold">{s.job_name}</p>
-                                <p className="text-xs text-zinc-500">#{s.quote_number} • Converted to Job</p>
+                                <p className="text-xs text-zinc-500">
+                                  #{s.quote_number} • ${Number(s.jobs[0].sale_amount).toLocaleString()}
+                                </p>
                             </div>
-                            {/* We link directly to the job record since we know it exists */}
-                            <Link href={`/jobs/${s.jobs[0].id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
-                                View Job
+                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
+                                View Details
                             </Link>
                         </div>
                     ))}
