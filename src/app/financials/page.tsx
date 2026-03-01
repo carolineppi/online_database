@@ -15,7 +15,6 @@ export default function FinancialDashboard() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   
-  // Default date range: current month
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const lastDay = today.toISOString().split('T')[0];
@@ -32,42 +31,45 @@ export default function FinancialDashboard() {
   const fetchFinancialData = async () => {
     setLoading(true);
     
-    // 1. Fetch ALL submittals in range (for Quote Volume)
-    const { data: allSubmittals } = await supabase
+    // 1. Fetch TOTAL VOLUME: Every submittal received in range
+    const { count: quotesCount } = await supabase
       .from('quote_submittals')
-      .select('id, created_at, status')
+      .select('*', { count: 'exact', head: true })
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
-    // 2. Fetch WON submittals with their individual quote prices
-    const { data: wonData } = await supabase
-      .from('quote_submittals')
+    // 2. Fetch WON JOBS: Every record created in the 'jobs' table
+    // We join with quote_submittals to get the job name and number
+    const { data: jobsData, error: jobsError } = await supabase
+      .from('jobs')
       .select(`
-        id, 
-        job_name, 
-        quote_number, 
+        id,
         created_at,
-        individual_quotes (price)
+        total_price,
+        submittal_id,
+        quote_submittals (
+          job_name,
+          quote_number
+        )
       `)
-      .eq('status', 'Won')
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
-    const quotesCount = allSubmittals?.length || 0;
-    const winsCount = wonData?.length || 0;
+    if (jobsError) {
+        console.error("Error fetching jobs:", jobsError.message);
+    }
+
+    const winsCount = jobsData?.length || 0;
     
-    // Calculate Total Revenue from won jobs
-    const revenue = wonData?.reduce((acc, job) => {
-      const jobTotal = job.individual_quotes?.reduce((sum: number, opt: any) => sum + (Number(opt.price) || 0), 0) || 0;
-      return acc + jobTotal;
-    }, 0) || 0;
+    // 3. Calculate Revenue: Sum of the 'total_price' column in the jobs table
+    const revenue = jobsData?.reduce((acc, job) => acc + (Number(job.total_price) || 0), 0) || 0;
 
     setStats({
-      totalQuotes: quotesCount,
+      totalQuotes: quotesCount || 0,
       wonJobs: winsCount,
       totalRevenue: revenue,
-      conversionRate: quotesCount > 0 ? (winsCount / quotesCount) * 100 : 0,
-      jobList: wonData || []
+      conversionRate: (quotesCount || 0) > 0 ? (winsCount / (quotesCount || 1)) * 100 : 0,
+      jobList: jobsData || []
     });
     
     setLoading(false);
@@ -82,10 +84,9 @@ export default function FinancialDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900">Financial Performance</h1>
-          <p className="text-zinc-500 text-sm">Track quote volume and revenue conversion.</p>
+          <p className="text-zinc-500 text-sm">Real-time tracking from the jobs database.</p>
         </div>
 
-        {/* Date Filter */}
         <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border shadow-sm">
           <Calendar size={18} className="text-zinc-400 ml-2" />
           <input 
@@ -104,19 +105,17 @@ export default function FinancialDashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <StatCard title="Total Quotes" value={stats.totalQuotes} icon={<FileText className="text-blue-600" />} color="blue" />
-        <StatCard title="Jobs Won" value={stats.wonJobs} icon={<CheckCircle className="text-emerald-600" />} color="emerald" />
-        <StatCard title="Conversion" value={`${stats.conversionRate.toFixed(1)}%`} icon={<TrendingUp className="text-purple-600" />} color="purple" />
-        <StatCard title="Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} icon={<DollarSign className="text-amber-600" />} color="amber" />
+        <StatCard title="Submittals Rec'd" value={stats.totalQuotes} icon={<FileText className="text-blue-600" />} color="blue" />
+        <StatCard title="Jobs Created" value={stats.wonJobs} icon={<CheckCircle className="text-emerald-600" />} color="emerald" />
+        <StatCard title="Win Rate" value={`${stats.conversionRate.toFixed(1)}%`} icon={<TrendingUp className="text-purple-600" />} color="purple" />
+        <StatCard title="Total Value" value={`$${stats.totalRevenue.toLocaleString()}`} icon={<DollarSign className="text-amber-600" />} color="amber" />
       </div>
 
-      {/* Won Jobs Table */}
       <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
         <div className="p-6 border-b bg-white">
-          <h2 className="font-bold text-lg">Won Jobs Breakdown</h2>
-          <p className="text-xs text-zinc-400">Individual jobs secured within this date range.</p>
+          <h2 className="font-bold text-lg">Job Revenue List</h2>
+          <p className="text-xs text-zinc-400">Monetary value of jobs created within this period.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -124,24 +123,32 @@ export default function FinancialDashboard() {
               <tr>
                 <th className="px-6 py-4">Job Name</th>
                 <th className="px-6 py-4">Quote #</th>
-                <th className="px-6 py-4">Date Won</th>
-                <th className="px-6 py-4 text-right">Value</th>
+                <th className="px-6 py-4">Date Created</th>
+                <th className="px-6 py-4 text-right">Job Value</th>
               </tr>
             </thead>
             <tbody className="divide-y text-sm">
               {stats.jobList.map((job) => (
                 <tr key={job.id} className="hover:bg-zinc-50 transition-colors">
-                  <td className="px-6 py-4 font-bold text-zinc-900">{job.job_name}</td>
-                  <td className="px-6 py-4 text-zinc-500">#{job.quote_number}</td>
-                  <td className="px-6 py-4 text-zinc-500">{new Date(job.created_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 font-bold text-zinc-900">
+                    {job.quote_submittals?.job_name || "Unknown Job"}
+                  </td>
+                  <td className="px-6 py-4 text-zinc-500">
+                    #{job.quote_submittals?.quote_number || "N/A"}
+                  </td>
+                  <td className="px-6 py-4 text-zinc-500">
+                    {new Date(job.created_at).toLocaleDateString()}
+                  </td>
                   <td className="px-6 py-4 text-right font-mono font-bold text-emerald-600">
-                    ${job.individual_quotes?.reduce((sum: number, opt: any) => sum + (Number(opt.price) || 0), 0).toLocaleString()}
+                    ${(Number(job.total_price) || 0).toLocaleString()}
                   </td>
                 </tr>
               ))}
               {stats.jobList.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-zinc-400 italic">No won jobs found in this range.</td>
+                  <td colSpan={4} className="px-6 py-12 text-center text-zinc-400 italic">
+                    No records in the jobs database for this range.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -161,9 +168,7 @@ function StatCard({ title, value, icon, color }: { title: string, value: string 
   };
   return (
     <div className={`p-6 rounded-3xl border shadow-sm ${colors[color]}`}>
-      <div className="flex justify-between items-start mb-4">
-        <div className="p-2 bg-white rounded-xl shadow-sm">{icon}</div>
-      </div>
+      <div className="p-2 bg-white rounded-xl shadow-sm w-fit mb-4">{icon}</div>
       <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{title}</p>
       <h3 className="text-2xl font-black text-zinc-900 mt-1">{value}</h3>
     </div>
