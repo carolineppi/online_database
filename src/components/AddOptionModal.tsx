@@ -17,17 +17,18 @@ export default function AddOptionModal({ quoteId, onClose }: AddOptionModalProps
   const supabase = createClient();
   const [manufacturer, setManufacturer] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
     
-    const { error } = await supabase
+    // 1. Insert the Material Option (Individual Quote)
+    const { error: insertError } = await supabase
       .from('individual_quotes')
       .insert([
         {
-          quote_id: quoteId,
+          quote_id: quoteId, // The foreign key to the submittal
           material: formData.get('material'),
           mounting_style: formData.get('mounting_style'),
           quantity: formData.get('quantity'),
@@ -38,12 +39,27 @@ export default function AddOptionModal({ quoteId, onClose }: AddOptionModalProps
         },
       ]);
 
-    if (error) {
-      alert(error.message);
-    } else {
-      router.refresh(); // Refresh the Server Component data
-      onClose(); // Close the modal
+    if (insertError) {
+      alert("Error saving option: " + insertError.message);
+      setLoading(false);
+      return;
     }
+
+    // 2. Update the parent Submittal status to 'Quoted'
+    // This ensures it disappears from the "Recent Activity" list instantly
+    const { error: updateError } = await supabase
+      .from('quote_submittals')
+      .update({ status: 'Quoted' })
+      .eq('id', quoteId);
+
+    if (updateError) {
+      console.error("Failed to update submittal status:", updateError.message);
+      // We don't block the UI here because the quote was already saved successfully
+    }
+
+    // 3. Refresh and Close
+    router.refresh(); 
+    onClose();
     setLoading(false);
   };
 

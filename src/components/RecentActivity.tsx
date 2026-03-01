@@ -25,21 +25,21 @@ export default function RecentActivity() {
 
     // 2. Set up Realtime listener
     const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', // Listen for INSERT, UPDATE, and DELETE
-          schema: 'public', 
-          table: 'quote_submittals' 
-        },
-        (payload) => {
-          // Re-fetch everything. If the status is no longer 'Pending', 
-          // the filter in fetchSubmittals will naturally exclude it.
-          fetchSubmittals(); 
-        }
-      )
-      .subscribe();
+        .channel('db-status-updates')
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', // Listen for ALL events (especially UPDATE)
+            schema: 'public', 
+            table: 'quote_submittals' 
+          },
+          (payload) => {
+            // If a submittal's status changes to 'Quoted', 
+            // this re-fetch will exclude it from the list automatically.
+            fetchSubmittals(); 
+          }
+        )
+        .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
