@@ -29,51 +29,47 @@ export default function FinancialDashboard() {
   });
 
   const fetchFinancialData = async () => {
-    setLoading(true);
-    
-    // 1. Fetch TOTAL VOLUME: Every submittal received in range
-    const { count: quotesCount } = await supabase
-      .from('quote_submittals')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', `${dateRange.start}T00:00:00`)
-      .lte('created_at', `${dateRange.end}T23:59:59`);
+  setLoading(true);
+  
+  // 1. Total Volume (All incoming requests)
+  const { count: quotesCount } = await supabase
+    .from('quote_submittals')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', `${dateRange.start}T00:00:00`)
+    .lte('created_at', `${dateRange.end}T23:59:59`);
 
-    // 2. Fetch WON JOBS: Every record created in the 'jobs' table
-    // We join with quote_submittals to get the job name and number
-    const { data: jobsData, error: jobsError } = await supabase
-      .from('jobs')
-      .select(`
-        id,
-        created_at,
-        sale_amount,
-        quote_id,
-        quote_submittals (
-          job_name,
-          quote_number
-        )
-      `)
-      .gte('created_at', `${dateRange.start}T00:00:00`)
-      .lte('created_at', `${dateRange.end}T23:59:59`);
+  // 2. Realized Revenue (From the jobs table)
+  const { data: jobsData } = await supabase
+    .from('jobs')
+    .select(`
+      id,
+      created_at,
+      sale_amount,
+      quote_id,
+      quote_submittals (
+        job_name,
+        quote_number
+      ),
+      individual_quotes!accepted_individual_quote (
+        material
+      )
+    `)
+    .gte('created_at', `${dateRange.start}T00:00:00`)
+    .lte('created_at', `${dateRange.end}T23:59:59`);
 
-    if (jobsError) {
-        console.error("Error fetching jobs:", jobsError.message);
-    }
+  const winsCount = jobsData?.length || 0;
+  const revenue = jobsData?.reduce((acc, job) => acc + (Number(job.sale_amount) || 0), 0) || 0;
 
-    const winsCount = jobsData?.length || 0;
-    
-    // 3. Calculate Revenue: Sum of the 'sale_amount' column in the jobs table
-    const revenue = jobsData?.reduce((acc, job) => acc + (Number(job.sale_amount) || 0), 0) || 0;
-
-    setStats({
-      totalQuotes: quotesCount || 0,
-      wonJobs: winsCount,
-      totalRevenue: revenue,
-      conversionRate: (quotesCount || 0) > 0 ? (winsCount / (quotesCount || 1)) * 100 : 0,
-      jobList: jobsData || []
-    });
-    
-    setLoading(false);
-  };
+  setStats({
+    totalQuotes: quotesCount || 0,
+    wonJobs: winsCount,
+    totalRevenue: revenue,
+    conversionRate: (quotesCount || 0) > 0 ? (winsCount / (quotesCount || 1)) * 100 : 0,
+    jobList: jobsData || []
+  });
+  
+  setLoading(false);
+};
 
   useEffect(() => {
     fetchFinancialData();
@@ -129,7 +125,13 @@ export default function FinancialDashboard() {
             </thead>
             <tbody className="divide-y text-sm">
               {stats.jobList.map((job) => (
-                <tr key={job.id} className="hover:bg-zinc-50 transition-colors">
+                <tr key={job.id}>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-zinc-900">{job.quote_submittals?.job_name}</div>
+                    <div className="text-xs text-emerald-600 font-medium">
+                      Sold: {job.individual_quotes?.material}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 font-bold text-zinc-900">
                     {job.quote_submittals?.job_name || "Unknown Job"}
                   </td>

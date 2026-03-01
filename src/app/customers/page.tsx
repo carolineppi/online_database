@@ -12,9 +12,6 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  // Updated to match your actual database status
-  const WON_STATUS = "WON";
-
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
@@ -26,7 +23,10 @@ export default function CustomersPage() {
       .from('customers')
       .select(`
         *,
-        quote_submittals (*)
+        quote_submittals (
+          *,
+          jobs (*)
+        )
       `)
       .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
       .limit(10);
@@ -113,7 +113,7 @@ export default function CustomersPage() {
                 </div>
                 <div className="p-4 space-y-3">
                     {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => s.status?.toString().toUpperCase().trim() !== WON_STATUS)
+                      ?.filter((s: any) => !s.jobs || s.jobs.length === 0)
                       .map((s: any) => (
                         <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
                             <div>
@@ -125,7 +125,7 @@ export default function CustomersPage() {
                             </Link>
                         </div>
                     ))}
-                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() !== WON_STATUS).length === 0 && (
+                    {selectedCustomer.quote_submittals?.filter((s: any) => !s.jobs || s.jobs.length === 0).length === 0 && (
                       <p className="text-sm text-zinc-400 italic p-2">No active submittals.</p>
                     )}
                 </div>
@@ -140,19 +140,20 @@ export default function CustomersPage() {
                 </div>
                 <div className="p-4 space-y-3">
                     {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => s.status?.toString().toUpperCase().trim() === WON_STATUS)
-                      .map((j: any) => (
-                        <div key={j.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
+                      ?.filter((s: any) => s.jobs && s.jobs.length > 0)
+                      .map((s: any) => (
+                        <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
                             <div>
-                                <p className="text-sm font-bold">{j.job_name}</p>
-                                <p className="text-xs text-zinc-500">#{j.quote_number} • Converted</p>
+                                <p className="text-sm font-bold">{s.job_name}</p>
+                                <p className="text-xs text-zinc-500">#{s.quote_number} • Converted to Job</p>
                             </div>
-                            <Link href={`/jobs/${j.id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
+                            {/* We link directly to the job record since we know it exists */}
+                            <Link href={`/jobs/${s.jobs[0].id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
                                 View Job
                             </Link>
                         </div>
                     ))}
-                    {selectedCustomer.quote_submittals?.filter((s: any) => s.status?.toString().toUpperCase().trim() === WON_STATUS).length === 0 && (
+                    {selectedCustomer.quote_submittals?.filter((s: any) => s.jobs && s.jobs.length > 0).length === 0 && (
                       <p className="text-sm text-zinc-400 italic p-2">No won jobs yet.</p>
                     )}
                 </div>
