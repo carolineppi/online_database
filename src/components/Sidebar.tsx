@@ -1,12 +1,13 @@
 
 import Link from 'next/link';
-import { LayoutDashboard, FileText, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Inbound Submittals', href: '/submittals', icon: FileText },
   { name: 'Active Quotes', href: '/quotes', icon: ClipboardList },
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
+  { name: 'Customers', href: '/customers', icon: Users }, // Added link
 ];
 
 export function Sidebar() {
