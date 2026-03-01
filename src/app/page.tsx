@@ -68,7 +68,7 @@ import RecentActivity from '@/components/RecentActivity';
 export default async function Page() {
   const CURRENT_EMPLOYEE_ID = '1';
   const supabase = await createClient();
-  const { data: quotes } = await supabase.from('quote_submittals').select('*');
+  // const { data: quotes } = await supabase.from('quote_submittals').select('*');
 
   return (
     <main className="p-8 bg-gray-50 min-h-screen">
