@@ -7,7 +7,7 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = await createClient();
 
-  // 1. Fetch Submittal with Customer
+  // 1. Fetch Submittal
   const { data: submittal } = await supabase
     .from('quote_submittals')
     .select(`*, linked_customer:customers!customer (*)`)
@@ -16,14 +16,14 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
 
   if (!submittal) return <div className="p-8">Submittal ID {id} not found.</div>;
 
-  // 2. Fetch Job details to identify the winning option and sale amount
+  // 2. Fetch Job using the correct column: quote_id
   const { data: job } = await supabase
     .from('jobs')
     .select('*')
-    .eq('submittal_id', id)
+    .eq('quote_id', id)
     .maybeSingle();
 
-  // 3. Fetch all quote options
+  // 3. Fetch Options
   const { data: options } = await supabase
     .from('individual_quotes')
     .select('*')
@@ -68,7 +68,14 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
       </div>
 
       {/* Insert the Client Component here to handle the dynamic options list */}
-      <SubmittalDetailClient submittal={submittal} options={options} id={id} />
+      <div className="p-8 max-w-6xl mx-auto">
+      <SubmittalDetailClient 
+        submittal={submittal} 
+        options={options} 
+        id={id} 
+        activeJob={job} 
+      />
+    </div>
     </div>
   );
 }
