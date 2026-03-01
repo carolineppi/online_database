@@ -59,11 +59,11 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
     const { error: jobError } = await supabase
       .from('jobs')
       .upsert({
-        submittal_id: id,
+        quote_id: id,
         winning_option_id: option.id,
         total_price: option.price,
         created_at: activeJob?.created_at || new Date().toISOString(),
-      }, { onConflict: 'submittal_id' });
+      }, { onConflict: 'quote_id' });
 
     await supabase
       .from('quote_submittals')
