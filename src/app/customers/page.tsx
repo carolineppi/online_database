@@ -35,7 +35,7 @@ export default function CustomersPage() {
   );
 
   // Define the "Won" status string exactly as it appears in your DB
-  const WON_STATUS = "WON / JOB CREATED";
+  const WON_STATUS = "Won";
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
