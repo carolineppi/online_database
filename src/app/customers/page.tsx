@@ -50,7 +50,7 @@ export default function CustomersPage() {
         const WON_STATUS = "Won";
 
         const jobs = submittals.filter((s: any) => 
-          s.status?.toString().toUpperCase().trim() === "Won"
+          s.status?.toString().toUpperCase().trim() === "WON"
         );
 
         const activeSubmittals = submittals.filter((s: any) => 
