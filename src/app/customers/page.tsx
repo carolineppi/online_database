@@ -19,14 +19,14 @@ export default function CustomersPage() {
 
     setLoading(true);
 
-    // Use the explicit constraint hint !fk_jobs_quote_submittal
+    // Using the explicit constraint name and an alias 'jobs'
     const { data, error } = await supabase
       .from('customers')
       .select(`
         *,
         quote_submittals (
           *,
-          jobs:jobs!fk_jobs_quote_submittal (*) 
+          jobs:jobs!fk_jobs_quote_submittal (*)
         )
       `)
       .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
@@ -35,29 +35,16 @@ export default function CustomersPage() {
     if (error) {
       console.error("Search Error:", error.message);
     } else {
-      // DIAGNOSTIC: Check 'jobs' field here. If it's [], RLS or the hint is the issue.
-      console.log("Customer Data with Jobs:", data); 
+      console.log("SEARCH DATA:", data); // Check if 'jobs' appears inside quote_submittals
       setResults(data || []);
       setSelectedCustomer(null);
     }
     setLoading(false);
   };
 
-// 2. In your JSX, ensure the "No results" message waits for loading to finish
-{!loading && searchTerm && results.length === 0 && (
-  <div className="text-center p-8 bg-zinc-50 rounded-2xl border-2 border-dashed border-zinc-200">
-    <p className="text-zinc-500">No customers found matching "{searchTerm}"</p>
-  </div>
-)}
-
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-zinc-900 mb-4">Customer Directory</h1>
-        <p className="text-zinc-500">Search by name or email to view submittals and job history.</p>
-      </div>
-
-      {/* SEARCH BAR */}
+      {/* Search Bar */}
       <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto mb-12">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
         <input 
@@ -67,112 +54,53 @@ export default function CustomersPage() {
           placeholder="Search customers..."
           className="w-full pl-12 pr-24 py-4 text-lg border-2 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
         />
-        <button 
-          type="submit"
-          className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-5 py-2 rounded-xl font-semibold hover:bg-blue-700 transition"
-        >
+        <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-5 py-2 rounded-xl font-semibold">
           {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
-      {/* feedback when no results are found */}
-      {!loading && results.length === 0 && searchTerm && (
-        <div className="text-center p-12 bg-zinc-50 rounded-2xl border-2 border-dashed">
+
+      {/* No Results Flicker Fix */}
+      {!loading && searchTerm && results.length === 0 && (
+        <div className="text-center p-8 bg-zinc-50 rounded-2xl border-2 border-dashed border-zinc-200">
           <p className="text-zinc-500">No customers found matching "{searchTerm}"</p>
         </div>
       )}
-      {/* SEARCH RESULTS */}
-      {!selectedCustomer && results.length > 0 && (
-        <div className="grid gap-3 mb-12">
-          <p className="text-xs font-bold text-zinc-400 uppercase ml-2">Search Results</p>
-          {results.map(c => (
-            <button 
-              key={c.id}
-              onClick={() => setSelectedCustomer(c)}
-              className="flex items-center justify-between p-4 bg-white border rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left"
-            >
-              <div className="flex items-center gap-4">
-                <div className="h-10 w-10 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-500">
-                  <User size={20} />
-                </div>
-                <div>
-                  <p className="font-bold text-zinc-900">{c.first_name} {c.last_name}</p>
-                  <p className="text-sm text-zinc-500">{c.email}</p>
-                </div>
-              </div>
-              <span className="text-xs font-semibold text-blue-600">View History →</span>
-            </button>
-          ))}
-        </div>
-      )}
 
-      {/* DETAILED CUSTOMER VIEW */}
+      {/* Detailed View */}
       {selectedCustomer && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="flex justify-between items-end mb-6">
-             <div>
-                <button 
-                    onClick={() => setSelectedCustomer(null)}
-                    className="text-sm text-zinc-500 hover:text-zinc-800 flex items-center mb-2"
-                >
-                    <X size={14} className="mr-1" /> Back to results
-                </button>
-                <h2 className="text-3xl font-bold text-zinc-900">
-                    {selectedCustomer.first_name} {selectedCustomer.last_name}
-                </h2>
-                <p className="text-zinc-500">{selectedCustomer.email} • {selectedCustomer.phone}</p>
-             </div>
+        <div className="grid md:grid-cols-2 gap-6 mt-8">
+          {/* ACTIVE SUBMITTALS (No job record) */}
+          <div className="bg-white border rounded-2xl p-4">
+            <h3 className="text-sm font-bold text-blue-900 mb-4 flex items-center">
+              <FileText size={16} className="mr-2" /> ACTIVE SUBMITTALS
+            </h3>
+            {selectedCustomer.quote_submittals?.filter((s: any) => !s.jobs || s.jobs.length === 0).map((s: any) => (
+              <div key={s.id} className="p-3 border rounded-xl mb-2 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold">{s.job_name}</p>
+                  <p className="text-xs text-zinc-500">#{s.quote_number}</p>
+                </div>
+                <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-blue-600">Details</Link>
+              </div>
+            ))}
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Left Column: Active Submittals (No Job Record Exists) */}
-            <div className="bg-white border rounded-2xl overflow-hidden">
-                <div className="p-4 border-b bg-blue-50/50 flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-blue-900 uppercase flex items-center">
-                        <FileText size={16} className="mr-2" /> Active Submittals
-                    </h3>
+          {/* COMPLETED JOBS (Has job record) */}
+          <div className="bg-white border rounded-2xl p-4">
+            <h3 className="text-sm font-bold text-emerald-900 mb-4 flex items-center">
+              <Briefcase size={16} className="mr-2" /> COMPLETED JOBS
+            </h3>
+            {selectedCustomer.quote_submittals?.filter((s: any) => s.jobs && s.jobs.length > 0).map((s: any) => (
+              <div key={s.id} className="p-3 border border-emerald-100 bg-emerald-50/20 rounded-xl mb-2 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold text-zinc-900">{s.job_name}</p>
+                  <p className="text-xs text-zinc-500">
+                    Sold for ${Number(s.jobs[0].sale_amount).toLocaleString()}
+                  </p>
                 </div>
-                <div className="p-4 space-y-3">
-                    {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => !s.jobs || s.jobs.length === 0) // <--- Correct Logic
-                      .map((s: any) => (
-                        <div key={s.id} className="p-3 border rounded-xl flex justify-between items-center bg-white group">
-                            <div>
-                                <p className="text-sm font-bold">{s.job_name}</p>
-                                <p className="text-xs text-zinc-500">#{s.quote_number} • {s.status}</p>
-                            </div>
-                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition">
-                                Details
-                            </Link>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Right Column: Completed Jobs (Job Record EXISTS) */}
-            <div className="bg-white border rounded-2xl overflow-hidden">
-                <div className="p-4 border-b bg-emerald-50/50 flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-emerald-900 uppercase flex items-center">
-                        <Briefcase size={16} className="mr-2" /> Completed Jobs
-                    </h3>
-                </div>
-                <div className="p-4 space-y-3">
-                    {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => s.jobs && s.jobs.length > 0) // <--- Correct Logic
-                      .map((s: any) => (
-                        <div key={s.id} className="p-3 border rounded-xl flex justify-between items-center bg-white group border-emerald-100">
-                            <div>
-                                <p className="text-sm font-bold text-zinc-900">{s.job_name}</p>
-                                <p className="text-xs text-zinc-500">
-                                  #{s.quote_number} • Sold for ${Number(s.jobs[0].sale_amount).toLocaleString()}
-                                </p>
-                            </div>
-                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
-                                View
-                            </Link>
-                        </div>
-                    ))}
-                </div>
-            </div>
+                <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600">View</Link>
+              </div>
+            ))}
           </div>
         </div>
       )}
