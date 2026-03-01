@@ -62,7 +62,7 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
       .upsert({
         quote_id: id, // Foreign key to quote_submittals
         accepted_individual_quote: option.id, // Foreign key to individual_quotes
-        total_price: option.price,
+        sale_amount: option.price,
         created_at: activeJob?.created_at || new Date().toISOString(),
       }, { onConflict: 'quote_id' }); // Conflict check now happens on quote_id
 
