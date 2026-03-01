@@ -60,7 +60,7 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
       .from('jobs')
       .upsert({
         quote_id: id,
-        winning_option_id: option.id,
+        accepted_individual_quote: option.id,
         sale_amount: option.price,
         created_at: activeJob?.created_at || new Date().toISOString(),
       }, { onConflict: 'quote_id' });
@@ -100,7 +100,7 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
 
         <div className="grid gap-4">
           {options?.map((option: any) => {
-            const isWinner = activeJob?.winning_option_id === option.id;
+            const isWinner = activeJob?.accepted_individual_quote === option.id;
 
             return (
               <div 
