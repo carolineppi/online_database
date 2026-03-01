@@ -19,7 +19,7 @@ export default function CustomersPage() {
 
     setLoading(true);
 
-    // We are now 100% sure 'fk_jobs_quote_submittal' is the constraint name
+    // Use the explicit constraint hint !fk_jobs_quote_submittal
     const { data, error } = await supabase
       .from('customers')
       .select(`
@@ -33,10 +33,10 @@ export default function CustomersPage() {
       .limit(10);
 
     if (error) {
-      console.error("Search API Error:", error.message);
+      console.error("Search Error:", error.message);
     } else {
-      // Check your F12 Console for this log!
-      console.log("SEARCH DATA:", data); 
+      // DIAGNOSTIC: Check 'jobs' field here. If it's [], RLS or the hint is the issue.
+      console.log("Customer Data with Jobs:", data); 
       setResults(data || []);
       setSelectedCustomer(null);
     }
@@ -124,34 +124,31 @@ export default function CustomersPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Active Submittals Column */}
+            {/* Left Column: Active Submittals (No Job Record Exists) */}
             <div className="bg-white border rounded-2xl overflow-hidden">
                 <div className="p-4 border-b bg-blue-50/50 flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-blue-900 uppercase tracking-tight flex items-center">
+                    <h3 className="text-sm font-bold text-blue-900 uppercase flex items-center">
                         <FileText size={16} className="mr-2" /> Active Submittals
                     </h3>
                 </div>
                 <div className="p-4 space-y-3">
                     {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => !s.jobs || s.jobs.length === 0)
+                      ?.filter((s: any) => !s.jobs || s.jobs.length === 0) // <--- Correct Logic
                       .map((s: any) => (
-                        <div key={s.id} className="p-3 border rounded-xl group flex justify-between items-center hover:bg-zinc-50">
+                        <div key={s.id} className="p-3 border rounded-xl flex justify-between items-center bg-white group">
                             <div>
                                 <p className="text-sm font-bold">{s.job_name}</p>
                                 <p className="text-xs text-zinc-500">#{s.quote_number} • {s.status}</p>
                             </div>
                             <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition">
-                                View Details
+                                Details
                             </Link>
                         </div>
                     ))}
-                    {selectedCustomer.quote_submittals?.filter((s: any) => !s.jobs || s.jobs.length === 0).length === 0 && (
-                      <p className="text-sm text-zinc-400 italic p-2">No active submittals.</p>
-                    )}
                 </div>
             </div>
 
-            {/* Won Jobs Column */}
+            {/* Right Column: Completed Jobs (Job Record EXISTS) */}
             <div className="bg-white border rounded-2xl overflow-hidden">
                 <div className="p-4 border-b bg-emerald-50/50 flex justify-between items-center">
                     <h3 className="text-sm font-bold text-emerald-900 uppercase flex items-center">
@@ -160,23 +157,20 @@ export default function CustomersPage() {
                 </div>
                 <div className="p-4 space-y-3">
                     {selectedCustomer.quote_submittals
-                      ?.filter((s: any) => s.jobs && s.jobs.length > 0) // Strictly check for job record
+                      ?.filter((s: any) => s.jobs && s.jobs.length > 0) // <--- Correct Logic
                       .map((s: any) => (
-                        <div key={s.id} className="p-3 border rounded-xl flex justify-between items-center bg-white">
+                        <div key={s.id} className="p-3 border rounded-xl flex justify-between items-center bg-white group border-emerald-100">
                             <div>
                                 <p className="text-sm font-bold text-zinc-900">{s.job_name}</p>
                                 <p className="text-xs text-zinc-500">
-                                  #{s.quote_number} • ${Number(s.jobs[0].sale_amount).toLocaleString()}
+                                  #{s.quote_number} • Sold for ${Number(s.jobs[0].sale_amount).toLocaleString()}
                                 </p>
                             </div>
-                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600 hover:underline">
+                            <Link href={`/submittals/${s.id}`} className="text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition">
                                 View
                             </Link>
                         </div>
                     ))}
-                    {selectedCustomer.quote_submittals?.filter((s: any) => s.jobs && s.jobs.length > 0).length === 0 && (
-                      <p className="text-sm text-zinc-400 italic p-2 text-center">No completed jobs found.</p>
-                    )}
                 </div>
             </div>
           </div>
