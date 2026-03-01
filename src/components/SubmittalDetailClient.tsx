@@ -1,14 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw } from 'lucide-react';
+import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionTrigger from '@/components/AddOptionTrigger';
 
-// We now accept activeJob to track the current winner and job details
 export default function SubmittalDetailClient({ submittal, options, id, activeJob }: any) {
-  // ... (keep state for selectedIds, generating, loading)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,6 +17,44 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
     setSelectedIds(prev => 
       prev.includes(optionId) ? prev.filter(i => i !== optionId) : [...prev, optionId]
     );
+  };
+
+  // NEW: Delete the entire submittal (Cascades to quotes and jobs via SQL)
+  const handleDeleteSubmittal = async () => {
+    if (!confirm("Are you sure? This will delete the submittal, all quotes, and any associated job record.")) return;
+    
+    setLoading(true);
+    const { error } = await supabase
+      .from('quote_submittals')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      router.push('/submittals');
+      router.refresh();
+    } else {
+      alert("Error: " + error.message);
+      setLoading(false);
+    }
+  };
+
+  // NEW: Delete a single material option line item
+  const handleDeleteOption = async (optionId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevents checkbox/PDF selection toggle
+    if (!confirm("Are you sure you want to delete this option?")) return;
+    
+    setLoading(true);
+    const { error } = await supabase
+      .from('individual_quotes')
+      .delete()
+      .eq('id', optionId);
+
+    if (!error) {
+      router.refresh();
+    } else {
+      alert("Error deleting: " + error.message);
+    }
+    setLoading(false);
   };
 
   const handleGeneratePDF = async () => {
@@ -47,7 +83,6 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
     }
   };
 
-  // Logic to handle selecting or changing the winning quote option
   const handleSelectWinner = async (option: any) => {
     const confirmMsg = activeJob 
       ? `Change winner to ${option.material}? This updates the sale to $${Number(option.price).toLocaleString()}.`
@@ -56,17 +91,15 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
     if (!confirm(confirmMsg)) return;
     setLoading(true);
 
-    // Update 'jobs' using your specific column names: quote_id and accepted_individual_quote
     const { error: jobError } = await supabase
       .from('jobs')
       .upsert({
-        quote_id: id, // Foreign key to quote_submittals
-        accepted_individual_quote: option.id, // Foreign key to individual_quotes
+        quote_id: id,
+        accepted_individual_quote: option.id,
         sale_amount: option.price,
         created_at: activeJob?.created_at || new Date().toISOString(),
-      }, { onConflict: 'quote_id' }); // Conflict check now happens on quote_id
+      }, { onConflict: 'quote_id' });
 
-    // Update status to match your workflow
     await supabase
       .from('quote_submittals')
       .update({ status: 'WON' })
@@ -88,6 +121,16 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
             <Package size={20} className="text-zinc-400" /> Material Options
           </h2>
           <div className="flex gap-3">
+            {/* Main Delete Submittal Button */}
+            <button 
+              onClick={handleDeleteSubmittal}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-600 hover:text-white transition shadow-sm"
+            >
+              <Trash2 size={14} />
+              Delete Record
+            </button>
+
             <button 
               onClick={handleGeneratePDF}
               disabled={selectedIds.length === 0 || generating}
@@ -101,22 +144,22 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
         </div>
 
         <div className="grid gap-4">
-        {options?.map((option: any) => {
-          // Identify winner using your accepted_individual_quote column
-          const isWinner = activeJob?.accepted_individual_quote === option.id;
+          {options?.map((option: any) => {
+            const isWinner = activeJob?.accepted_individual_quote === option.id;
 
-          return (
-            <div 
-              key={option.id} 
-              className={`bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-center relative ${
-                isWinner ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-zinc-200 hover:border-blue-300'
-              }`}
-            >
-              {isWinner && (
-                <div className="absolute -top-3 left-6 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                  <Trophy size={10} /> SELECTED WINNER
-                </div>
-              )}
+            return (
+              <div 
+                key={option.id} 
+                className={`bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-center relative ${
+                  isWinner ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-zinc-200 hover:border-blue-300'
+                }`}
+                onClick={() => toggleSelection(option.id)}
+              >
+                {isWinner && (
+                  <div className="absolute -top-3 left-6 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                    <Trophy size={10} /> SELECTED WINNER
+                  </div>
+                )}
 
                 <div className="flex items-center gap-4">
                   <div className="text-blue-600">
@@ -131,27 +174,39 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
                   </div>
                 </div>
 
-                <div className="text-right" onClick={(e) => e.stopPropagation()}>
-                <p className={`text-2xl font-black ${isWinner ? 'text-emerald-600' : 'text-zinc-900'}`}>
-                  ${Number(option.price).toLocaleString()}
-                </p>
-                
-                <button
-                  onClick={() => handleSelectWinner(option)}
-                  disabled={loading || isWinner}
-                  className={`mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    isWinner 
-                      ? 'bg-emerald-50 text-emerald-600 cursor-default' 
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white'
-                  }`}
-                >
-                  {isWinner ? <CheckSquare size={14} /> : <RefreshCcw size={14} />}
-                  {isWinner ? "Active Winner" : activeJob ? "Change Winner" : "Select Winner"}
-                </button>
+                <div className="text-right flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
+                  <p className={`text-2xl font-black ${isWinner ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                    ${Number(option.price).toLocaleString()}
+                  </p>
+                  
+                  <div className="flex items-center gap-2 mt-2">
+                    {/* Line Item Delete Button */}
+                    <button
+                      onClick={(e) => handleDeleteOption(option.id, e)}
+                      disabled={loading}
+                      className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="Delete Option"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+
+                    <button
+                      onClick={() => handleSelectWinner(option)}
+                      disabled={loading || isWinner}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition min-w-[120px] justify-center ${
+                        isWinner 
+                          ? 'bg-emerald-50 text-emerald-600 cursor-default' 
+                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white shadow-sm'
+                      }`}
+                    >
+                      {isWinner ? <CheckSquare size={14} /> : <RefreshCcw size={14} />}
+                      {isWinner ? "Active Winner" : activeJob ? "Change Winner" : "Select Winner"}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
 
           {options?.length === 0 && (
             <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-xl text-zinc-400">

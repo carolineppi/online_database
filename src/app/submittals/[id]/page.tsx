@@ -1,9 +1,11 @@
 import { createClient } from '@/utils/supabase/server';
-import { ChevronLeft, FileText } from 'lucide-react';
+import { ChevronLeft, FileText, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 
 export default async function SubmittalDetails({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
   const { id } = await params;
   const supabase = await createClient();
 
@@ -28,6 +30,22 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
     .from('individual_quotes')
     .select('*')
     .eq('quote_id', id);
+
+  const handleDeleteSubmittal = async () => {
+    if (!confirm("Are you sure? This will delete the submittal, all quotes, and any associated job record.")) return;
+    
+    const { error } = await supabase
+      .from('quote_submittals')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      router.push('/submittals');
+      router.refresh();
+    } else {
+      alert("Error: " + error.message);
+    }
+  };
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -63,6 +81,14 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
             }`}>
               {submittal.status}
             </span>
+            // Add this button next to your status badge
+            <button 
+              onClick={handleDeleteSubmittal}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-600 hover:text-white transition shadow-sm"
+            >
+              <Trash2 size={14} />
+              Delete Record
+            </button>
           </div>
         </div>
       </div>
