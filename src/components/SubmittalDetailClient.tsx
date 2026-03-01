@@ -83,6 +83,7 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
     }
   };
 
+    // Inside handleSelectWinner in SubmittalDetailClient.tsx
   const handleSelectWinner = async (option: any) => {
     const confirmMsg = activeJob 
       ? `Change winner to ${option.material}? This updates the sale to $${Number(option.price).toLocaleString()}.`
@@ -91,15 +92,19 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
     if (!confirm(confirmMsg)) return;
     setLoading(true);
 
+    // The 'onConflict' value MUST match the column name we just made UNIQUE in SQL
     const { error: jobError } = await supabase
       .from('jobs')
       .upsert({
-        quote_id: id,
-        accepted_individual_quote: option.id,
+        quote_id: id, 
+        accepted_individual_quote: option.id, 
         sale_amount: option.price,
         created_at: activeJob?.created_at || new Date().toISOString(),
-      }, { onConflict: 'quote_id' });
+      }, { 
+        onConflict: 'quote_id' 
+      });
 
+    // Update the submittal status to WON
     await supabase
       .from('quote_submittals')
       .update({ status: 'WON' })
@@ -108,7 +113,8 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
     if (!jobError) {
       router.refresh();
     } else {
-      alert("Error: " + jobError.message);
+      console.error("Upsert Error:", jobError);
+      alert("Error updating winner: " + jobError.message);
     }
     setLoading(false);
   };
