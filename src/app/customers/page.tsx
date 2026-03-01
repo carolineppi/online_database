@@ -12,13 +12,14 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  const handleSearch = async (e: React.FormEvent) => {
+const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchTerm.trim()) return;
 
     setLoading(true);
     setSelectedCustomer(null);
 
+    // Ensure the join is written correctly: customers -> quote_submittals -> jobs
     const { data, error } = await supabase
       .from('customers')
       .select(`
@@ -28,10 +29,17 @@ export default function CustomersPage() {
           jobs (*)
         )
       `)
+      // ilike allows for case-insensitive searching
       .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-      .limit(10);
+      .limit(15);
 
-    if (data) setResults(data);
+    if (error) {
+      console.error("Search Error:", error.message);
+      alert("Search failed: " + error.message);
+    } else {
+      setResults(data || []);
+    }
+    
     setLoading(false);
   };
 
@@ -59,7 +67,12 @@ export default function CustomersPage() {
           {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
-
+      {/* feedback when no results are found */}
+      {!loading && results.length === 0 && searchTerm && (
+        <div className="text-center p-12 bg-zinc-50 rounded-2xl border-2 border-dashed">
+          <p className="text-zinc-500">No customers found matching "{searchTerm}"</p>
+        </div>
+      )}
       {/* SEARCH RESULTS */}
       {!selectedCustomer && results.length > 0 && (
         <div className="grid gap-3 mb-12">

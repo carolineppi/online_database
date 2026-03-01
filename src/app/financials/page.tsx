@@ -28,18 +28,18 @@ export default function FinancialDashboard() {
     jobList: [] as any[]
   });
 
-  const fetchFinancialData = async () => {
+const fetchFinancialData = async () => {
   setLoading(true);
   
-  // 1. Total Volume (All incoming requests)
+  // 1. Fetch total quote volume
   const { count: quotesCount } = await supabase
     .from('quote_submittals')
     .select('*', { count: 'exact', head: true })
     .gte('created_at', `${dateRange.start}T00:00:00`)
     .lte('created_at', `${dateRange.end}T23:59:59`);
 
-  // 2. Realized Revenue (From the jobs table)
-  const { data: jobsData } = await supabase
+  // 2. Fetch jobs using your specific column: sale_amount
+  const { data: jobsData, error: jobsError } = await supabase
     .from('jobs')
     .select(`
       id,
@@ -49,15 +49,16 @@ export default function FinancialDashboard() {
       quote_submittals (
         job_name,
         quote_number
-      ),
-      individual_quotes!accepted_individual_quote (
-        material
       )
     `)
     .gte('created_at', `${dateRange.start}T00:00:00`)
     .lte('created_at', `${dateRange.end}T23:59:59`);
 
+  if (jobsError) console.error("Job Fetch Error:", jobsError.message);
+  console.log("Raw Job Data:", jobsData);
+
   const winsCount = jobsData?.length || 0;
+  // Calculate revenue using sale_amount
   const revenue = jobsData?.reduce((acc, job) => acc + (Number(job.sale_amount) || 0), 0) || 0;
 
   setStats({

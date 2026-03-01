@@ -6,20 +6,14 @@ export default async function ActiveJobsPage() {
 
   // Fetch jobs with the joined submittal name
   const { data: jobs, error } = await supabase
-  .from('jobs')
-  .select(`
-    *,
-    quote_submittals!inner (
-      job_name,
-      quote_number,
-      status
-    )
-  `)
-  // Use !inner to ensure we only get jobs that have an associated submittal
-  .eq('quote_submittals.status', 'Won') 
-  .order('created_at', { ascending: false });
+    .from('jobs')
+    .select(`
+      *,
+      quote_submittals (*)
+    `)
+    .order('created_at', { ascending: false });
 
-if (error) console.error("Jobs Fetch Error:", error);
+  if (error) console.error("Jobs Fetch Error:", error);
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
