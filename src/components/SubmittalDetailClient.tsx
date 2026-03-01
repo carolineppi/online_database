@@ -1,13 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { Package, FileDown, CheckSquare, Square, FileText } from 'lucide-react';
+import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
 import AddOptionTrigger from '@/components/AddOptionTrigger';
-import SelectWinnerButton from '@/components/SelectWinnerButton';
 
-export default function SubmittalDetailClient({ submittal, options, id }: any) {
+// We now accept activeJob to track the current winner and job details
+export default function SubmittalDetailClient({ submittal, options, id, activeJob }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+  const router = useRouter();
 
   const toggleSelection = (optionId: string) => {
     setSelectedIds(prev => 
@@ -41,6 +46,38 @@ export default function SubmittalDetailClient({ submittal, options, id }: any) {
     }
   };
 
+  // Logic to handle selecting or changing the winning quote option
+  const handleSelectWinner = async (option: any) => {
+    const confirmMsg = activeJob 
+      ? `Change winner to ${option.material}? This will update the job's sale amount to $${Number(option.price).toLocaleString()}.`
+      : `Mark ${option.material} as the winner and create a job?`;
+
+    if (!confirm(confirmMsg)) return;
+    setLoading(true);
+
+    // Update the 'jobs' table and ensure the submittal status reflects the win
+    const { error: jobError } = await supabase
+      .from('jobs')
+      .upsert({
+        submittal_id: id,
+        winning_option_id: option.id,
+        total_price: option.price,
+        created_at: activeJob?.created_at || new Date().toISOString(),
+      }, { onConflict: 'submittal_id' });
+
+    await supabase
+      .from('quote_submittals')
+      .update({ status: 'WON' })
+      .eq('id', id);
+
+    if (!jobError) {
+      router.refresh(); // Update UI to show the new winner badge
+    } else {
+      alert("Error updating winner: " + jobError.message);
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="lg:col-span-2 space-y-6">
       <section>
@@ -62,38 +99,59 @@ export default function SubmittalDetailClient({ submittal, options, id }: any) {
         </div>
 
         <div className="grid gap-4">
-          {options?.map((option: any) => (
-            <div 
-              key={option.id} 
-              className={`bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-center cursor-pointer ${
-                selectedIds.includes(option.id) ? 'border-blue-500 ring-1 ring-blue-500' : 'border-zinc-200 hover:border-blue-300'
-              }`}
-              onClick={() => toggleSelection(option.id)}
-            >
-              <div className="flex items-center gap-4">
-                <div className="text-blue-600">
-                  {selectedIds.includes(option.id) ? <CheckSquare size={24} /> : <Square size={24} className="text-zinc-300" />}
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg text-zinc-800">{option.material}</h3>
-                  <p className="text-zinc-500 text-sm">{option.mounting_style} • Qty: {option.quantity}</p>
-                  <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider font-semibold">
-                    {option.manufacturer}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right" onClick={(e) => e.stopPropagation()}>
-                <p className="text-2xl font-black text-zinc-900">
-                  ${Number(option.price).toLocaleString()}
-                </p>
-                {!submittal.is_job && (
-                  <div className="mt-2">
-                    <SelectWinnerButton quoteId={id} optionId={option.id} price={option.price} />
+          {options?.map((option: any) => {
+            const isWinner = activeJob?.winning_option_id === option.id;
+
+            return (
+              <div 
+                key={option.id} 
+                className={`bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-center cursor-pointer relative ${
+                  isWinner ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-zinc-200 hover:border-blue-300'
+                }`}
+                onClick={() => toggleSelection(option.id)}
+              >
+                {/* Winner Badge */}
+                {isWinner && (
+                  <div className="absolute -top-3 left-6 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                    <Trophy size={10} /> SELECTED WINNER
                   </div>
                 )}
+
+                <div className="flex items-center gap-4">
+                  <div className="text-blue-600">
+                    {selectedIds.includes(option.id) ? <CheckSquare size={24} /> : <Square size={24} className="text-zinc-300" />}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg text-zinc-800">{option.material}</h3>
+                    <p className="text-zinc-500 text-sm">{option.mounting_style} • Qty: {option.quantity}</p>
+                    <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider font-semibold">
+                      {option.manufacturer}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right" onClick={(e) => e.stopPropagation()}>
+                  <p className={`text-2xl font-black ${isWinner ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                    ${Number(option.price).toLocaleString()}
+                  </p>
+                  
+                  {/* Select/Change Winner Button */}
+                  <button
+                    onClick={() => handleSelectWinner(option)}
+                    disabled={loading || isWinner}
+                    className={`mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition w-full justify-center ${
+                      isWinner 
+                        ? 'bg-emerald-50 text-emerald-600 cursor-default' 
+                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white shadow-sm'
+                    }`}
+                  >
+                    {isWinner ? <CheckSquare size={14} /> : <RefreshCcw size={14} />}
+                    {isWinner ? "Active Winner" : activeJob ? "Change Winner" : "Select Winner"}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {options?.length === 0 && (
             <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-xl text-zinc-400">

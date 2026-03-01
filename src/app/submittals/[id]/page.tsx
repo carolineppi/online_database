@@ -7,6 +7,7 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = await createClient();
 
+  // 1. Fetch Submittal with Customer
   const { data: submittal } = await supabase
     .from('quote_submittals')
     .select(`*, linked_customer:customers!customer (*)`)
@@ -15,6 +16,14 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
 
   if (!submittal) return <div className="p-8">Submittal ID {id} not found.</div>;
 
+  // 2. Fetch Job details to identify the winning option and sale amount
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('submittal_id', id)
+    .maybeSingle();
+
+  // 3. Fetch all quote options
   const { data: options } = await supabase
     .from('individual_quotes')
     .select('*')
