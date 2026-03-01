@@ -13,7 +13,7 @@ export default function CustomersPage() {
   const supabase = createClient();
 
   // Define the "Won" status string exactly as it appears in your DB
-  const WON_STATUS = "WON / JOB CREATED";
+  const WON_STATUS = "Won";
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
