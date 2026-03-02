@@ -26,6 +26,12 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
     .select('*')
     .eq('quote_id', id);
 
+  // NEW: Fetch Add-ons
+  const { data: addons } = await supabase
+    .from('quote_add_ons') // Ensure this matches your actual table name
+    .select('*')
+    .eq('quote_id', id);
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <Link href="/submittals" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 mb-6 transition">

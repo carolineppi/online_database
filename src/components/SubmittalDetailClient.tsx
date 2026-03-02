@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw, Trash2 } from 'lucide-react';
+import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw, Trash2, PlusSquare, FileText } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionTrigger from '@/components/AddOptionTrigger';
 
-export default function SubmittalDetailClient({ submittal, options, id, activeJob }: any) {
+export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -217,6 +217,52 @@ export default function SubmittalDetailClient({ submittal, options, id, activeJo
           {options?.length === 0 && (
             <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-xl text-zinc-400">
               No material options created yet.
+            </div>
+          )}
+        </div>
+      </section>
+      {/* SECTION 2: ADD-ONS (New) */}
+      <section>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2 text-zinc-800">
+            <PlusSquare size={20} className="text-zinc-400" /> Add-on Items
+          </h2>
+          {/* If you have a separate trigger for add-ons, place it here */}
+        </div>
+
+        <div className="grid gap-4">
+          {addons?.map((addon: any) => (
+            <div 
+              key={addon.id} 
+              className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm hover:border-blue-300 transition flex justify-between items-center"
+            >
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 bg-zinc-50 rounded-lg flex items-center justify-center text-zinc-400">
+                  <FileText size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-zinc-800">{addon.name}</h3>
+                  <p className="text-zinc-500 text-sm">{addon.description || 'No description provided'}</p>
+                </div>
+              </div>
+
+              <div className="text-right flex flex-col items-end">
+                <p className="text-xl font-black text-zinc-900">
+                  +${Number(addon.price).toLocaleString()}
+                </p>
+                <button
+                  // onClick={(e) => handleDeleteAddon(addon.id, e)} // You'll need to create this function
+                  className="mt-2 p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {addons?.length === 0 && (
+            <div className="text-center py-8 border-2 border-dashed border-zinc-100 rounded-xl text-zinc-400 text-sm">
+              No add-ons associated with this submittal.
             </div>
           )}
         </div>
