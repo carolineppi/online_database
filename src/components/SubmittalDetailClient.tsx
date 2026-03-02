@@ -1,15 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw, Trash2, PlusSquare, FileText } from 'lucide-react';
+import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw, Trash2, PlusSquare, FileText, PlusCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionTrigger from '@/components/AddOptionTrigger';
+import AddOnForm from '@/components/AddOnForm';
 
 export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showAddOnForm, setShowAddOnForm] = useState(false); // NEW: Form visibility state
   const supabase = createClient();
   const router = useRouter();
 
@@ -19,7 +21,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     );
   };
 
-  // NEW: Delete the entire submittal (Cascades to quotes and jobs via SQL)
   const handleDeleteSubmittal = async () => {
     if (!confirm("Are you sure? This will delete the submittal, all quotes, and any associated job record.")) return;
     
@@ -38,9 +39,8 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
-  // NEW: Delete a single material option line item
   const handleDeleteOption = async (optionId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevents checkbox/PDF selection toggle
+    e.stopPropagation();
     if (!confirm("Are you sure you want to delete this option?")) return;
     
     setLoading(true);
@@ -55,6 +55,13 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       alert("Error deleting: " + error.message);
     }
     setLoading(false);
+  };
+
+  // Logic for deleting an addon
+  const handleDeleteAddon = async (addonId: string) => {
+    if (!confirm("Remove this add-on item?")) return;
+    const { error } = await supabase.from('add_ons').delete().eq('id', addonId);
+    if (!error) router.refresh();
   };
 
   const handleGeneratePDF = async () => {
@@ -83,7 +90,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
-    // Inside handleSelectWinner in SubmittalDetailClient.tsx
   const handleSelectWinner = async (option: any) => {
     const confirmMsg = activeJob 
       ? `Change winner to ${option.material}? This updates the sale to $${Number(option.price).toLocaleString()}.`
@@ -92,7 +98,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     if (!confirm(confirmMsg)) return;
     setLoading(true);
 
-    // The 'onConflict' value MUST match the column name we just made UNIQUE in SQL
     const { error: jobError } = await supabase
       .from('jobs')
       .upsert({
@@ -104,7 +109,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
         onConflict: 'quote_id' 
       });
 
-    // Update the submittal status to WON
     await supabase
       .from('quote_submittals')
       .update({ status: 'WON' })
@@ -120,14 +124,14 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   };
 
   return (
-    <div className="lg:col-span-2 space-y-6">
+    <div className="lg:col-span-2 space-y-12">
+      {/* SECTION 1: MATERIAL OPTIONS */}
       <section>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold flex items-center gap-2 text-zinc-800">
             <Package size={20} className="text-zinc-400" /> Material Options
           </h2>
           <div className="flex gap-3">
-            {/* Main Delete Submittal Button */}
             <button 
               onClick={handleDeleteSubmittal}
               disabled={loading}
@@ -156,7 +160,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
             return (
               <div 
                 key={option.id} 
-                className={`bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-center relative ${
+                className={`bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-center relative cursor-pointer ${
                   isWinner ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-zinc-200 hover:border-blue-300'
                 }`}
                 onClick={() => toggleSelection(option.id)}
@@ -186,12 +190,10 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                   </p>
                   
                   <div className="flex items-center gap-2 mt-2">
-                    {/* Line Item Delete Button */}
                     <button
                       onClick={(e) => handleDeleteOption(option.id, e)}
                       disabled={loading}
                       className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Delete Option"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -213,46 +215,51 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               </div>
             );
           })}
-
-          {options?.length === 0 && (
-            <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-xl text-zinc-400">
-              No material options created yet.
-            </div>
-          )}
         </div>
       </section>
-      {/* SECTION 2: ADD-ONS (New) */}
-      <section>
-        <div className="flex justify-between items-center mb-4">
+
+      {/* SECTION 2: ADD-ONS */}
+      <section className="pt-8 border-t border-zinc-100">
+        <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold flex items-center gap-2 text-zinc-800">
             <PlusSquare size={20} className="text-zinc-400" /> Add-on Items
           </h2>
-          {/* If you have a separate trigger for add-ons, place it here */}
+          
+          <button 
+            onClick={() => setShowAddOnForm(true)}
+            className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition shadow-sm"
+          >
+            <PlusCircle size={14} />
+            Add Material
+          </button>
         </div>
 
         <div className="grid gap-4">
           {addons?.map((addon: any) => (
-            <div 
-              key={addon.id} 
-              className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm hover:border-blue-300 transition flex justify-between items-center"
-            >
+            <div key={addon.id} className="bg-white border border-zinc-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="h-10 w-10 bg-zinc-50 rounded-lg flex items-center justify-center text-zinc-400">
-                  <FileText size={18} />
+                <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                   <FileText size={20} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-zinc-800">{addon.name}</h3>
-                  <p className="text-zinc-500 text-sm">{addon.description || 'No description provided'}</p>
+                  <h3 className="font-bold text-zinc-900">{addon.material}</h3> 
+                  <p className="text-sm text-zinc-500 italic">{addon.reason || "No reason specified"}</p>
+                  
+                  <div className="flex gap-2 mt-2">
+                    <span className="text-[10px] font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500 uppercase">
+                      Qty: {addon.quantity || 1}
+                    </span>
+                    <span className="text-[10px] font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500 uppercase">
+                      {addon.manufacturer}
+                    </span>
+                  </div>
                 </div>
               </div>
-
               <div className="text-right flex flex-col items-end">
-                <p className="text-xl font-black text-zinc-900">
-                  +${Number(addon.price).toLocaleString()}
-                </p>
-                <button
-                  // onClick={(e) => handleDeleteAddon(addon.id, e)} // You'll need to create this function
-                  className="mt-2 p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
+                <p className="text-xl font-black text-zinc-900">+${Number(addon.price).toLocaleString()}</p>
+                <button 
+                  onClick={() => handleDeleteAddon(addon.id)}
+                  className="mt-2 p-1.5 text-zinc-400 hover:text-red-600 transition"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -261,12 +268,21 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           ))}
 
           {addons?.length === 0 && (
-            <div className="text-center py-8 border-2 border-dashed border-zinc-100 rounded-xl text-zinc-400 text-sm">
+            <div className="text-center py-8 border-2 border-dashed border-zinc-100 rounded-xl text-zinc-400 text-sm italic">
               No add-ons associated with this submittal.
             </div>
           )}
         </div>
       </section>
+
+      {/* FORM MODAL */}
+      {showAddOnForm && (
+        <AddOnForm 
+          quoteId={id} 
+          jobId={activeJob?.id} 
+          onClose={() => setShowAddOnForm(false)} 
+        />
+      )}
     </div>
   );
 }
