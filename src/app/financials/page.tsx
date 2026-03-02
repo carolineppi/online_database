@@ -39,6 +39,7 @@ export default function FinancialDashboard() {
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
     // 2. Fetch jobs WITH nested add-ons
+    // Inside src/app/financials/page.tsx
     const { data: jobsData, error: jobsError } = await supabase
       .from('jobs')
       .select(`
@@ -48,10 +49,10 @@ export default function FinancialDashboard() {
         quote_id,
         quote_submittals!fk_jobs_to_submittals (
           job_name,
-          quote_number
-        ),
-        add_ons!quote_id (
-          price
+          quote_number,
+          add_ons (
+            price
+          )
         )
       `)
       .gte('created_at', `${dateRange.start}T00:00:00`)
@@ -61,9 +62,25 @@ export default function FinancialDashboard() {
 
     // 3. Transform data to calculate "Contract Amount" (Winner + All Add-ons)
     const formattedJobs = (jobsData || []).map(job => {
-      const addonsTotal = job.add_ons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
+      // 1. Access the first submittal in the array
+      const submittalData = Array.isArray(job.quote_submittals) 
+        ? job.quote_submittals[0] 
+        : job.quote_submittals;
+
+      // 2. Safely get the addons from that submittal
+      const addons = submittalData?.add_ons || [];
+      
+      // 3. Calculate the totals
+      const addonsTotal = addons.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
       const contractAmount = (Number(job.sale_amount) || 0) + addonsTotal;
-      return { ...job, contractAmount };
+
+      return { 
+        ...job, 
+        // Flatten the submittal data so the UI can read it easily
+        quote_submittals: submittalData, 
+        contractAmount,
+        addonCount: addons.length 
+      };
     });
 
     // 4. Calculate total revenue using the combined contract amounts
@@ -137,9 +154,9 @@ export default function FinancialDashboard() {
                 <tr key={job.id} className="hover:bg-zinc-50/50 transition">
                   <td className="px-6 py-4">
                     <div className="font-bold text-zinc-900">{job.quote_submittals?.job_name || "Untitled Project"}</div>
-                    {job.add_ons?.length > 0 && (
+                    {job.addonCount > 0 && (
                       <div className="text-[10px] text-blue-500 font-bold uppercase tracking-tight">
-                        Includes {job.add_ons.length} Add-on Material(s)
+                        Includes {job.addonCount} Add-on Material(s)
                       </div>
                     )}
                   </td>
