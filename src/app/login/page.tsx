@@ -27,8 +27,8 @@ export default function LoginPage() {
 
     if (data) {
       localStorage.setItem('employee', JSON.stringify(data));
-      router.push('/submittals');
-      router.refresh();
+      // Forces the app to "wake up" and show the sidebar immediately
+      window.location.href = '/submittals'; 
     } else {
       alert('Login failed. Please verify credentials.');
     }

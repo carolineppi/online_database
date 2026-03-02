@@ -27,8 +27,8 @@ export default function UserProfile() {
 
   const handleLogout = () => {
     localStorage.removeItem('employee');
-    router.push('/login');
-    router.refresh();
+    // Using window.location forces a total state reset instantly
+    window.location.href = '/login'; 
   };
 
   if (!employee) return null;

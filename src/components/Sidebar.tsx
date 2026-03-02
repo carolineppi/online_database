@@ -1,3 +1,4 @@
+'use client';
 
 import Link from 'next/link';
 import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSign } from 'lucide-react';
@@ -11,7 +12,9 @@ const navItems = [
   { name: 'Customers', href: '/customers', icon: Users }, // Added link
 ];
 
-export function Sidebar() {
+export default function Sidebar({ user }: { user: any }) {
+  // If no user passed from layout, don't render anything
+  if (!user) return null;
   return (
     <div className="w-64 bg-zinc-900 h-screen text-zinc-300 flex flex-col fixed left-0 top-0">
       <div className="p-6 flex items-center gap-3 border-b border-zinc-800">
