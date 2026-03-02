@@ -1,6 +1,7 @@
 
 import Link from 'next/link';
 import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSign } from 'lucide-react';
+import UserProfile from './UserProfile';
 
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -31,9 +32,8 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-zinc-800 text-xs text-zinc-500">
-        Project Manager View (No Auth)
-      </div>
+    {/* NEW: User Profile at the bottom */}
+      <UserProfile />
     </div>
   );
 }
