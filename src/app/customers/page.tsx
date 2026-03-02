@@ -22,13 +22,13 @@ export default function CustomersPage() {
   // Inside handleSearch in src/app/customers/page.tsx
   const { data, error } = await supabase
     .from('customers')
-    .select(`
-      *,
-      quote_submittals (
+      .select(`
         *,
-        jobs:jobs!fk_jobs_to_submittals (*) 
-      )
-    `)
+        quote_submittals (
+          *,
+          jobs:jobs!fk_jobs_to_submittals (*) 
+        )
+      `)
     .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
     .limit(10);
 

@@ -5,12 +5,12 @@ export default async function ActiveJobsPage() {
   const supabase = await createClient();
 
   // Fetch jobs with the joined submittal name
-  // Inside your jobs fetch logic
+  // Inside your jobs list fetch logic
   const { data: activeJobs, error } = await supabase
     .from('jobs')
     .select(`
       *,
-      quote_submittals!fk_jobs_quote_submittal (*) // <--- USE THE NEW CONSTRAINT NAME
+      quote_submittals!fk_jobs_to_submittals (*)
     `)
     .order('created_at', { ascending: false });
 
