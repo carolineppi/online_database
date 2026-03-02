@@ -25,11 +25,10 @@ export default function CustomersPage() {
         *,
         quote_submittals (
           *,
-          jobs:jobs!fk_jobs_quote_submittal (*)
+          jobs:jobs!fk_jobs_quote_submittal (*) 
         )
       `)
       .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
-      .limit(10);
 
     if (error) {
       console.error("Search Error:", error.message);
