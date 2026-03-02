@@ -14,6 +14,9 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const [showAddOnForm, setShowAddOnForm] = useState(false); // NEW: Form visibility state
   const supabase = createClient();
   const router = useRouter();
+  const winnerPrice = options?.find((o: any) => o.id === activeJob?.accepted_individual_quote)?.price || 0;
+  const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
+  const projectTotal = Number(winnerPrice) + addonsTotal;
 
   const toggleSelection = (optionId: string) => {
     setSelectedIds(prev => 
@@ -236,10 +239,25 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
         <div className="grid gap-4">
           {addons?.map((addon: any) => (
-            <div key={addon.id} className="bg-white border border-zinc-200 rounded-xl p-5 flex justify-between items-center shadow-sm">
+            <div 
+              key={addon.id} 
+              onClick={() => toggleSelection(addon.id)} //
+              className={`bg-white border rounded-xl p-5 flex justify-between items-center shadow-sm transition cursor-pointer ${
+                selectedIds.includes(addon.id) ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-zinc-200 hover:border-blue-300'
+              }`}
+            >
               <div className="flex items-center gap-4">
+                {/* CHECKBOX UI: Matches Material Options */}
+                <div className="text-blue-600">
+                  {selectedIds.includes(addon.id) ? (
+                    <CheckSquare size={24} />
+                  ) : (
+                    <Square size={24} className="text-zinc-300" />
+                  )}
+                </div>
+                
                 <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                   <FileText size={20} />
+                  <FileText size={20} />
                 </div>
                 <div>
                   <h3 className="font-bold text-zinc-900">{addon.material}</h3> 
@@ -255,7 +273,8 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                   </div>
                 </div>
               </div>
-              <div className="text-right flex flex-col items-end">
+
+              <div className="text-right flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
                 <p className="text-xl font-black text-zinc-900">+${Number(addon.price).toLocaleString()}</p>
                 <button 
                   onClick={() => handleDeleteAddon(addon.id)}
@@ -274,7 +293,34 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           )}
         </div>
       </section>
+      {/* SECTION 3: PROJECT TOTAL CARD */}
+      <section className="pt-12">
+        <div className="bg-zinc-900 rounded-3xl p-8 text-white shadow-xl shadow-zinc-200 overflow-hidden relative">
+          {/* Background Decorative Element */}
+          <div className="absolute top-0 right-0 p-8 opacity-10">
+            <Trophy size={120} />
+          </div>
 
+          <div className="relative z-10 grid md:grid-cols-3 gap-8 items-center">
+            <div>
+              <p className="text-zinc-400 text-xs font-black uppercase tracking-widest mb-1">Winning Material</p>
+              <p className="text-2xl font-bold">${Number(winnerPrice).toLocaleString()}</p>
+            </div>
+
+            <div>
+              <p className="text-zinc-400 text-xs font-black uppercase tracking-widest mb-1">Add-ons Total</p>
+              <p className="text-2xl font-bold text-blue-400">+ ${Number(addonsTotal).toLocaleString()}</p>
+            </div>
+
+            <div className="bg-white/10 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
+              <p className="text-zinc-300 text-xs font-black uppercase tracking-widest mb-1">Project Grand Total</p>
+              <p className="text-4xl font-black text-emerald-400">
+                ${projectTotal.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
       {/* FORM MODAL */}
       {showAddOnForm && (
         <AddOnForm 
