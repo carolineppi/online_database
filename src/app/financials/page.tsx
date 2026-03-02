@@ -28,49 +28,57 @@ export default function FinancialDashboard() {
     jobList: [] as any[]
   });
 
-const fetchFinancialData = async () => {
-  setLoading(true);
-  
-  // 1. Fetch total quote volume
-  const { count: quotesCount } = await supabase
-    .from('quote_submittals')
-    .select('*', { count: 'exact', head: true })
-    .gte('created_at', `${dateRange.start}T00:00:00`)
-    .lte('created_at', `${dateRange.end}T23:59:59`);
+  const fetchFinancialData = async () => {
+    setLoading(true);
+    
+    // 1. Fetch total quote volume for the period
+    const { count: quotesCount } = await supabase
+      .from('quote_submittals')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', `${dateRange.start}T00:00:00`)
+      .lte('created_at', `${dateRange.end}T23:59:59`);
 
-    // 2. Fetch jobs using your specific column: sale_amount
-  const { data: jobsData, error: jobsError } = await supabase
-    .from('jobs')
-    .select(`
-      id,
-      created_at,
-      sale_amount,
-      quote_id,
-      quote_submittals!fk_jobs_to_submittals (
-        job_name,
-        quote_number
-      )
-    `)
-    .gte('created_at', `${dateRange.start}T00:00:00`)
-    .lte('created_at', `${dateRange.end}T23:59:59`);
+    // 2. Fetch jobs WITH nested add-ons
+    const { data: jobsData, error: jobsError } = await supabase
+      .from('jobs')
+      .select(`
+        id,
+        created_at,
+        sale_amount,
+        quote_id,
+        quote_submittals!fk_jobs_to_submittals (
+          job_name,
+          quote_number
+        ),
+        add_ons!quote_id (
+          price
+        )
+      `)
+      .gte('created_at', `${dateRange.start}T00:00:00`)
+      .lte('created_at', `${dateRange.end}T23:59:59`);
 
-  if (jobsError) console.error("Job Fetch Error:", jobsError.message);
-  console.log("Raw Job Data:", jobsData);
+    if (jobsError) console.error("Job Fetch Error:", jobsError.message);
 
-  const winsCount = jobsData?.length || 0;
-  // Calculate revenue using sale_amount
-  const revenue = jobsData?.reduce((acc, job) => acc + (Number(job.sale_amount) || 0), 0) || 0;
+    // 3. Transform data to calculate "Contract Amount" (Winner + All Add-ons)
+    const formattedJobs = (jobsData || []).map(job => {
+      const addonsTotal = job.add_ons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
+      const contractAmount = (Number(job.sale_amount) || 0) + addonsTotal;
+      return { ...job, contractAmount };
+    });
 
-  setStats({
-    totalQuotes: quotesCount || 0,
-    wonJobs: winsCount,
-    totalRevenue: revenue,
-    conversionRate: (quotesCount || 0) > 0 ? (winsCount / (quotesCount || 1)) * 100 : 0,
-    jobList: jobsData || []
-  });
-  
-  setLoading(false);
-};
+    // 4. Calculate total revenue using the combined contract amounts
+    const totalRevenue = formattedJobs.reduce((acc, job) => acc + job.contractAmount, 0);
+
+    setStats({
+      totalQuotes: quotesCount || 0,
+      wonJobs: formattedJobs.length,
+      totalRevenue: totalRevenue,
+      conversionRate: (quotesCount || 0) > 0 ? (formattedJobs.length / (quotesCount || 1)) * 100 : 0,
+      jobList: formattedJobs
+    });
+    
+    setLoading(false);
+  };
 
   useEffect(() => {
     fetchFinancialData();
@@ -81,7 +89,7 @@ const fetchFinancialData = async () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900">Financial Performance</h1>
-          <p className="text-zinc-500 text-sm">Real-time tracking from the jobs database.</p>
+          <p className="text-zinc-500 text-sm">Revenue calculated as Material Winner + Post-sale Add-ons.</p>
         </div>
 
         <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border shadow-sm">
@@ -111,30 +119,29 @@ const fetchFinancialData = async () => {
 
       <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
         <div className="p-6 border-b bg-white">
-          <h2 className="font-bold text-lg">Job Revenue List</h2>
-          <p className="text-xs text-zinc-400">Monetary value of jobs created within this period.</p>
+          <h2 className="font-bold text-lg text-zinc-900">Revenue Ledger</h2>
+          <p className="text-xs text-zinc-400">Winning material option plus associated add-on totals.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-zinc-50 text-zinc-500 text-[10px] uppercase font-bold tracking-wider">
               <tr>
-                <th className="px-6 py-4">Job Name</th>
+                <th className="px-6 py-4">Job / Project</th>
                 <th className="px-6 py-4">Quote #</th>
-                <th className="px-6 py-4">Date Created</th>
-                <th className="px-6 py-4 text-right">Job Value</th>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4 text-right">Contract Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y text-sm">
               {stats.jobList.map((job) => (
-                <tr key={job.id}>
+                <tr key={job.id} className="hover:bg-zinc-50/50 transition">
                   <td className="px-6 py-4">
-                    <div className="font-bold text-zinc-900">{job.quote_submittals?.job_name}</div>
-                    <div className="text-xs text-emerald-600 font-medium">
-                      Sold: {job.individual_quotes?.material}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-bold text-zinc-900">
-                    {job.quote_submittals?.job_name || "Unknown Job"}
+                    <div className="font-bold text-zinc-900">{job.quote_submittals?.job_name || "Untitled Project"}</div>
+                    {job.add_ons?.length > 0 && (
+                      <div className="text-[10px] text-blue-500 font-bold uppercase tracking-tight">
+                        Includes {job.add_ons.length} Add-on Material(s)
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-zinc-500">
                     #{job.quote_submittals?.quote_number || "N/A"}
@@ -142,15 +149,17 @@ const fetchFinancialData = async () => {
                   <td className="px-6 py-4 text-zinc-500">
                     {new Date(job.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 text-right font-mono font-bold text-emerald-600">
-                    ${(Number(job.sale_amount) || 0).toLocaleString()}
+                  <td className="px-6 py-4 text-right">
+                    <div className="font-mono font-bold text-emerald-600 text-lg">
+                      ${job.contractAmount.toLocaleString()}
+                    </div>
                   </td>
                 </tr>
               ))}
               {stats.jobList.length === 0 && !loading && (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-zinc-400 italic">
-                    No records in the jobs database for this range.
+                    No records found for this date range.
                   </td>
                 </tr>
               )}
