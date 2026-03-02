@@ -19,16 +19,18 @@ export default function CustomersPage() {
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('customers')
-      .select(`
+  // Inside handleSearch in src/app/customers/page.tsx
+  const { data, error } = await supabase
+    .from('customers')
+    .select(`
+      *,
+      quote_submittals (
         *,
-        quote_submittals (
-          *,
-          jobs:jobs!fk_jobs_quote_submittal (*) 
-        )
-      `)
-      .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
+        jobs:jobs!fk_jobs_to_submittals (*) 
+      )
+    `)
+    .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
+    .limit(10);
 
     if (error) {
       console.error("Search Error:", error.message);
