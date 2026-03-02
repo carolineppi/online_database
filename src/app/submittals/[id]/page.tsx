@@ -28,7 +28,7 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
 
   // NEW: Fetch Add-ons
   const { data: addons } = await supabase
-    .from('quote_add_ons') // Ensure this matches your actual table name
+    .from('add_ons') // Ensure this matches your actual table name
     .select('*')
     .eq('quote_id', id);
 
@@ -69,9 +69,10 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      <SubmittalDetailClient 
+    <SubmittalDetailClient 
         submittal={submittal} 
         options={options} 
+        addons={addons || []} // Pass the new data here
         id={id} 
         activeJob={job} 
       />
