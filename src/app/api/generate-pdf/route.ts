@@ -14,20 +14,25 @@ export async function POST(req: Request) {
     .eq('id', submittalId)
     .single();
 
-  // 2. Fetch ONLY the selected Individual Quotes
+  // 2. Fetch selected Material Options (individual_quotes)
   const { data: selectedQuotes } = await supabase
     .from('individual_quotes')
     .select('*')
     .in('id', quoteIds);
 
-  if (!submittal || !selectedQuotes) {
-    return NextResponse.json({ error: 'Data not found' }, { status: 404 });
+  // 3. Fetch selected Add-ons (add_ons)
+  const { data: selectedAddons } = await supabase
+    .from('add_ons')
+    .select('*')
+    .in('id', quoteIds);
+
+  if (!submittal) {
+    return NextResponse.json({ error: 'Submittal not found' }, { status: 404 });
   }
 
-  // 3. Initialize PDF
+  // Initialize PDF
   const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-
+  
   // --- Header Section ---
   doc.setFontSize(20);
   doc.text("PROPOSAL / SUBMITTAL", 105, 20, { align: "center" });
@@ -48,43 +53,85 @@ export async function POST(req: Request) {
   doc.setFont("helvetica", "normal");
   doc.text(submittal.job_name, 120, 60);
 
-  // --- DYNAMIC QUOTES LOOP ---
-  // This removes the 4-quote limit by iterating through the checked array
   let currentY = 85;
 
-  selectedQuotes.forEach((quote, index) => {
-    // Check for page overflow
-    if (currentY > 250) {
-      doc.addPage();
-      currentY = 20;
-    }
-
-    doc.setFillColor(245, 245, 245);
-    doc.rect(20, currentY, 170, 30, 'F'); // Background box for option
-
+  // --- MATERIAL OPTIONS LOOP ---
+  if (selectedQuotes && selectedQuotes.length > 0) {
     doc.setFont("helvetica", "bold");
-    doc.text(`OPTION ${index + 1}: ${quote.material}`, 25, currentY + 10);
-    
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`Manufacturer: ${quote.manufacturer} | Style: ${quote.mounting_style}`, 25, currentY + 18);
-    doc.text(`Quantity: ${quote.quantity}`, 25, currentY + 23);
-
     doc.setFontSize(12);
+    doc.text("MATERIAL OPTIONS", 20, currentY);
+    currentY += 10;
+
+    selectedQuotes.forEach((quote, index) => {
+      if (currentY > 250) { doc.addPage(); currentY = 20; }
+
+      doc.setFillColor(245, 245, 245);
+      doc.rect(20, currentY, 170, 30, 'F');
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(`OPTION ${index + 1}: ${quote.material}`, 25, currentY + 10);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Manufacturer: ${quote.manufacturer} | Style: ${quote.mounting_style}`, 25, currentY + 18);
+      doc.text(`Quantity: ${quote.quantity}`, 25, currentY + 23);
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`$${Number(quote.price).toLocaleString()}`, 185, currentY + 15, { align: "right" });
+
+      currentY += 35;
+    });
+  }
+
+  // --- ADD-ONS LOOP ---
+  if (selectedAddons && selectedAddons.length > 0) {
+    if (currentY > 240) { doc.addPage(); currentY = 20; }
+    
+    currentY += 5;
     doc.setFont("helvetica", "bold");
-    const priceText = `$${Number(quote.price).toLocaleString()}`;
-    doc.text(priceText, 185, currentY + 15, { align: "right" });
+    doc.setFontSize(12);
+    doc.text("ADD-ON ITEMS", 20, currentY);
+    currentY += 10;
 
-    currentY += 35; // Move Y down for the next option
-  });
+    selectedAddons.forEach((addon) => {
+      if (currentY > 260) { doc.addPage(); currentY = 20; }
 
-  // --- Footer / Terms ---
+      doc.setDrawColor(230, 230, 230);
+      doc.line(20, currentY, 190, currentY); // Divider line
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(addon.material, 25, currentY + 8);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Reason: ${addon.reason || 'N/A'}`, 25, currentY + 14);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`+ $${Number(addon.price).toLocaleString()}`, 185, currentY + 10, { align: "right" });
+
+      currentY += 20;
+    });
+  }
+
+  // --- Summary Total ---
+  const total = [...(selectedQuotes || []), ...(selectedAddons || [])]
+    .reduce((sum, item) => sum + Number(item.price), 0);
+
+  if (currentY > 260) { doc.addPage(); currentY = 20; }
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(`ESTIMATED TOTAL: $${total.toLocaleString()}`, 185, currentY + 10, { align: "right" });
+
+  // Footer
   doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
   doc.text("Terms: 50% deposit required. Quote valid for 30 days.", 105, 285, { align: "center" });
 
-  // 4. Output as Buffer
   const pdfBuffer = doc.output('arraybuffer');
-
   return new NextResponse(pdfBuffer, {
     headers: {
       'Content-Type': 'application/pdf',
