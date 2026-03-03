@@ -18,14 +18,28 @@ export async function POST(req: Request) {
   // 2. Only try to parse the body if it's NOT a handshake
   try {
     const body = await req.json();
-    console.log("Webhook received data:", body);
     
-    // Your logic to save the call to Supabase goes here...
-    
-    return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+    // Navigate the RingCentral JSON structure to find the phone number
+    const party = body.body?.parties?.[0];
+    const phoneNumber = party?.from?.phoneNumber || "Unknown";
+    const callerName = party?.from?.name || "Unknown Caller";
+    const status = party?.status?.code === 'Disconnected' ? 'processed' : 'active';
+
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from('ringcentral_calls')
+      .insert([{
+        phone_number: phoneNumber,
+        caller_name: callerName,
+        status: status,
+        raw_data: body // Store everything just in case
+      }]);
+
+    if (error) throw error;
+
+    return new Response(JSON.stringify({ status: 'success' }), { status: 200 });
   } catch (err) {
-    console.error("Webhook Body Error:", err);
-    // Return a 200 anyway so RingCentral doesn't disable your webhook
-    return new Response(JSON.stringify({ status: 'ignored' }), { status: 200 });
+    return new Response(JSON.stringify({ status: 'error', message: err.message }), { status: 200 });
   }
 }
