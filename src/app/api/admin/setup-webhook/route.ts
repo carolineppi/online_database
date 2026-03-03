@@ -28,20 +28,20 @@ export async function GET() {
   const platform = rcsdk.platform();
 
   try {
-    // 1. Load the existing refresh token
     await platform.auth().setData({ refresh_token: tokens.rc_refresh_token });
-    
-    // 2. Perform the refresh
     await platform.refresh();
     
-    // 3. GET THE NEW TOKENS and save them immediately
     const authData = await platform.auth().data();
+
+    // Explicitly convert expires_in to a Number to fix the build error
+    const expiresIn = Number(authData.expires_in) || 3600; 
+
     await supabase
       .from('settings')
       .update({
         rc_access_token: authData.access_token,
-        rc_refresh_token: authData.refresh_token, // This is the new token for next time!
-        rc_token_expiry: new Date(Date.now() + authData.expires_in * 1000).toISOString(),
+        rc_refresh_token: authData.refresh_token,
+        rc_token_expiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', '00000000-0000-0000-0000-000000000000');

@@ -24,14 +24,15 @@ export async function GET(req: Request) {
     });
     
     const tokenData = await loginResponse.json();
-
+    const expiresIn = Number(tokenData.expires_in) || 3600;
     // 2. Save tokens to your Supabase 'settings' table
     await supabase
       .from('settings')
       .update({
         rc_access_token: tokenData.access_token,
         rc_refresh_token: tokenData.refresh_token,
-        rc_token_expiry: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+        // Also update this in your callback route
+        rc_token_expiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', '00000000-0000-0000-0000-000000000000');
