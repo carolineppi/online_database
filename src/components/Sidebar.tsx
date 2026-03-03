@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSign } from 'lucide-react';
+import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSign, PhoneIncoming } from 'lucide-react';
 import UserProfile from './UserProfile';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
   { name: 'Financials', href: '/financials', icon: DollarSign }, // Add this line
   { name: 'Customers', href: '/customers', icon: Users }, // Added link
+  
 ];
 
 export default function Sidebar({ user }: { user: any }) {
@@ -21,7 +22,12 @@ export default function Sidebar({ user }: { user: any }) {
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">P</div>
         <span className="text-xl font-bold text-white">Partition+</span>
       </div>
-      
+      // Inside Sidebar navigation list
+      <Link href="/calls" className="flex items-center gap-3 p-3 hover:bg-zinc-50 rounded-2xl transition group">
+        <PhoneIncoming size={20} className="text-zinc-400 group-hover:text-blue-600" />
+        <span className="text-sm font-bold text-zinc-600 group-hover:text-zinc-900">Call Queue</span>
+        {/* Optional: Add a badge if there are active calls */}
+      </Link>
       <nav className="flex-1 p-4 space-y-2">
         {navItems.map((item) => (
           <Link
