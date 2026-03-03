@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+// 1. THIS IS THE MOST IMPORTANT LINE: It imports all your Tailwind styles
+import "./globals.css"; 
+
+import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import LoginPage from './login/page';
-
-// Create a simple context to force updates across components
-const AuthContext = createContext({ user: null, login: (u: any) => {}, logout: () => {} });
+import { Toaster } from 'sonner';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const pathname = usePathname();
-  const router = useRouter();
 
   const checkUser = () => {
     const saved = localStorage.getItem('employee');
@@ -26,27 +26,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     checkUser();
-    // Listen for storage changes across tabs
     window.addEventListener('storage', checkUser);
     return () => window.removeEventListener('storage', checkUser);
   }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-zinc-50">Loading...</div>;
+  // Prevent a flash of unstyled content while checking auth
+  if (loading) return null; 
 
-  // If no user and not on login page, show Login only
+  // GUARD: If no user, wrap the Login page in the SAME style-friendly tags
   if (!user && pathname !== '/login') {
     return (
       <html lang="en">
-        <body><LoginPage /></body>
+        {/* Antialiased helps the font look crisp like it did before */}
+        <body className="bg-zinc-50 antialiased min-h-screen">
+          <LoginPage />
+          <Toaster position="top-center" />
+        </body>
       </html>
     );
   }
 
   return (
     <html lang="en">
-      <body className="flex bg-zinc-50">
+      {/* 'flex' is required here so the Sidebar sits left and content sits right */}
+      <body className="bg-zinc-50 flex antialiased min-h-screen">
         {user && <Sidebar user={user} />} 
-        <main className="flex-1">{children}</main>
+        
+        {/* 'flex-1' ensures the main content takes up the remaining horizontal space */}
+        <main className="flex-1 overflow-x-hidden">
+          {children}
+        </main>
+        
+        <Toaster position="top-center" />
       </body>
     </html>
   );
