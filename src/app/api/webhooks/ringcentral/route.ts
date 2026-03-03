@@ -39,7 +39,8 @@ export async function POST(req: Request) {
     if (error) throw error;
 
     return new Response(JSON.stringify({ status: 'success' }), { status: 200 });
-  } catch (err) {
-    return new Response(JSON.stringify({ status: 'error', message: err.message }), { status: 200 });
+  } catch (error: any) {
+    console.error("Error processing webhook:", error);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 }); 
   }
 }
