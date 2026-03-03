@@ -22,10 +22,12 @@ export async function GET() {
     server: 'https://platform.ringcentral.com',
     clientId: process.env.RC_CLIENT_ID,
     clientSecret: process.env.RC_CLIENT_SECRET,
-    redirectUri: process.env.RC_REDIRECT_URI // ENSURE THIS IS PASSED HERE
+    redirectUri: process.env.RC_REDIRECT_URI // Crucial for the refresh handshake
   });
 
   const platform = rcsdk.platform();
+  await platform.auth().setData({ refresh_token: tokens.rc_refresh_token });
+  await platform.refresh(); // This will now work because the Redirect URI matches
 
   // Inside your setup-webhook GET function...
   try {

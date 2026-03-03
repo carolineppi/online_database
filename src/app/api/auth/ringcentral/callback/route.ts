@@ -18,22 +18,21 @@ export async function GET(req: Request) {
 
   try {
     // 1. Exchange the code for actual tokens
+    // Exchange code for token
     const loginResponse = await rcsdk.platform().login({
       code: code,
-      redirect_uri: process.env.RC_REDIRECT_URI // FIXED: Changed to redirect_uri (snake_case)
+      redirect_uri: process.env.RC_REDIRECT_URI // MUST be snake_case
     });
-    
+
     const tokenData = await loginResponse.json();
-    const expiresIn = Number(tokenData.expires_in) || 3600;
-    // 2. Save tokens to your Supabase 'settings' table
+
+    // Save to the fixed ID
     await supabase
       .from('settings')
       .update({
         rc_access_token: tokenData.access_token,
         rc_refresh_token: tokenData.refresh_token,
-        // Also update this in your callback route
-        rc_token_expiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
-        updated_at: new Date().toISOString()
+        rc_token_expiry: new Date(Date.now() + Number(tokenData.expires_in) * 1000).toISOString()
       })
       .eq('id', '00000000-0000-0000-0000-000000000000');
 
