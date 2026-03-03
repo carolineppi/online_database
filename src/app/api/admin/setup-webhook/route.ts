@@ -47,9 +47,10 @@ export async function GET() {
       .eq('id', '00000000-0000-0000-0000-000000000000');
 
     // 4. Create the subscription
+    // Inside your setup-webhook route
     const response = await platform.post('/restapi/v1.0/subscription', {
       eventFilters: [
-        "/restapi/v1.0/account/~/telephony/sessions"
+        "/restapi/v1.0/account/~/telephony/sessions" // Broadened to the whole account
       ],
       deliveryMode: {
         transportType: "WebHook",
