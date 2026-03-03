@@ -48,7 +48,9 @@ export async function GET() {
 
     // 4. Create the subscription
     const response = await platform.post('/restapi/v1.0/subscription', {
-      eventFilters: ["/restapi/v1.0/account/~/extension/~/telephony/sessions"],
+      eventFilters: [
+        "/restapi/v1.0/account/~/telephony/sessions"
+      ],
       deliveryMode: {
         transportType: "WebHook",
         address: "https://online-database-chi.vercel.app/api/webhooks/ringcentral"
