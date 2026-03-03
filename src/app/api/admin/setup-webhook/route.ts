@@ -27,30 +27,27 @@ export async function GET() {
 
   const platform = rcsdk.platform();
 
+  // Inside your setup-webhook GET function...
   try {
     await platform.auth().setData({ refresh_token: tokens.rc_refresh_token });
     await platform.refresh();
-    
-    const authData = await platform.auth().data();
 
-    // Explicitly convert expires_in to a Number to fix the build error
-    const expiresIn = Number(authData.expires_in) || 3600; 
+    // 1. FETCH existing subscriptions
+    const subsResponse = await platform.get('/restapi/v1.0/subscription');
+    const subsData = await subsResponse.json();
 
-    await supabase
-      .from('settings')
-      .update({
-        rc_access_token: authData.access_token,
-        rc_refresh_token: authData.refresh_token,
-        rc_token_expiry: new Date(Date.now() + expiresIn * 1000).toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', '00000000-0000-0000-0000-000000000000');
+    // 2. DELETE all existing subscriptions to clear the slate
+    if (subsData.records && subsData.records.length > 0) {
+      for (const sub of subsData.records) {
+        await platform.delete(`/restapi/v1.0/subscription/${sub.id}`);
+        console.log(`Deleted old subscription: ${sub.id}`);
+      }
+    }
 
-    // 4. Create the subscription
-    // Inside your setup-webhook route
+    // 3. CREATE the new account-wide subscription
     const response = await platform.post('/restapi/v1.0/subscription', {
       eventFilters: [
-        "/restapi/v1.0/account/~/telephony/sessions" // Broadened to the whole account
+        "/restapi/v1.0/account/~/telephony/sessions" // Account-wide filter
       ],
       deliveryMode: {
         transportType: "WebHook",
@@ -59,15 +56,9 @@ export async function GET() {
       expiresIn: 315360000 
     });
 
-  const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "RingCentral API Error");
-    }
-
-    return NextResponse.json({ message: "Subscription Created!", details: result });
+    const result = await response.json();
+    return NextResponse.json({ message: "Old subscriptions cleared and new one created!", details: result });
   } catch (error: any) {
-    console.error("RC Subscription Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
