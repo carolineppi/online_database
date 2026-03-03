@@ -28,27 +28,33 @@ export async function GET() {
   const platform = rcsdk.platform();
 
   try {
-  // 1. Manually set the refresh token into the platform's auth data
-  const auth = platform.auth();
-  await auth.setData({
-    refresh_token: tokens.rc_refresh_token,
-  });
+    // 1. Load the existing refresh token
+    await platform.auth().setData({ refresh_token: tokens.rc_refresh_token });
+    
+    // 2. Perform the refresh
+    await platform.refresh();
+    
+    // 3. GET THE NEW TOKENS and save them immediately
+    const authData = await platform.auth().data();
+    await supabase
+      .from('settings')
+      .update({
+        rc_access_token: authData.access_token,
+        rc_refresh_token: authData.refresh_token, // This is the new token for next time!
+        rc_token_expiry: new Date(Date.now() + authData.expires_in * 1000).toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', '00000000-0000-0000-0000-000000000000');
 
-  // 2. Perform a refresh instead of a login
-  // This automatically uses the refresh_token to get a new access_token
-  await platform.refresh();
-
-  // 3. Register the Webhook
-  const response = await platform.post('/restapi/v1.0/subscription', {
-    eventFilters: [
-      "/restapi/v1.0/account/~/extension/~/telephony/sessions"
-    ],
-    deliveryMode: {
-      transportType: "WebHook",
-      address: "https://online-database-chi.vercel.app/api/webhooks/ringcentral"
-    },
-    expiresIn: 315360000 
-  });
+    // 4. Create the subscription
+    const response = await platform.post('/restapi/v1.0/subscription', {
+      eventFilters: ["/restapi/v1.0/account/~/extension/~/telephony/sessions"],
+      deliveryMode: {
+        transportType: "WebHook",
+        address: "https://online-database-chi.vercel.app/api/webhooks/ringcentral"
+      },
+      expiresIn: 315360000 
+    });
 
   const result = await response.json();
 
