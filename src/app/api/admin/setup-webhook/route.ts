@@ -21,7 +21,8 @@ export async function GET() {
   const rcsdk = new SDK({
     server: 'https://platform.ringcentral.com',
     clientId: process.env.RC_CLIENT_ID,
-    clientSecret: process.env.RC_CLIENT_SECRET
+    clientSecret: process.env.RC_CLIENT_SECRET,
+    redirectUri: process.env.RC_REDIRECT_URI // ENSURE THIS IS PASSED HERE
   });
 
   const platform = rcsdk.platform();
