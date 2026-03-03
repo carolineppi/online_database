@@ -1,21 +1,31 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 
 export async function POST(req: Request) {
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  const body = await req.json();
+  // 1. Check for the Validation-Token header IMMEDIATELY
+  const validationToken = req.headers.get('Validation-Token');
 
-  // Validate this is a RingCentral Telephony Session event
-  const phoneNumber = body.body?.parties?.[0]?.from?.phoneNumber;
-  const callerName = body.body?.parties?.[0]?.from?.name;
-
-  if (phoneNumber) {
-    await supabase.from('ringcentral_calls').insert([{
-      call_id: body.body.telephonySessionId,
-      phone_number: phoneNumber,
-      caller_name: callerName
-    }]);
+  if (validationToken) {
+    console.log("Handshake detected. Responding with token:", validationToken);
+    return new Response(null, {
+      status: 200,
+      headers: { 
+        'Validation-Token': validationToken,
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
-  return NextResponse.json({ ok: true });
+  // 2. Only try to parse the body if it's NOT a handshake
+  try {
+    const body = await req.json();
+    console.log("Webhook received data:", body);
+    
+    // Your logic to save the call to Supabase goes here...
+    
+    return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+  } catch (err) {
+    console.error("Webhook Body Error:", err);
+    // Return a 200 anyway so RingCentral doesn't disable your webhook
+    return new Response(JSON.stringify({ status: 'ignored' }), { status: 200 });
+  }
 }
