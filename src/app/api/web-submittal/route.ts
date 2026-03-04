@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 // Helper function to parse the UTM sources
 function parseAdSource(rawUrl: string | null) {
-  if (!rawUrl) return { source_url: null, quote_source: 'Direct' };
+  if (!rawUrl) return { source_url: null, quote_source: 'Organic / Direct' };
   
   try {
     const url = new URL(rawUrl);
@@ -12,7 +12,7 @@ function parseAdSource(rawUrl: string | null) {
     return {
       source_url: rawUrl,
       // Map UTM params to your specific database columns
-      quote_source: params.get('utm_source') || 'Direct',
+      quote_source: params.get('utm_source') || 'Organic / Direct',
       campaign_source: params.get('utm_campaign') || params.get('gad_campaignid') || null,
       term_source: params.get('utm_term') || null,
       content_source: params.get('utm_content') || null

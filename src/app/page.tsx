@@ -74,7 +74,7 @@ export default async function Page() {
                         <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">
                           #{item.quote_number}
                         </span>
-                        {(item.quote_source && item.quote_source !== 'Direct') && (
+                        {(item.quote_source && item.quote_source !== 'Organic / Direct') && (
                           <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
                             <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
                             Paid Ad
