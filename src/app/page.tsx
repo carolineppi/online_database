@@ -65,7 +65,7 @@ export default async function Page() {
               {unquotedSubmittals?.length ? unquotedSubmittals.map((item) => (
                 <Link 
                   key={item.id} 
-                  href={`/submittal/${item.id}`}
+                  href={`/submittals/${item.id}`}
                   className="group block p-6 hover:bg-zinc-50 transition"
                 >
                   <div className="flex justify-between items-center">
@@ -79,7 +79,7 @@ export default async function Page() {
                         </span>
                       </div>
                       <h3 className="font-bold text-zinc-900 group-hover:text-blue-600 transition">
-                        {item.project_name}
+                        {item.job_name}
                       </h3>
                     </div>
                     <div className="h-8 w-8 rounded-full border border-zinc-200 flex items-center justify-center group-hover:bg-blue-600 group-hover:border-blue-600 group-hover:text-white transition">
