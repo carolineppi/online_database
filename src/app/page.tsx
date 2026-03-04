@@ -9,14 +9,22 @@ export default async function DashboardPage() {
   
   // 1. Get the current logged-in user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) redirect('/login');
+
+  if (authError || !user) {
+    console.error("Auth Debug:", authError?.message || "No user found");
+    redirect('/login');
+  }
 
   // 2. Fetch Submittals without individual_quotes (The Central Feed)
   // We use a left join to check for null individual_quotes
   const { data: unquotedSubmittals } = await supabase
     .from('quote_submittals')
-    .select('*, individual_quotes!left(id)')
-    .is('individual_quotes.id', null)
+    .select(`
+      *,
+      individual_quotes!left(id)
+    `)
+    // Filter for rows where the left join returned NO quote
+    .is('individual_quotes', null) 
     .order('created_at', { ascending: false });
 
   // 3. Fetch My Assigned Quotes (In Progress - No Winners yet)
