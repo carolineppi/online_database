@@ -74,6 +74,12 @@ export default async function Page() {
                         <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">
                           #{item.quote_number}
                         </span>
+                        {(item.quote_source && item.quote_source !== 'Direct') && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
+                            Paid Ad
+                          </span>
+                        )}
                         <span className="text-xs text-zinc-400 font-medium">
                           {new Date(item.created_at).toLocaleDateString()}
                         </span>
@@ -108,7 +114,7 @@ export default async function Page() {
             <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
               <div className="p-6 border-b bg-zinc-50/50 flex items-center gap-3">
                 <UserCheck className="text-emerald-600" size={20} />
-                <h2 className="font-bold text-zinc-900">My Active Quotes</h2>
+                <h2 className="font-bold text-zinc-900">Awaiting Job Status</h2>
               </div>
               <div className="p-4 space-y-3">
                 {myAssignedQuotes?.map((quote) => (
