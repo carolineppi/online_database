@@ -45,9 +45,9 @@ export default function SubmittalSearchBar() {
 
       const { data, error } = await supabase
         .from('quote_submittals')
-        .select('id, quote_number, project_name')
+        .select('id, quote_number, job_name')
         // Corrected syntax: no spaces, explicit ilike patterns
-        .or(`quote_number.ilike.${searchPattern},project_name.ilike.${searchPattern}`)
+        .or(`quote_number.ilike.${searchPattern},job_name.ilike.${searchPattern}`)
         .limit(5);
 
       if (error) {
@@ -132,7 +132,7 @@ export default function SubmittalSearchBar() {
                       {item.quote_number}
                     </p>
                     <p className="text-sm font-bold text-zinc-900 truncate">
-                      {item.project_name}
+                      {item.job_name}
                     </p>
                   </div>
                 </div>
