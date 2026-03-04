@@ -9,15 +9,14 @@ import SubmittalSearchBar from '@/components/SubmittalSearchBar';
 export default async function Page() {
   const CURRENT_EMPLOYEE_ID = '1';
   const supabase = await createClient();
-  // 2. Fetch Submittals without individual_quotes
-    const { data: unquotedSubmittals } = await supabase
+    // 2. Fetch Submittals where status is 'Pending'
+    const { data: unquotedSubmittals, error: fetchError } = await supabase
       .from('quote_submittals')
-      .select(`
-        *,
-        individual_quotes!quote_id(id) 
-      `)
-      .is('individual_quotes', null) // Try this first
+      .select('*')
+      .eq('status', 'Pending') // This matches your SQL 'Pending' rows
       .order('created_at', { ascending: false });
+
+    if (fetchError) console.error("Database Error:", fetchError.message);
 
   // 2. Fetch My Active Quotes (Assigned but not yet WON)
   // Using employee_quoted from SQL and status logic
