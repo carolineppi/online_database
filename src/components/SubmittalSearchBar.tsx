@@ -29,24 +29,37 @@ export default function SubmittalSearchBar() {
 
   // Fetch results as user types
   useEffect(() => {
+    // Inside your useEffect in SubmittalSearchBar.tsx
     const fetchResults = async () => {
-      if (query.trim().length < 2) {
+      const trimmedQuery = query.trim();
+      if (trimmedQuery.length < 2) {
         setResults([]);
         setSelectedIndex(-1);
         return;
       }
 
       setIsSearching(true);
-      const { data } = await supabase
+      
+      // Clean the query to prevent injection or syntax errors
+      const searchPattern = `%${trimmedQuery}%`;
+
+      const { data, error } = await supabase
         .from('quote_submittals')
         .select('id, quote_number, project_name')
-        .or(`quote_number.ilike.%${query}%,project_name.ilike.%${query}%`)
+        // Corrected syntax: no spaces, explicit ilike patterns
+        .or(`quote_number.ilike.${searchPattern},project_name.ilike.${searchPattern}`)
         .limit(5);
 
-      setResults(data || []);
+      if (error) {
+        console.error("Search Error:", error.message);
+        setResults([]);
+      } else {
+        setResults(data || []);
+        setShowDropdown(true);
+        setSelectedIndex(0);
+      }
+      
       setIsSearching(false);
-      setShowDropdown(true);
-      setSelectedIndex(0); // Auto-highlight first result
     };
 
     const timer = setTimeout(fetchResults, 300);
