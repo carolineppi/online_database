@@ -9,13 +9,18 @@ import SubmittalSearchBar from '@/components/SubmittalSearchBar';
 export default async function Page() {
   const CURRENT_EMPLOYEE_ID = '1';
   const supabase = await createClient();
-  // 1. Fetch Submittals without individual_quotes
-  // We use job_name (from SQL) and filter for null relationship
-  const { data: unquotedSubmittals } = await supabase
+  // 2. Fetch Submittals without individual_quotes
+  const { data: unquotedSubmittals, error: fetchError } = await supabase
     .from('quote_submittals')
-    .select('*, individual_quotes!left(id)')
-    .is('individual_quotes', null) 
+    .select(`
+      *,
+      individual_quotes!left(id)
+    `)
+    // Try referencing the join by table name
+    .filter('individual_quotes.id', 'is', null) 
     .order('created_at', { ascending: false });
+
+  if (fetchError) console.error("Filter Error:", fetchError.message);
 
   // 2. Fetch My Active Quotes (Assigned but not yet WON)
   // Using employee_quoted from SQL and status logic
@@ -51,7 +56,7 @@ export default async function Page() {
               </div>
               <div className="divide-y divide-zinc-100">
                 {unquotedSubmittals?.length ? unquotedSubmittals.map((item) => (
-                  <Link key={item.id} href={`/submittal/${item.id}`} className="block p-6 hover:bg-zinc-50 transition">
+                  <Link key={item.id} href={`/submittals/${item.id}`} className="block p-6 hover:bg-zinc-50 transition">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-xs font-black text-blue-600 uppercase mb-1">#{item.quote_number}</p>
@@ -82,7 +87,7 @@ export default async function Page() {
               </div>
               <div className="p-4 space-y-3">
                 {myAssignedQuotes?.map((quote) => (
-                  <Link key={quote.id} href={`/submittal/${quote.id}`} className="flex flex-col p-4 bg-zinc-50 border border-zinc-100 rounded-2xl hover:border-blue-200 transition">
+                  <Link key={quote.id} href={`/submittals/${quote.id}`} className="flex flex-col p-4 bg-zinc-50 border border-zinc-100 rounded-2xl hover:border-blue-200 transition">
                     <span className="text-[10px] font-bold text-zinc-400 uppercase">#{quote.quote_number}</span>
                     <span className="text-sm font-bold text-zinc-800 truncate">{quote.job_name}</span> {/* Fixed column name */}
                   </Link>
