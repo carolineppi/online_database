@@ -10,17 +10,14 @@ export default async function Page() {
   const CURRENT_EMPLOYEE_ID = '1';
   const supabase = await createClient();
   // 2. Fetch Submittals without individual_quotes
-  const { data: unquotedSubmittals, error: fetchError } = await supabase
-    .from('quote_submittals')
-    .select(`
-      *,
-      individual_quotes!left(id)
-    `)
-    // Try referencing the join by table name
-    .filter('individual_quotes.id', 'is', null) 
-    .order('created_at', { ascending: false });
-
-  if (fetchError) console.error("Filter Error:", fetchError.message);
+    const { data: unquotedSubmittals } = await supabase
+      .from('quote_submittals')
+      .select(`
+        *,
+        individual_quotes!quote_id(id) 
+      `)
+      .is('individual_quotes', null) // Try this first
+      .order('created_at', { ascending: false });
 
   // 2. Fetch My Active Quotes (Assigned but not yet WON)
   // Using employee_quoted from SQL and status logic
@@ -41,9 +38,9 @@ export default async function Page() {
             <h1 className="text-3xl font-black text-zinc-900 uppercase tracking-tight">Pipeline Dashboard</h1>
             <p className="text-zinc-500">Manage incoming submittals and your active quotes.</p>
           </div>
-          <Link href="/inbound-submittals" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition shadow-lg shadow-blue-200">
+          {/* <Link href="/inbound-submittals" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition shadow-lg shadow-blue-200">
             <Plus size={20} /> New Submittal
-          </Link>
+          </Link> */}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
