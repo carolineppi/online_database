@@ -84,7 +84,7 @@ export default async function Page() {
     const { data: myAssignedQuotes } = await supabase
       .from('quote_submittals')
       .select('*, individual_quotes!inner(id, selected_winner)')
-      .eq('assigned_to', CURRENT_EMPLOYEE_ID) // Filter by logged-in user
+      .eq('employee_quoted', CURRENT_EMPLOYEE_ID) // Filter by logged-in user
       .eq('individual_quotes.selected_winner', false)
       .order('created_at', { ascending: false });
 

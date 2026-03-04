@@ -67,7 +67,7 @@ export default function SubmittalSearchBar() {
   }, [query, supabase]);
 
   const handleSelect = (id: string) => {
-    router.push(`/submittal/${id}`);
+    router.push(`/submittals/${id}`);
     setQuery('');
     setShowDropdown(false);
   };
