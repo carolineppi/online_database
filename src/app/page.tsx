@@ -1,42 +1,95 @@
+import Image from "next/image";
 import { createClient } from '@/utils/supabase/server';
+import RecentActivity from '@/components/RecentActivity';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Search, Plus, ClipboardList, UserCheck } from 'lucide-react';
 import SubmittalSearchBar from '@/components/SubmittalSearchBar';
 
-export default async function DashboardPage() {
+// export default function Home() {
+//   return (
+//     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+//       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+//         <Image
+//           className="dark:invert"
+//           src="/next.svg"
+//           alt="Next.js logo"
+//           width={100}
+//           height={20}
+//           priority
+//         />
+//         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+//           <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
+//             To get started, edit the page.tsx file.
+//           </h1>
+//           <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+//             Looking for a starting point or more instructions? Head over to{" "}
+//             <a
+//               href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//               className="font-medium text-zinc-950 dark:text-zinc-50"
+//             >
+//               Templates
+//             </a>{" "}
+//             or the{" "}
+//             <a
+//               href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//               className="font-medium text-zinc-950 dark:text-zinc-50"
+//             >
+//               Learning
+//             </a>{" "}
+//             center.
+//           </p>
+//         </div>
+//         <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+//           <a
+//             className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
+//             href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//             target="_blank"
+//             rel="noopener noreferrer"
+//           >
+//             <Image
+//               className="dark:invert"
+//               src="/vercel.svg"
+//               alt="Vercel logomark"
+//               width={16}
+//               height={16}
+//             />
+//             Deploy Now
+//           </a>
+//           <a
+//             className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
+//             href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+//             target="_blank"
+//             rel="noopener noreferrer"
+//           >
+//             Documentation
+//           </a>
+//         </div>
+//       </main>
+//     </div>
+//   );
+// }
+export default async function Page() {
+  const CURRENT_EMPLOYEE_ID = '1';
   const supabase = await createClient();
-  
-  // 1. Get the current logged-in user
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error("Auth Debug:", authError?.message || "No user found");
-    redirect('/login');
-  }
-
   // 2. Fetch Submittals without individual_quotes (The Central Feed)
-  // We use a left join to check for null individual_quotes
-  const { data: unquotedSubmittals } = await supabase
-    .from('quote_submittals')
-    .select(`
-      *,
-      individual_quotes!left(id)
-    `)
-    // Filter for rows where the left join returned NO quote
-    .is('individual_quotes', null) 
-    .order('created_at', { ascending: false });
+    // We use a left join to check for null individual_quotes
+    const { data: unquotedSubmittals } = await supabase
+      .from('quote_submittals')
+      .select('*, individual_quotes!left(id)')
+      .is('individual_quotes.id', null)
+      .order('created_at', { ascending: false });
 
-  // 3. Fetch My Assigned Quotes (In Progress - No Winners yet)
-  const { data: myAssignedQuotes } = await supabase
-    .from('quote_submittals')
-    .select('*, individual_quotes!inner(id, selected_winner)')
-    .eq('assigned_to', user.id) // Filter by logged-in user
-    .eq('individual_quotes.selected_winner', false)
-    .order('created_at', { ascending: false });
+    // 3. Fetch My Assigned Quotes (In Progress - No Winners yet)
+    const { data: myAssignedQuotes } = await supabase
+      .from('quote_submittals')
+      .select('*, individual_quotes!inner(id, selected_winner)')
+      .eq('assigned_to', CURRENT_EMPLOYEE_ID) // Filter by logged-in user
+      .eq('individual_quotes.selected_winner', false)
+      .order('created_at', { ascending: false });
 
   return (
-    <main className="p-8 bg-gray-50 min-h-screen">
+   <main className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         
         {/* Header with New Submittal Button */}
