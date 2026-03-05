@@ -2,64 +2,87 @@ import { SDK } from '@ringcentral/sdk';
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+// 1. Helper function to ensure we always have a fresh token
+async function getFreshToken(supabase: any) {
+  const { data: settings } = await supabase
+    .from('settings')
+    .select('*')
+    .eq('id', '00000000-0000-0000-0000-000000000000')
+    .single();
+
+  if (!settings?.rc_refresh_token) throw new Error("No refresh token in database");
+
+  const rcsdk = new SDK({
+    server: 'https://platform.ringcentral.com',
+    clientId: process.env.RC_CLIENT_ID,
+    clientSecret: process.env.RC_CLIENT_SECRET,
+    redirectUri: process.env.RC_REDIRECT_URI
+  });
+
+  const platform = rcsdk.platform();
+
+  // Load existing tokens into the SDK
+  await platform.auth().setData({
+    access_token: settings.rc_access_token,
+    refresh_token: settings.rc_refresh_token
+  });
+
   try {
-    const supabase = await createClient();
+    // Attempt the refresh
+    const refreshResponse = await platform.refresh();
+    const newData = await refreshResponse.json();
 
-    // 1. Fetch tokens with an error guard
-    const { data: tokens, error: dbError } = await supabase
+    // CRITICAL: Save the NEW refresh token immediately to prevent "Token Revoked" errors
+    await supabase
       .from('settings')
-      .select('*')
-      .eq('id', '00000000-0000-0000-0000-000000000000')
-      .maybeSingle();
+      .update({
+        rc_access_token: newData.access_token,
+        rc_refresh_token: newData.refresh_token,
+        rc_token_expiry: new Date(Date.now() + newData.expires_in * 1000).toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', '00000000-0000-0000-0000-000000000000');
 
-    if (dbError) throw new Error(`Database Query Failed: ${dbError.message}`);
-    if (!tokens?.rc_refresh_token) {
-      return NextResponse.json({ 
-        error: "No tokens found. Please go to Settings and 'Link Account' first." 
-      }, { status: 400 });
-    }
+    return newData.access_token;
+  } catch (error: any) {
+    console.error("Self-Healing Refresh Failed:", error.message);
+    throw new Error("Auth Refresh Failed: Re-link account in Settings");
+  }
+}
 
-    // 2. Validate Environment Variables
-    if (!process.env.RC_CLIENT_ID || !process.env.RC_CLIENT_SECRET) {
-      throw new Error("Missing RC_CLIENT_ID or RC_CLIENT_SECRET in environment variables.");
-    }
+export async function GET(req: Request) {
+  const supabase = await createClient();
 
-    const rcsdk = new SDK({
-      server: 'https://platform.ringcentral.com',
-      clientId: process.env.RC_CLIENT_ID,
-      clientSecret: process.env.RC_CLIENT_SECRET
+  try {
+    // 2. Get the authenticated token
+    const accessToken = await getFreshToken(supabase);
+
+    // 3. Check RingCentral Subscriptions
+    const rcResponse = await fetch('https://platform.ringcentral.com/restapi/v1.0/subscription', {
+      headers: { 
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
     });
 
-    const platform = rcsdk.platform();
-
-    // 3. Auth Refresh with Error Handling
-    try {
-      await platform.auth().setData({ refresh_token: tokens.rc_refresh_token });
-      await platform.refresh();
-    } catch (authErr: any) {
-      return NextResponse.json({ 
-        error: "Auth Refresh Failed", 
-        details: authErr.message,
-        suggestion: "Your session might be dead. Re-link your account in Settings."
-      }, { status: 401 });
+    if (!rcResponse.ok) {
+      const errorData = await rcResponse.json();
+      throw new Error(`RC API Error: ${errorData.message || rcResponse.statusText}`);
     }
 
-    // 4. Fetch Subscriptions
-    const response = await platform.get('/restapi/v1.0/subscription');
-    const result = await response.json();
+    const data = await rcResponse.json();
 
     return NextResponse.json({
       status: "Success",
-      count: result.records?.length || 0,
-      subscriptions: result.records
+      count: data.records?.length || 0,
+      subscriptions: data.records || []
     });
 
   } catch (error: any) {
-    console.error("DEBUG: check-subscriptions crash:", error.message);
+    console.error("Check Subscriptions Error:", error.message);
     return NextResponse.json({ 
-      error: "Internal Server Error", 
-      message: error.message 
+      error: error.message,
+      suggestion: "If refresh failed, manually re-link in /settings" 
     }, { status: 500 });
   }
 }
