@@ -61,15 +61,18 @@ export async function GET() {
     }
 
     // 6. CREATE the new account-wide subscription
-    const response = await platform.post('/restapi/v1.0/subscription', {
-      eventFilters: [
-        "/restapi/v1.0/account/~/telephony/sessions"
-      ],
-      deliveryMode: {
-        transportType: "WebHook",
-        address: "https://online-database-chi.vercel.app/api/webhooks/ringcentral"
-      },
-      expiresIn: 315360000 
+    const response = await fetch('https://platform.ringcentral.com/restapi/v1.0/subscription', {
+      method: 'POST',
+      headers: { /* ... headers ... */ },
+      body: JSON.stringify({
+        // Add ?direction=Inbound to the filter
+        eventFilters: ["/restapi/v1.0/account/~/telephony/sessions?direction=Inbound"],
+        deliveryMode: {
+          transportType: "WebHook",
+          address: process.env.RC_WEBHOOK_URL
+        },
+        expiresIn: 315360000 
+      })
     });
 
     const result = await response.json();
