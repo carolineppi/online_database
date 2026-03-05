@@ -10,34 +10,39 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
-    const supabase = await createClient();
+  const body = await req.json();
+    
+    // 1. Extract the unique Session ID
+    const sessionId = body.body?.telephonySessionId;
+    if (!sessionId) return new Response('No session ID', { status: 200 });
 
-    // Safely extract data using optional chaining
+    // 2. Extract party info
     const party = body.body?.parties?.[0];
     const phoneNumber = party?.from?.phoneNumber || "Unknown";
     const callerName = party?.from?.name || "Unknown Caller";
-    
-    // Logic: If status is 'Disconnected', mark it as 'processed'
-    const status = party?.status?.code === 'Disconnected' ? 'processed' : 'active';
+    const callStatus = party?.status?.code; // e.g., 'Setup', 'Connected', 'Disconnected'
 
+    const supabase = await createClient();
+
+    // 3. Use UPSERT instead of INSERT
+    // onConflict: 'telephony_session_id' tells Supabase to update if ID matches
     const { error } = await supabase
       .from('ringcentral_calls')
-      .insert([{
+      .upsert({
+        telephony_session_id: sessionId,
         phone_number: phoneNumber,
         caller_name: callerName,
-        status: status,
-        raw_data: body // This matches the new column
-      }]);
+        status: callStatus === 'Disconnected' ? 'processed' : 'active',
+        raw_data: body,
+        updated_at: new Date().toISOString()
+      }, { 
+        onConflict: 'telephony_session_id' 
+      });
 
-    if (error) {
-      console.error("Supabase Insert Error:", error.message);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-    }
+    if (error) throw error;
 
     return new Response(JSON.stringify({ status: 'success' }), { status: 200 });
-  } catch (err: any) {
-    console.error("Webhook Logic Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+  } catch (err) {
+    return new Response(JSON.stringify({ status: 'error' }), { status: 200 });
   }
 }
