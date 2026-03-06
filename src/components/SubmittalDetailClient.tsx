@@ -12,23 +12,28 @@ import {
   PlusSquare, 
   FileText, 
   PlusCircle,
-  AlertCircle
+  AlertCircle,
+  Copy // Added for duplication
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionTrigger from '@/components/AddOptionTrigger';
+import AddOptionModal from '@/components/AddOptionModal'; // Ensure this matches your file path
 import AddOnForm from '@/components/AddOnForm';
 import { toast } from 'sonner';
+
 
 export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAddOnForm, setShowAddOnForm] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false); // Modal visibility
+  const [duplicateData, setDuplicateData] = useState<any>(null); // Duplication state
+  
   const supabase = createClient();
   const router = useRouter();
 
-  // Financial Calculations
   const winnerPrice = options?.find((o: any) => o.id === activeJob?.accepted_individual_quote)?.price || 0;
   const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
   const projectTotal = Number(winnerPrice) + addonsTotal;
@@ -141,7 +146,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
   return (
     <div className="lg:col-span-2 space-y-12">
-      {/* SECTION 1: MATERIAL OPTIONS */}
       <section>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
@@ -149,14 +153,14 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           </h2>
           <div className="flex gap-3">
             <button 
-              onClick={handleGeneratePDF}
-              disabled={selectedIds.length === 0 || generating}
-              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 disabled:opacity-50 transition shadow-lg shadow-zinc-200"
+              onClick={() => {
+                setDuplicateData(null);
+                setShowAddModal(true);
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-100"
             >
-              <FileDown size={14} />
-              {generating ? "Generating..." : `Generate PDF (${selectedIds.length})`}
+              <PlusCircle size={14} /> Add Option
             </button>
-            <AddOptionTrigger quoteId={id} /> 
           </div>
         </div>
 
@@ -172,11 +176,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                 }`}
                 onClick={() => toggleSelection(option.id)}
               >
-                {isWinner && (
-                  <div className="absolute -top-3 left-8 bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-md uppercase tracking-widest">
-                    <Trophy size={10} /> Active Winner
-                  </div>
-                )}
+                {/* ... (Winner Badge and Selection Indicator UI) ... */}
 
                 <div className="flex items-center gap-5">
                   <div className={`${selectedIds.includes(option.id) ? 'text-blue-600' : 'text-zinc-200'} transition-colors`}>
@@ -196,8 +196,21 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                   </p>
                   
                   <div className="flex items-center gap-3 mt-3">
+                    {/* DUPLICATE BUTTON */}
                     <button
-                      onClick={(e) => handleDeleteOption(option.id, e)} // Call Soft Delete
+                      onClick={() => {
+                        const { price, id: oldId, created_at, ...rest } = option; 
+                        setDuplicateData(rest);
+                        setShowAddModal(true);
+                      }}
+                      className="p-2 text-zinc-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition border border-transparent hover:border-blue-100"
+                      title="Duplicate for Similar Quote"
+                    >
+                      <Copy size={20} />
+                    </button>
+
+                    <button
+                      onClick={(e) => handleDeleteOption(option.id, e)}
                       disabled={loading}
                       className="p-2 text-zinc-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition border border-transparent hover:border-red-100"
                       title="Move to Trash"
@@ -316,6 +329,17 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       </section>
 
       {/* MODAL OVERLAY */}
+      {showAddModal && (
+        <AddOptionModal 
+          quoteId={id} 
+          onClose={() => {
+            setShowAddModal(false);
+            setDuplicateData(null);
+          }} 
+          initialData={duplicateData}
+        />
+      )}
+
       {showAddOnForm && (
         <AddOnForm 
           quoteId={id} 
