@@ -11,10 +11,15 @@ export async function POST(req: Request) {
     
     // 1. Find the Session ID (Check multiple possible locations in the RC JSON)
     const sessionId = body.body?.telephonySessionId || body.telephonySessionId;
+    const direction = body.body?.parties?.[0]?.direction || body.parties?.[0]?.direction;
     
     if (!sessionId) {
       console.error(">>> [WEBHOOK ERROR] No telephonySessionId found in payload:", JSON.stringify(body));
       return new Response('Missing Session ID', { status: 200 });
+    }
+    if (direction && direction !== 'Inbound') {
+    console.log(`>>> [WEBHOOK] Blocking ${direction} call.`);
+    return new Response('Inbound calls only', { status: 200 });
     }
 
     // 2. Extract Caller Info

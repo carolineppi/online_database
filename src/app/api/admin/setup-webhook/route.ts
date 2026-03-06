@@ -32,18 +32,15 @@ export async function GET() {
     await platform.auth().setData({ refresh_token: tokens.rc_refresh_token });
     await platform.refresh();
     
-    // 3. PERSISTENCE LOGIC: Fix "Immediate Expiry"
+    // 3. PERSISTENCE LOGIC
     const authData = await platform.auth().data();
-    
-    // Force expires_in to a number and provide a 1-hour fallback
     const expiresInSeconds = Number(authData.expires_in) || 3600;
 
     await supabase
       .from('settings')
       .update({
         rc_access_token: authData.access_token,
-        rc_refresh_token: authData.refresh_token, // Store the new rotation token
-        // Robust calculation: Now + (seconds * 1000)
+        rc_refresh_token: authData.refresh_token,
         rc_token_expiry: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -63,10 +60,15 @@ export async function GET() {
     // 6. CREATE the new account-wide subscription
     const response = await fetch('https://platform.ringcentral.com/restapi/v1.0/subscription', {
       method: 'POST',
-      headers: { /* ... headers ... */ },
+      headers: {
+        // FIX: Use authData.access_token instead of the undefined access_token
+        'Authorization': `Bearer ${authData.access_token}`,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
-        // Add ?direction=Inbound to the filter
-        eventFilters: ["/restapi/v1.0/account/~/telephony/sessions?direction=Inbound"],
+        eventFilters: [
+          "/restapi/v1.0/account/~/telephony/sessions?direction=Inbound"
+        ],
         deliveryMode: {
           transportType: "WebHook",
           address: process.env.RC_WEBHOOK_URL
@@ -76,7 +78,12 @@ export async function GET() {
     });
 
     const result = await response.json();
-    return NextResponse.json({ message: "Tokens updated and webhook activated!", details: result });
+    
+    // Success handling: RingCentral returns a 200/201 on success
+    return NextResponse.json({ 
+      message: "Slate cleared and Inbound-only webhook activated!", 
+      details: result 
+    });
   } catch (error: any) {
     console.error("Setup Webhook Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
