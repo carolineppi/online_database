@@ -84,7 +84,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Material</label>
                 <div className="relative">
-                  <select required value={formData.material} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <select value={formData.material} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
                     onChange={e => setFormData({...formData, material: e.target.value})}>
                     {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
@@ -94,7 +94,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Manufacturer</label>
                 <div className="relative">
-                  <select required value={formData.manufacturer} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <select value={formData.manufacturer} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
                     onChange={e => setFormData({...formData, manufacturer: e.target.value})}>
                     {MANUFACTURERS.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
@@ -123,7 +123,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
                 <div className="relative">
                   <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                  <input required value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                  <input value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
                     onChange={e => setFormData({...formData, color: e.target.value})} />
                 </div>
               </div>
@@ -157,7 +157,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Hardware Details</label>
               <div className="relative">
                 <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <input required value={formData.hardware_included} className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                <input value={formData.hardware_included} className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
                   onChange={e => setFormData({...formData, hardware_included: e.target.value})} />
               </div>
             </div>
