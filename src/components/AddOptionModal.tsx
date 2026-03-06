@@ -6,10 +6,22 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
+// Extracted from your legacy SQL "quantity" column
+const PRESET_ITEMS = [
+  "Toilet Partitions",
+  "Urinal Screens",
+  "Privacy Screens",
+  "Alcove Stalls",
+  "In-Corner Stalls",
+  "Shower Units",
+  "Changing Room Stalls",
+  "Vanity Tops"
+];
+
 export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   
-  // Default Item + Quantity List logic
+  // Always starts with Toilet Partitions: 0
   const [items, setItems] = useState([{ item: "Toilet Partitions", qty: 0 }]);
   
   const [formData, setFormData] = useState({
@@ -18,7 +30,7 @@ export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, 
     price: '',
     color: '',
     mounting_style: 'Floor Anchored / Overhead Braced',
-    shipping_area: 'Included',
+    shipping_included: 'Included',
     hardware_included: 'All Standard Chrome Hardware Included'
   });
   
@@ -35,8 +47,8 @@ export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, 
     const { error } = await supabase.from('individual_quotes').insert({
       quote_id: quoteId,
       ...formData,
-      itemized_breakdown: items, // Stores the list of items and quantities
-      quantity: items.reduce((sum, i) => sum + (Number(i.qty) || 0), 0) // Totals the quantity
+      itemized_breakdown: items,
+      quantity: items.reduce((sum, i) => sum + (Number(i.qty) || 0), 0)
     });
 
     if (!error) {
@@ -61,41 +73,20 @@ export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, 
           </div>
 
           <div className="space-y-6">
-            {/* 1. Basic Info Row */}
+            {/* Input fields for Material, Manufacturer, Mounting, Color, Price, Shipping, Hardware */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Material</label>
-                  <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none"
-                    value={formData.material}
-                    onChange={e => setFormData({...formData, material: e.target.value})} >
-                    <option>Powder Coated Steel (PCS)</option>
-                    <option>High Pressure Laminate (HPL)</option>
-                    <option>HDPE Solid Plastic</option>
-                    <option>Solid Phenolic</option>
-                    <option>Stainless Steel</option>
-                    <option>Accessories Only</option>
-                  </select>
+                <input required placeholder="Material" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
+                  onChange={e => setFormData({...formData, material: e.target.value})} />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Manufacturer</label>
-                <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none"
-                  value={formData.manufacturer}
-                  onChange={e => setFormData({...formData, manufacturer: e.target.value})}>
-                  <option>ASI</option>
-                  <option>Bobrick</option>
-                  <option>Bradley</option>
-                  <option>Excel</option>
-                  <option>Global</option>
-                  <option>Hadrian</option>
-                  <option>Hawa</option>
-                  <option>Metpar</option>
-                  <option>Scranton Products</option>
-                  <option>Partition Plus</option>
-                </select>
+                <input required placeholder="Manufacturer" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
+                  onChange={e => setFormData({...formData, manufacturer: e.target.value})} />
               </div>
             </div>
 
-            {/* 2. Style and Color Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Mounting Style</label>
@@ -118,45 +109,48 @@ export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, 
               </div>
             </div>
 
-            {/* 3. Logistics and Pricing Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Price</label>
-                <input required type="number" step="0.01" placeholder="Total Price $" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
+                <input required type="number" step="0.01" placeholder="Price $" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
                   onChange={e => setFormData({...formData, price: e.target.value})} />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Shipping</label>
                 <div className="relative">
                   <Truck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none"
-                  value={formData.shipping_area}
-                  onChange={e => setFormData({...formData, shipping_area: e.target.value})}>
-                  <option>Includes Shipping</option>
-                  <option>Includes Shipping & Sales Tax</option>
-                </select>                    
+                  <input required placeholder="e.g. Included" defaultValue="Included" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
+                    onChange={e => setFormData({...formData, shipping_included: e.target.value})} />
                 </div>
               </div>
             </div>
 
-            {/* 4. Hardware Inclusion */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Hardware Details</label>
               <div className="relative">
                 <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <input required placeholder="Hardware details" defaultValue="All Hardware Needed for Installation is Included" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
+                <input required placeholder="Hardware" defaultValue="All Standard Chrome Hardware Included" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
                   onChange={e => setFormData({...formData, hardware_included: e.target.value})} />
               </div>
             </div>
 
-            {/* 5. Item + Quantity List Section */}
+            {/* Item + Quantity List Section with Combobox */}
             <div className="bg-zinc-100 p-6 rounded-[2rem] border border-zinc-200">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">Breakdown of Items</p>
+              
+              {/* DataList for searchable dropdown */}
+              <datalist id="preset-items">
+                {PRESET_ITEMS.map(item => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+
               <div className="space-y-3">
                 {items.map((row, index) => (
                   <div key={index} className="flex gap-2 items-center">
                     <input 
-                      placeholder="Item Name"
+                      list="preset-items" // Connects to datalist above
+                      placeholder="Type or select item..."
                       className="flex-grow p-4 bg-white rounded-xl border border-zinc-200 text-sm font-bold shadow-sm"
                       value={row.item}
                       onChange={(e) => {
