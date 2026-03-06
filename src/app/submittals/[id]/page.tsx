@@ -5,8 +5,14 @@ import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-export default async function SubmittalDetails({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function SubmittalDetails({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> 
+}) {
+  // 2. CRITICAL: You must await the params before using the id
+  const resolvedParams = await params;
+  const id = resolvedParams.id;
   const supabase = await createClient();
 
   // 1. Soft Delete Server Action for the Submittal
