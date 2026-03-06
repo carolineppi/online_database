@@ -9,7 +9,7 @@ import {
   CheckCircle, 
   Calendar,
   ArrowRight,
-  Target, // Added icon for marketing
+  Target,
   Filter
 } from 'lucide-react';
 
@@ -22,8 +22,8 @@ export default function FinancialDashboard() {
   const lastDay = today.toISOString().split('T')[0];
 
   const [dateRange, setDateRange] = useState({ start: firstDay, end: lastDay });
-  const [campaignFilter, setCampaignFilter] = useState('all'); // New filter state
-  const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([]); // To populate dropdown
+  const [campaignFilter, setCampaignFilter] = useState('all');
+  const [availableCampaigns, setAvailableCampaigns] = useState<string[]>([]);
   
   const [stats, setStats] = useState({
     totalQuotes: 0,
@@ -36,14 +36,14 @@ export default function FinancialDashboard() {
   const fetchFinancialData = async () => {
     setLoading(true);
     
-    // 1. Fetch submittals with count and marketing source
+    // 1. Fetch submittals - IGNORE DELETED
     let quotesQuery = supabase
       .from('quote_submittals')
       .select('id, quote_source, campaign_source', { count: 'exact' })
+      .is('deleted_at', null) // Filter out trashed submittals
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
-    // Apply campaign filters to the total quote count
     if (campaignFilter === 'paid') {
       quotesQuery = quotesQuery.neq('quote_source', 'Direct');
     } else if (campaignFilter !== 'all') {
@@ -52,7 +52,6 @@ export default function FinancialDashboard() {
 
     const { count: quotesCount, data: allQuotesData } = await quotesQuery;
 
-    // Extract unique campaigns for the filter dropdown
     const campaigns = Array.from(new Set(
       (allQuotesData || [])
         .map(q => q.campaign_source)
@@ -60,7 +59,7 @@ export default function FinancialDashboard() {
     )) as string[];
     setAvailableCampaigns(campaigns);
 
-    // 2. Fetch jobs with submittal marketing data
+    // 2. Fetch jobs - IGNORE DELETED
     let jobsQuery = supabase
       .from('jobs')
       .select(`
@@ -73,11 +72,14 @@ export default function FinancialDashboard() {
           quote_number,
           quote_source,
           campaign_source,
+          deleted_at,
           add_ons (
-            price
+            price,
+            deleted_at
           )
         )
       `)
+      .is('deleted_at', null) // Filter out trashed jobs
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
@@ -91,25 +93,28 @@ export default function FinancialDashboard() {
           ? job.quote_submittals[0] 
           : job.quote_submittals;
 
-        const addons = submittalData?.add_ons || [];
-        const addonsTotal = addons.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
+        // Skip if the parent submittal was deleted
+        if (submittalData?.deleted_at) return null;
+
+        // Only include non-deleted add-ons in revenue
+        const activeAddons = (submittalData?.add_ons || []).filter((a: any) => !a.deleted_at);
+        const addonsTotal = activeAddons.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
         const contractAmount = (Number(job.sale_amount) || 0) + addonsTotal;
 
         return { 
           ...job, 
           quote_submittals: submittalData, 
           contractAmount,
-          addonCount: addons.length 
+          addonCount: activeAddons.length 
         };
       })
-      // Filter the jobs list by the selected campaign
+      .filter((job): job is any => job !== null) // Remove the nulls from the submittal-deleted check
       .filter(job => {
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return job.quote_submittals?.quote_source !== 'Direct';
         return job.quote_submittals?.campaign_source === campaignFilter;
       });
 
-    // 4. Calculate total revenue
     const totalRevenue = formattedJobs.reduce((acc, job) => acc + job.contractAmount, 0);
 
     setStats({
@@ -125,8 +130,7 @@ export default function FinancialDashboard() {
 
   useEffect(() => {
     fetchFinancialData();
-  }, [dateRange, campaignFilter]); // Refetch when filter changes
-
+  }, [dateRange, campaignFilter]);
   return (
     <div className="p-8 max-w-7xl mx-auto bg-zinc-50 min-h-screen">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
