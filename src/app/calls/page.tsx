@@ -7,9 +7,10 @@ import {
   UserPlus, 
   ShieldAlert, 
   Clock, 
-  Trash2, 
   Search,
-  Phone
+  Phone,
+  User,
+  Zap // Added for the Paid Ad indicator
 } from 'lucide-react';
 import CreateSubmittalForm from '@/components/CreateSubmittalForm';
 import { toast } from 'sonner';
@@ -34,7 +35,6 @@ export default function CallLogPage() {
   useEffect(() => {
     fetchCalls();
 
-    // Listen for new calls in real-time
     const channel = supabase
       .channel('call_log_updates')
       .on('postgres_changes', 
@@ -58,7 +58,8 @@ export default function CallLogPage() {
 
   const filteredCalls = calls.filter(call => 
     call.phone_number?.includes(searchQuery) || 
-    call.caller_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    call.caller_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    call.called_number?.includes(searchQuery)
   );
 
   return (
@@ -66,15 +67,15 @@ export default function CallLogPage() {
       <div className="flex justify-between items-end mb-8">
         <div>
           <h1 className="text-3xl font-black text-zinc-900 uppercase tracking-tight">Call Queue</h1>
-          <p className="text-zinc-500 text-sm">Real-time inbound tracking from RingCentral.</p>
+          <p className="text-zinc-500 text-sm">Real-time inbound tracking with marketing attribution.</p>
         </div>
 
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
           <input 
             type="text" 
-            placeholder="Search numbers..." 
-            className="w-full pl-10 pr-4 py-2 bg-white border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition"
+            placeholder="Search numbers or names..." 
+            className="w-full pl-10 pr-4 py-2 bg-white border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
@@ -86,6 +87,7 @@ export default function CallLogPage() {
             <tr className="bg-zinc-50 border-b border-zinc-100 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4">Caller Information</th>
+              <th className="px-6 py-4">Employee / Receiver</th> {/* New Header */}
               <th className="px-6 py-4">Received At</th>
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
@@ -102,11 +104,34 @@ export default function CallLogPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <p className="font-black text-zinc-900 text-lg flex items-center gap-2">
-                    <Phone size={14} className="text-blue-500" /> {call.phone_number}
-                  </p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-black text-zinc-900 text-lg flex items-center gap-2">
+                      <Phone size={14} className="text-blue-500" /> {call.phone_number}
+                    </p>
+                    {/* 1. Paid Ad Badge */}
+                    {call.is_paid_ad && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 uppercase tracking-tighter">
+                        <Zap size={10} className="fill-amber-500 text-amber-500" />
+                        Paid Ad
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-zinc-500 font-bold uppercase tracking-tight">{call.caller_name || 'Unknown Caller'}</p>
                 </td>
+                
+                {/* 2. Employee Attribution Column */}
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2 text-zinc-700">
+                    <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-400">
+                      <User size={14} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-zinc-400 leading-none mb-1">Dialed Number</p>
+                      <p className="text-sm font-bold">{call.called_number || 'Main Line'}</p>
+                    </div>
+                  </div>
+                </td>
+
                 <td className="px-6 py-4 text-zinc-400 text-xs font-medium">
                   <div className="flex items-center gap-1">
                     <Clock size={12} />
@@ -143,7 +168,6 @@ export default function CallLogPage() {
         )}
       </div>
 
-      {/* Submittal Modal */}
       {selectedPhone && (
         <CreateSubmittalForm 
           initialPhone={selectedPhone} 

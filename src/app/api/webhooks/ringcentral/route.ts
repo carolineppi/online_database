@@ -9,24 +9,35 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     
+    
     // 1. Find the Session ID (Check multiple possible locations in the RC JSON)
     const sessionId = body.body?.telephonySessionId || body.telephonySessionId;
-    const direction = body.body?.parties?.[0]?.direction || body.parties?.[0]?.direction;
     
+    
+
     if (!sessionId) {
       console.error(">>> [WEBHOOK ERROR] No telephonySessionId found in payload:", JSON.stringify(body));
       return new Response('Missing Session ID', { status: 200 });
     }
-    if (direction && direction !== 'Inbound') {
-    console.log(`>>> [WEBHOOK] Blocking ${direction} call.`);
-    return new Response('Inbound calls only', { status: 200 });
-    }
+
 
     // 2. Extract Caller Info
     const party = body.body?.parties?.[0] || body.parties?.[0];
     const rawPhone = party?.from?.phoneNumber || "Unknown";
     const callerName = party?.from?.name || "Unknown Caller";
+    const direction = body.body?.parties?.[0]?.direction || body.parties?.[0]?.direction;
     const callStatus = party?.status?.code || "Active";
+    const calledNumber = party?.to?.phoneNumber || "Unknown";
+
+
+    if (direction && direction !== 'Inbound') {
+    console.log(`>>> [WEBHOOK] Blocking ${direction} call.`);
+    return new Response('Inbound calls only', { status: 200 });
+    }
+    const adKeywords = ['Performance Max', 'Broad Match'];
+    const isPaidAd = adKeywords.some(keyword => 
+      callerName.toLowerCase().includes(keyword.toLowerCase())
+    );
 
     const supabase = await createClient();
 
@@ -37,6 +48,8 @@ export async function POST(req: Request) {
         telephony_session_id: sessionId, // This is our unique key
         phone_number: rawPhone,
         caller_name: callerName,
+        called_number: calledNumber, // Store the employee's number
+        is_paid_ad: isPaidAd,        // Store the ad flag
         status: callStatus === 'Disconnected' ? 'processed' : 'active',
         raw_data: body,
         updated_at: new Date().toISOString()
