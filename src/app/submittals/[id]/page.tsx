@@ -1,30 +1,50 @@
 import { createClient } from '@/utils/supabase/server';
-import { ChevronLeft, FileText, Target, ExternalLink } from 'lucide-react'; // Added Target and ExternalLink icons
+import { ChevronLeft, FileText, Target, ExternalLink, Trash2 } from 'lucide-react'; 
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 export default async function SubmittalDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // 1. Soft Delete Server Action for the Submittal
+  async function softDeleteSubmittal() {
+    'use server';
+    const supabase = await createClient();
+    await supabase
+      .from('quote_submittals')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
+    
+    revalidatePath('/');
+    revalidatePath('/trash');
+    redirect('/'); // Redirect back to dashboard after trashing
+  }
+
+  // 2. Fetch data, excluding items already marked as deleted
   const { data: submittal } = await supabase
     .from('quote_submittals')
     .select(`*, linked_customer:customers!customer (*)`)
     .eq('id', id)
+    .is('deleted_at', null) // Safety check
     .maybeSingle();
 
-  if (!submittal) return <div className="p-8">Submittal ID {id} not found.</div>;
+  if (!submittal) return <div className="p-8">Submittal ID {id} not found or has been deleted.</div>;
 
   const { data: job } = await supabase
     .from('jobs')
     .select('*')
     .eq('quote_id', id)
+    .is('deleted_at', null)
     .maybeSingle();
 
   const { data: options } = await supabase
     .from('individual_quotes')
     .select('*')
-    .eq('quote_id', id);
+    .eq('quote_id', id)
+    .is('deleted_at', null); // Only show non-deleted quotes
 
   const { data: addons } = await supabase
     .from('add_ons')
@@ -33,12 +53,28 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <Link href="/submittals" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 mb-6 transition">
-        <ChevronLeft size={20} /> Back to Inbound Submittals
-      </Link>
+      <div className="flex justify-between items-center mb-6">
+        <Link href="/submittals" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
+          <ChevronLeft size={20} /> Back to Inbound Submittals
+        </Link>
+
+        {/* 3. Soft Delete Button for the Submittal */}
+        <form action={softDeleteSubmittal}>
+          <button 
+            type="submit"
+            className="flex items-center gap-2 text-zinc-400 hover:text-red-600 transition text-xs font-black uppercase tracking-widest"
+            onClick={(e) => {
+              if(!confirm("Move this submittal to trash?")) e.preventDefault();
+            }}
+          >
+            <Trash2 size={16} /> Move to Trash
+          </button>
+        </form>
+      </div>
       
       <div className="bg-white border-b border-zinc-200 mb-8 px-8 py-6 rounded-2xl shadow-sm">
         <div className="max-w-7xl mx-auto">
+          {/* ... (Existing Header and Marketing Source Card content) ... */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-3 mb-1">
@@ -47,7 +83,6 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
                   #{submittal.quote_number}
                 </span>
                 
-                {/* 1. Paid Ad Badge */}
                 {(submittal.quote_source && submittal.quote_source !== 'Direct') && (
                   <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 uppercase tracking-tighter">
                     <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
@@ -62,6 +97,7 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
                  <span>{submittal.linked_customer?.email}</span>
               </div>
             </div>
+            {/* Status and PDF links */}
             <div className="flex items-center gap-3">
               {submittal.pdf_url && (
                 <a href={submittal.pdf_url} target="_blank" className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-600 rounded-xl text-xs font-bold hover:bg-zinc-50">
@@ -75,8 +111,7 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
               </span>
             </div>
           </div>
-
-          {/* 2. Marketing Source Card */}
+          {/* Marketing Card */}
           {submittal.quote_source && submittal.quote_source !== 'Direct' && (
             <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -95,11 +130,7 @@ export default async function SubmittalDetails({ params }: { params: Promise<{ i
               </div>
               
               {submittal.source_url && (
-                <a 
-                  href={submittal.source_url} 
-                  target="_blank" 
-                  className="text-[10px] font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1.5 uppercase transition"
-                >
+                <a href={submittal.source_url} target="_blank" className="text-[10px] font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1.5 uppercase transition">
                   View Landing Page <ExternalLink size={12} />
                 </a>
               )}

@@ -6,14 +6,16 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionTrigger from '@/components/AddOptionTrigger';
 import AddOnForm from '@/components/AddOnForm';
+import { toast } from 'sonner';
 
 export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showAddOnForm, setShowAddOnForm] = useState(false); // NEW: Form visibility state
+  const [showAddOnForm, setShowAddOnForm] = useState(false);
   const supabase = createClient();
   const router = useRouter();
+
   const winnerPrice = options?.find((o: any) => o.id === activeJob?.accepted_individual_quote)?.price || 0;
   const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
   const projectTotal = Number(winnerPrice) + addonsTotal;
@@ -24,51 +26,68 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     );
   };
 
+  // 1. SOFT DELETE: Submittal
   const handleDeleteSubmittal = async () => {
-    if (!confirm("Are you sure? This will delete the submittal, all quotes, and any associated job record.")) return;
+    if (!confirm("Move this submittal to the trash? It can be restored within 30 days.")) return;
     
     setLoading(true);
     const { error } = await supabase
       .from('quote_submittals')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() }) // Soft delete
       .eq('id', id);
 
     if (!error) {
-      router.push('/submittals');
+      toast.success("Submittal moved to trash");
+      router.push('/');
       router.refresh();
     } else {
-      alert("Error: " + error.message);
+      toast.error("Error: " + error.message);
       setLoading(false);
     }
   };
 
+  // 2. SOFT DELETE: Individual Option
   const handleDeleteOption = async (optionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this option?")) return;
+    if (!confirm("Move this pricing option to the trash?")) return;
     
     setLoading(true);
     const { error } = await supabase
       .from('individual_quotes')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() }) // Soft delete
       .eq('id', optionId);
 
     if (!error) {
+      toast.success("Option moved to trash");
       router.refresh();
     } else {
-      alert("Error deleting: " + error.message);
+      toast.error("Error deleting: " + error.message);
     }
     setLoading(false);
   };
 
-  // Logic for deleting an addon
-  const handleDeleteAddon = async (addonId: string) => {
-    if (!confirm("Remove this add-on item?")) return;
-    const { error } = await supabase.from('add_ons').delete().eq('id', addonId);
-    if (!error) router.refresh();
+  // 3. SOFT DELETE: Add-on
+  const handleDeleteAddon = async (addonId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Move this add-on to the trash?")) return;
+    
+    setLoading(true);
+    const { error } = await supabase
+      .from('add_ons')
+      .update({ deleted_at: new Date().toISOString() }) // Soft delete
+      .eq('id', addonId);
+
+    if (!error) {
+      toast.success("Add-on moved to trash");
+      router.refresh();
+    } else {
+      toast.error("Error: " + error.message);
+    }
+    setLoading(false);
   };
 
   const handleGeneratePDF = async () => {
-    if (selectedIds.length === 0) return alert("Select at least one option.");
+    if (selectedIds.length === 0) return toast.error("Select at least one option.");
     setGenerating(true);
     
     try {
@@ -118,10 +137,10 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       .eq('id', id);
 
     if (!jobError) {
+      toast.success("Winner updated!");
       router.refresh();
     } else {
-      console.error("Upsert Error:", jobError);
-      alert("Error updating winner: " + jobError.message);
+      toast.error("Error updating winner: " + jobError.message);
     }
     setLoading(false);
   };
@@ -141,7 +160,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-600 hover:text-white transition shadow-sm"
             >
               <Trash2 size={14} />
-              Delete Record
+              Trash Submittal
             </button>
 
             <button 
@@ -241,19 +260,14 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           {addons?.map((addon: any) => (
             <div 
               key={addon.id} 
-              onClick={() => toggleSelection(addon.id)} //
+              onClick={() => toggleSelection(addon.id)}
               className={`bg-white border rounded-xl p-5 flex justify-between items-center shadow-sm transition cursor-pointer ${
                 selectedIds.includes(addon.id) ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-zinc-200 hover:border-blue-300'
               }`}
             >
               <div className="flex items-center gap-4">
-                {/* CHECKBOX UI: Matches Material Options */}
                 <div className="text-blue-600">
-                  {selectedIds.includes(addon.id) ? (
-                    <CheckSquare size={24} />
-                  ) : (
-                    <Square size={24} className="text-zinc-300" />
-                  )}
+                  {selectedIds.includes(addon.id) ? <CheckSquare size={24} /> : <Square size={24} className="text-zinc-300" />}
                 </div>
                 
                 <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
@@ -277,7 +291,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <div className="text-right flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
                 <p className="text-xl font-black text-zinc-900">+${Number(addon.price).toLocaleString()}</p>
                 <button 
-                  onClick={() => handleDeleteAddon(addon.id)}
+                  onClick={(e) => handleDeleteAddon(addon.id, e)}
                   className="mt-2 p-1.5 text-zinc-400 hover:text-red-600 transition"
                 >
                   <Trash2 size={14} />
@@ -293,10 +307,10 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           )}
         </div>
       </section>
+
       {/* SECTION 3: PROJECT TOTAL CARD */}
       <section className="pt-12">
         <div className="bg-zinc-900 rounded-3xl p-8 text-white shadow-xl shadow-zinc-200 overflow-hidden relative">
-          {/* Background Decorative Element */}
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <Trophy size={120} />
           </div>
@@ -321,6 +335,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           </div>
         </div>
       </section>
+
       {/* FORM MODAL */}
       {showAddOnForm && (
         <AddOnForm 
