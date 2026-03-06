@@ -33,18 +33,17 @@ export default function FinancialDashboard() {
     jobList: [] as any[]
   });
 
-  const fetchFinancialData = async () => {
+const fetchFinancialData = async () => {
     setLoading(true);
     
-    // 1. Fetch submittals with count and marketing source
+    // 1. Fetch submittals - Must be active
     let quotesQuery = supabase
       .from('quote_submittals')
       .select('id, quote_source, campaign_source', { count: 'exact' })
-      .is('deleted_at', null) // Filter out trashed submittals
+      .is('deleted_at', null) 
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
-    // Apply campaign filters to the total quote count
     if (campaignFilter === 'paid') {
       quotesQuery = quotesQuery.neq('quote_source', 'Direct');
     } else if (campaignFilter !== 'all') {
@@ -53,7 +52,6 @@ export default function FinancialDashboard() {
 
     const { count: quotesCount, data: allQuotesData } = await quotesQuery;
 
-    // Extract unique campaigns for the filter dropdown
     const campaigns = Array.from(new Set(
       (allQuotesData || [])
         .map(q => q.campaign_source)
@@ -61,7 +59,7 @@ export default function FinancialDashboard() {
     )) as string[];
     setAvailableCampaigns(campaigns);
 
-    // 2. Fetch jobs with submittal marketing data
+    // 2. Fetch jobs - Ensure the JOIN correctly checks for soft-deleted parents
     let jobsQuery = supabase
       .from('jobs')
       .select(`
@@ -81,23 +79,26 @@ export default function FinancialDashboard() {
           )
         )
       `)
-      .is('deleted_at', null) // Filter out trashed jobs
+      // CRITICAL: Ensure this column exists in your 'jobs' table
+      .is('deleted_at', null) 
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
     const { data: jobsData, error: jobsError } = await jobsQuery;
     if (jobsError) console.error("Job Fetch Error:", jobsError.message);
 
-    // 3. Filter and Transform data
+    // 3. Transform and Filter
     const formattedJobs = (jobsData || [])
       .map(job => {
         const submittalData = Array.isArray(job.quote_submittals) 
           ? job.quote_submittals[0] 
           : job.quote_submittals;
 
-        // if (submittalData?.deleted_at) return null;
+        // SKIP if the parent submittal is trashed
+        if (!submittalData || submittalData.deleted_at) return null;
 
-        const activeAddons = (submittalData?.add_ons || []).filter((a: any) => !a.deleted_at);
+        // Filter for only active add-ons
+        const activeAddons = (submittalData.add_ons || []).filter((a: any) => !a.deleted_at);
         const addonsTotal = activeAddons.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
         const contractAmount = (Number(job.sale_amount) || 0) + addonsTotal;
 
@@ -108,14 +109,13 @@ export default function FinancialDashboard() {
           addonCount: activeAddons.length 
         };
       })
-      // Filter the jobs list by the selected campaign
+      .filter((job): job is any => job !== null) // Remove the items where submittal was deleted
       .filter(job => {
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return job.quote_submittals?.quote_source !== 'Direct';
         return job.quote_submittals?.campaign_source === campaignFilter;
       });
 
-    // 4. Calculate total revenue
     const totalRevenue = formattedJobs.reduce((acc, job) => acc + job.contractAmount, 0);
 
     setStats({
