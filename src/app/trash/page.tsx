@@ -1,39 +1,33 @@
 import { createClient } from '@/utils/supabase/server';
-import { RotateCcw, Trash2, ArrowLeft, FileText, Layout, Briefcase, AlertTriangle } from 'lucide-react';
+import { RotateCcw, Trash2, ArrowLeft, FileText, Layout, Briefcase, AlertTriangle, PlusSquare } from 'lucide-react';
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 
-// In Next.js 15, searchParams is a Promise that MUST be awaited
 export default async function TrashPage(props: {
   searchParams: Promise<{ view?: string }>;
 }) {
-  // 1. Resolve searchParams asynchronously
   const resolvedParams = await props.searchParams;
   const view = resolvedParams.view || 'submittals';
   
   const supabase = await createClient();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 2. Server Action for Restoration
   async function restoreItem(formData: FormData) {
     'use server';
     const id = formData.get('id');
     const table = formData.get('table') as string;
     const supabase = await createClient();
     
-    // Clear the deleted_at timestamp to bring it back to live views
     await supabase.from(table).update({ deleted_at: null }).eq('id', id);
     revalidatePath('/trash');
-    revalidatePath('/'); // Refresh dashboard
+    revalidatePath('/'); 
   }
 
-  // 3. Server Action for Permanent Purge
   async function purgeCategory(formData: FormData) {
     'use server';
     const table = formData.get('table') as string;
     const supabase = await createClient();
     
-    // Physical hard-delete of flagged items
     const { error: deleteError } = await supabase
       .from(table)
       .delete()
@@ -44,7 +38,6 @@ export default async function TrashPage(props: {
       return;
     }
 
-    // Log the event in settings for audit purposes
     await supabase
       .from('settings')
       .update({
@@ -55,31 +48,37 @@ export default async function TrashPage(props: {
       .eq('id', '00000000-0000-0000-0000-000000000000');
 
     revalidatePath('/trash');
-    revalidatePath('/settings');
+    revalidatePath('/settings'); 
   }
 
-  // 4. Data Fetching Logic based on Active View
+  // 1. Updated Data Fetching to include 'add_ons'
   let data: any[] = [];
   let currentTable = 'quote_submittals';
   
   if (view === 'submittals') {
     currentTable = 'quote_submittals';
-    const { data: res } = await supabase.from(currentTable).select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
-    data = res || [];
   } else if (view === 'quotes') {
     currentTable = 'individual_quotes';
-    const { data: res } = await supabase.from(currentTable).select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
-    data = res || [];
   } else if (view === 'jobs') {
     currentTable = 'jobs';
-    const { data: res } = await supabase.from(currentTable).select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
-    data = res || [];
+  } else if (view === 'addons') {
+    currentTable = 'add_ons'; // Target the add_ons table
   }
 
+  const { data: res } = await supabase
+    .from(currentTable)
+    .select('*')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+  
+  data = res || [];
+
+  // 2. Added 'addons' to the tabs array
   const tabs = [
     { id: 'submittals', label: 'Submittals', icon: FileText },
     { id: 'quotes', label: 'Quotes', icon: Layout },
     { id: 'jobs', label: 'Jobs', icon: Briefcase },
+    { id: 'addons', label: 'Add-ons', icon: PlusSquare }, // New Add-ons Tab
   ];
 
   return (
@@ -96,7 +95,6 @@ export default async function TrashPage(props: {
               <p className="text-zinc-500 text-sm">Items are kept for 30 days before automatic expiration.</p>
             </div>
             
-            {/* Purge Button Section */}
             {data.length > 0 && (
               <form action={purgeCategory}>
                 <input type="hidden" name="table" value={currentTable} />
@@ -111,7 +109,6 @@ export default async function TrashPage(props: {
             )}
           </div>
 
-          {/* Navigation Tabs */}
           <div className="flex flex-wrap gap-2 p-1 bg-zinc-100 rounded-2xl w-fit">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -131,7 +128,6 @@ export default async function TrashPage(props: {
           </div>
         </div>
 
-        {/* Trashed Items List */}
         <div className="divide-y divide-zinc-100 min-h-[400px]">
           {data.length ? data.map((item) => (
             <div key={item.id} className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center bg-white hover:bg-zinc-50/50 transition gap-4">
@@ -145,7 +141,7 @@ export default async function TrashPage(props: {
                   </span>
                 </div>
                 <h3 className="font-bold text-zinc-800 text-lg">
-                  {/* Dynamic title based on table structure */}
+                  {/* Handle 'material' field used in add_ons and individual_quotes */}
                   {item.job_name || item.material || `Record #${item.id}`}
                 </h3>
               </div>
