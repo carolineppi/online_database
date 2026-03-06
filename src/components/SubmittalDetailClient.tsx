@@ -349,6 +349,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       {showAddOnForm && (
         <AddOnForm 
           quoteId={id} 
+          // jobId={activeJob?.id} <- REMOVED THIS LINE
           onClose={() => setShowAddOnForm(false)} 
         />
       )}

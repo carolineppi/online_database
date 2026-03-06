@@ -11,15 +11,16 @@ const MANUFACTURERS = ["Hadrian", "Bradley (Mills)", "Bobrick", "Scranton Produc
 const PRESET_ITEMS = ["Toilet Partitions", "Urinal Screens", "Privacy Screens", "Alcove Stalls", "In-Corner Stalls", "Shower Units"];
 
 interface AddOnFormProps {
-  quoteId: string;
+  quoteId: string; // The primary link for the add-on
   onClose: () => void;
   initialData?: any;
 }
 
 export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormProps) {
   const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+  const router = useRouter();
   
-  // Initialize items from initialData (for duplication/edit) or default
   const [items, setItems] = useState(
     initialData?.itemized_breakdown || [{ item: "Toilet Partitions", qty: 0 }]
   );
@@ -32,11 +33,8 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
     mounting_style: initialData?.mounting_style || 'Floor Anchored / Overhead Braced',
     shipping_included: initialData?.shipping_included || 'Included',
     hardware_included: initialData?.hardware_included || 'All Standard Chrome Hardware Included',
-    reason: initialData?.reason || '' // Specific "Reason" field
+    reason: initialData?.reason || '' 
   });
-  
-  const supabase = createClient();
-  const router = useRouter();
 
   const addItemRow = () => setItems([...items, { item: "", qty: 1 }]);
   const removeItemRow = (index: number) => setItems(items.filter((_: any, i: number) => i !== index));
@@ -45,15 +43,16 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
     e.preventDefault();
     setLoading(true);
 
+    // Correctly targeting 'quote_id' instead of 'job_id'
     const { error } = await supabase.from('add_ons').insert({
-      quote_id: quoteId,
+      quote_id: quoteId, 
       ...formData,
       itemized_breakdown: items,
       quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
     });
 
     if (!error) {
-      toast.success("Add-on successfully added!");
+      toast.success("Add-on successfully saved to this submittal");
       router.refresh();
       onClose();
     } else {
@@ -75,12 +74,12 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
           </div>
 
           <div className="space-y-6">
-            {/* 1. Material & Manufacturer Selects */}
+            {/* Form Fields: Material, Manufacturer, Mounting Style, Color */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Material</label>
                 <div className="relative">
-                  <select required value={formData.material} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <select required value={formData.material} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition appearance-none font-bold text-zinc-900"
                     onChange={e => setFormData({...formData, material: e.target.value})}>
                     {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
@@ -90,7 +89,7 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Manufacturer</label>
                 <div className="relative">
-                  <select required value={formData.manufacturer} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <select required value={formData.manufacturer} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition appearance-none font-bold text-zinc-900"
                     onChange={e => setFormData({...formData, manufacturer: e.target.value})}>
                     {MANUFACTURERS.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
@@ -99,12 +98,11 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
               </div>
             </div>
 
-            {/* 2. Style and Color */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Mounting Style</label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition appearance-none font-bold text-zinc-900"
                     value={formData.mounting_style}
                     onChange={e => setFormData({...formData, mounting_style: e.target.value})}>
                     <option>Floor Anchored / Overhead Braced</option>
@@ -119,20 +117,20 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
                 <div className="relative">
                   <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                  <input required value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                  <input required value={formData.color} placeholder="Color Name" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition font-bold"
                     onChange={e => setFormData({...formData, color: e.target.value})} />
                 </div>
               </div>
             </div>
 
-            {/* 3. Reason Field (Unique to Add-On Form) */}
+            {/* Reason for Add-on */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Reason for Add-on</label>
               <div className="relative">
                 <HelpCircle className="absolute left-4 top-4 text-zinc-400" size={18} />
                 <textarea 
                   required 
-                  placeholder="e.g. Additional urinal screens requested by customer" 
+                  placeholder="Why is this material being added?" 
                   className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition font-medium min-h-[80px]"
                   value={formData.reason}
                   onChange={e => setFormData({...formData, reason: e.target.value})} 
@@ -140,18 +138,18 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
               </div>
             </div>
 
-            {/* 4. Price & Shipping Select */}
+            {/* Price & Shipping */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Add-on Price</label>
-                <input required type="number" step="0.01" value={formData.price} placeholder="0.00" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold text-emerald-600"
+                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Price</label>
+                <input required type="number" step="0.01" value={formData.price} placeholder="0.00" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition font-bold text-emerald-600"
                   onChange={e => setFormData({...formData, price: e.target.value})} />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Shipping Status</label>
+                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Shipping</label>
                 <div className="relative">
                   <Truck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                  <select className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <select className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition appearance-none font-bold text-zinc-900"
                     value={formData.shipping_included}
                     onChange={e => setFormData({...formData, shipping_included: e.target.value})}>
                     <option value="Included">Shipping Included</option>
@@ -162,21 +160,21 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
               </div>
             </div>
 
-            {/* 5. Hardware Details */}
+            {/* Hardware Inclusion */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Hardware Details</label>
               <div className="relative">
                 <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <input required value={formData.hardware_included} className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                <input required value={formData.hardware_included} className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition font-bold"
                   onChange={e => setFormData({...formData, hardware_included: e.target.value})} />
               </div>
             </div>
 
-            {/* 6. Itemized Breakdown */}
+            {/* Searchable Item List */}
             <div className="bg-zinc-100 p-6 rounded-[2rem] border border-zinc-200">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">Itemized Breakdown</p>
               
-              <datalist id="addon-preset-items">
+              <datalist id="addon-search-items">
                 {PRESET_ITEMS.map(item => <option key={item} value={item} />)}
               </datalist>
 
@@ -184,8 +182,8 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
                 {items.map((row: any, index: number) => (
                   <div key={index} className="flex gap-2 items-center">
                     <input 
-                      list="addon-preset-items"
-                      placeholder="Type or select item..."
+                      list="addon-search-items"
+                      placeholder="Select item..."
                       className="flex-grow p-4 bg-white rounded-xl border border-zinc-200 text-sm font-bold shadow-sm"
                       value={row.item}
                       onChange={(e) => {
@@ -196,7 +194,6 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
                     />
                     <input 
                       type="number" 
-                      placeholder="Qty"
                       className="w-24 p-4 bg-white rounded-xl border border-zinc-200 text-sm font-bold text-center shadow-sm"
                       value={row.qty}
                       onChange={(e) => {
