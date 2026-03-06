@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
-import { ChevronLeft, FileText, Target, ExternalLink, Trash2 } from 'lucide-react'; 
+import { ChevronLeft, FileText, Target, ExternalLink, Trash2, Globe, Megaphone } from 'lucide-react'; 
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
@@ -49,6 +49,9 @@ export default async function SubmittalDetails({
     );
   }
 
+  // Marketing Source Logic
+  const isPaid = submittal.quote_source !== "Organic / Direct" && !isNaN(Number(submittal.quote_source));
+
   const { data: job } = await supabase
     .from('jobs')
     .select('*')
@@ -68,7 +71,7 @@ export default async function SubmittalDetails({
     .eq('quote_id', id)
     .is('deleted_at', null);
 
-  return (
+return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
@@ -87,9 +90,8 @@ export default async function SubmittalDetails({
         </form>
       </div>
       
-      {/* ... Header UI ... */}
       <div className="bg-white border rounded-3xl p-8 mb-8 shadow-sm">
-         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-2xl font-black text-zinc-900">{submittal.job_name}</h1>
@@ -99,11 +101,31 @@ export default async function SubmittalDetails({
               </div>
               <p className="text-zinc-500 text-sm">Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name}</p>
             </div>
-            <span className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
-              submittal.status === 'WON' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-              {submittal.status}
-            </span>
+
+            {/* NEW: Marketing Source Indicator */}
+            <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${
+                isPaid 
+                  ? 'bg-blue-50 border-blue-100 text-blue-700' 
+                  : 'bg-zinc-50 border-zinc-100 text-zinc-600'
+              }`}>
+                {isPaid ? <Megaphone size={18} /> : <Globe size={18} />}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">
+                    {isPaid ? 'Paid Acquisition' : 'Organic Traffic'}
+                  </p>
+                  <p className="text-sm font-bold">
+                    {isPaid ? submittal.campaign_source : 'Direct / Search'}
+                  </p>
+                </div>
+              </div>
+
+              <span className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
+                submittal.status === 'WON' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {submittal.status}
+              </span>
+            </div>
          </div>
       </div>
 
