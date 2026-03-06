@@ -1,141 +1,201 @@
-import { createClient } from '@/utils/supabase/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import { createClient } from '@/utils/supabase/server';
 
-export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { submittalId, quoteIds } = await req.json();
+// Define fixed tuples for TypeScript to avoid spread operator errors
+const blueColor = [50, 50, 50] as const;  // #323232
+const redColor = [183, 0, 32] as const;   // #b70020
+const lightGray = [243, 243, 243] as const; // #f3f3f3
 
-  // 1. Fetch Submittal and Customer Data
-  const { data: submittal } = await supabase
-    .from('quote_submittals')
-    .select('*, customers(*)')
-    .eq('id', submittalId)
-    .single();
+export async function POST(req: NextRequest) {
+  try {
+    const { submittalId, quoteIds } = await req.json();
+    const supabase = await createClient();
 
-  // 2. Fetch selected Material Options (individual_quotes)
-  const { data: selectedQuotes } = await supabase
-    .from('individual_quotes')
-    .select('*')
-    .in('id', quoteIds);
+    // 1. Fetch Submittal and Individual Quote data
+    const { data: submittal } = await supabase
+      .from('quote_submittals')
+      .select('*, linked_customer:customers!customer (*)')
+      .eq('id', submittalId)
+      .single();
 
-  // 3. Fetch selected Add-ons (add_ons)
-  const { data: selectedAddons } = await supabase
-    .from('add_ons')
-    .select('*')
-    .in('id', quoteIds);
+    const { data: options } = await supabase
+      .from('individual_quotes')
+      .select('*')
+      .in('id', quoteIds);
 
-  if (!submittal) {
-    return NextResponse.json({ error: 'Submittal not found' }, { status: 404 });
-  }
+    const { data: addons } = await supabase
+      .from('add_ons')
+      .select('*')
+      .eq('quote_id', submittalId)
+      .is('deleted_at', null);
 
-  // Initialize PDF
-  const doc = new jsPDF();
-  
-  // --- Header Section ---
-  doc.setFontSize(20);
-  doc.text("PROPOSAL / SUBMITTAL", 105, 20, { align: "center" });
-  
-  doc.setFontSize(10);
-  doc.text(`Quote #: ${submittal.quote_number}`, 150, 35);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 40);
+    if (!submittal || !options) throw new Error("Data not found");
 
-  // --- Customer & Job Info ---
-  doc.setFont("helvetica", "bold");
-  doc.text("Customer Information:", 20, 55);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${submittal.customers.first_name} ${submittal.customers.last_name}`, 20, 60);
-  doc.text(submittal.customers.email, 20, 65);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Project:", 120, 55);
-  doc.setFont("helvetica", "normal");
-  doc.text(submittal.job_name, 120, 60);
-
-  let currentY = 85;
-
-  // --- MATERIAL OPTIONS LOOP ---
-  if (selectedQuotes && selectedQuotes.length > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("MATERIAL OPTIONS", 20, currentY);
-    currentY += 10;
-
-    selectedQuotes.forEach((quote, index) => {
-      if (currentY > 250) { doc.addPage(); currentY = 20; }
-
-      doc.setFillColor(245, 245, 245);
-      doc.rect(20, currentY, 170, 30, 'F');
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(`OPTION ${index + 1}: ${quote.material}`, 25, currentY + 10);
-      
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Manufacturer: ${quote.manufacturer} | Style: ${quote.mounting_style}`, 25, currentY + 18);
-      doc.text(`Quantity: ${quote.quantity}`, 25, currentY + 23);
-
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text(`$${Number(quote.price).toLocaleString()}`, 185, currentY + 15, { align: "right" });
-
-      currentY += 35;
+    // 2. Initialize jsPDF (Standard Letter Size in Points)
+    const doc = new jsPDF({ 
+      orientation: 'portrait',
+      unit: 'pt', 
+      format: 'letter' 
     });
-  }
 
-  // --- ADD-ONS LOOP ---
-  if (selectedAddons && selectedAddons.length > 0) {
-    if (currentY > 240) { doc.addPage(); currentY = 20; }
+    // 3. Prepare Logo (Converted to Base64 for PDF embedding)
+    const logoUrl = "https://partitionplus.com/wp-content/uploads/2020/02/Partition-Plus-Bathroom-Stalls-Nationwide-Toilet-Partitions-Logo-1.png";
+    const logoResponse = await fetch(logoUrl);
+    const logoBuffer = await logoResponse.arrayBuffer();
+    const logoBase64 = `data:image/png;base64,${Buffer.from(logoBuffer).toString('base64')}`;
+
+    // 4. Centralized Watermark Helper (0.03 Opacity)
+    const applyWatermark = (pdfDoc: jsPDF) => {
+      pdfDoc.saveGraphicsState();
+      // Set faint opacity to match legacy mPDF settings
+      pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.03 }));
+      // Position logo in center background
+      pdfDoc.addImage(logoBase64, 'PNG', 100, 250, 400, 100); 
+      pdfDoc.restoreGraphicsState();
+    };
+
+    // --- RENDER PAGE 1 ---
+    applyWatermark(doc);
     
-    currentY += 5;
+    // Header Logo (Full Opacity)
+    doc.addImage(logoBase64, 'PNG', 40, 40, 180, 45); 
+    
+    // Branding Text (Matches PHP $header)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("ADD-ON ITEMS", 20, currentY);
-    currentY += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(...blueColor);
+    doc.text("We Make it ", 40, 100);
+    doc.setTextColor(...redColor);
+    doc.text("Easy for Anyone ", 95, 100);
+    doc.setTextColor(...blueColor);
+    doc.text("to Buy Toilet Partitions", 175, 100);
 
-    selectedAddons.forEach((addon) => {
-      if (currentY > 260) { doc.addPage(); currentY = 20; }
+    // Company Contact Info (Right Aligned)
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    doc.text(new Date().toLocaleDateString(), 570, 50, { align: 'right' });
+    doc.text("341 Granary Road, Suite A-B", 570, 65, { align: 'right' });
+    doc.text("Forest Hill, MD 21050", 570, 78, { align: 'right' });
+    doc.text("+1-800-298-9696", 570, 91, { align: 'right' });
 
-      doc.setDrawColor(230, 230, 230);
-      doc.line(20, currentY, 190, currentY); // Divider line
+    // Quote Info Box (Matches PHP $quoteinfo)
+    doc.setFillColor(...lightGray);
+    doc.rect(40, 120, 530, 40, 'F');
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    doc.text(`Attention: ${submittal.linked_customer?.first_name} ${submittal.linked_customer?.last_name}`, 50, 137);
+    doc.setFont("helvetica", "bold");
+    doc.text(submittal.job_name, 50, 152);
+    
+    doc.setFontSize(14);
+    doc.text("Quote #: ", 450, 145);
+    doc.setTextColor(...redColor);
+    doc.text(submittal.quote_number, 505, 145);
 
+    // Intro Text (Matches PHP $quotedetails)
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const intro = `We are pleased to enter our price on the following: ${submittal.job_name}`;
+    doc.text(doc.splitTextToSize(intro, 500), 40, 185);
+
+    // Pricing Options Loop
+    let yPos = 230;
+    options.forEach((opt: any) => {
+      // Check for page overflow
+      if (yPos > 680) {
+        doc.addPage();
+        applyWatermark(doc);
+        yPos = 60;
+      }
+
+      // Material Title (Red)
+      doc.setTextColor(...redColor);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text(addon.material, 25, currentY + 8);
-      
+      doc.text(opt.material, 40, yPos);
+
+      // Formatted Price
+      const priceFmt = new Intl.NumberFormat('en-US', { 
+        style: 'currency', 
+        currency: 'USD' 
+      }).format(opt.price);
+      doc.text(priceFmt, 570, yPos, { align: 'right' });
+
+      // Manufacturer Subtext
+      yPos += 15;
+      doc.setTextColor(100);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.text(`Reason: ${addon.reason || 'N/A'}`, 25, currentY + 14);
+      doc.text(`Manufacturer: ${opt.manufacturer}`, 40, yPos);
+      doc.setFont("helvetica", "bold");
+      doc.text("INCLUDES SHIPPING", 570, yPos, { align: 'right' });
 
+      yPos += 45; // Spacing for next option
+    });
+    // 3. ADD-ONS TABLE (Matches the new request)
+    if (addons && addons.length > 0) {
+      if (yPos > 600) { doc.addPage(); applyWatermark(doc); yPos = 60; }
+
+      doc.setFillColor(...lightGray);
+      doc.rect(40, yPos, 530, 20, 'F');
+      doc.setTextColor(...blueColor);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(`+ $${Number(addon.price).toLocaleString()}`, 185, currentY + 10, { align: "right" });
+      doc.text("ADDITIONAL ACCESSORIES / HARDWARE", 50, yPos + 14);
 
-      currentY += 20;
+      yPos += 30;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+
+      addons.forEach((addon: any) => {
+        doc.text(`${addon.quantity || 1}x ${addon.material}`, 50, yPos);
+        const addonPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(addon.price);
+        doc.text(addonPrice, 570, yPos, { align: 'right' });
+        yPos += 18;
+      });
+      yPos += 20;
+    }
+    // Terms & Conditions Block (Matches PHP $terms)
+    if (yPos > 550) {
+      doc.addPage();
+      applyWatermark(doc);
+      yPos = 60;
+    }
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.setTextColor(50);
+    doc.text("Important terms of use information:", 40, yPos);
+    
+    doc.setFillColor(...lightGray);
+    doc.rect(40, yPos + 8, 530, 110, 'F');
+    
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "normal");
+    const termsText = "Although damage is unlikely please inspect all material for possible damage at time of delivery, while the driver is still there so that you can sign for it as damaged... Methods of payment are: Visa, MasterCard, Discover, AmEx, Wire, or Check.";
+    doc.text(doc.splitTextToSize(termsText, 500), 55, yPos + 30);
+
+    // Final Red Call-to-Action Footer
+    doc.setFillColor(...redColor);
+    doc.rect(40, 720, 530, 25, 'F');
+    doc.setTextColor(255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Have Questions about your Partitions? - Give us a Call!", 305, 737, { align: 'center' });
+
+    // Output the PDF as an ArrayBuffer for the NextResponse
+    const pdfOutput = doc.output('arraybuffer');
+
+    return new NextResponse(Buffer.from(pdfOutput), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=Proposal_${submittal.quote_number}.pdf`,
+      },
     });
+
+  } catch (error: any) {
+    console.error("PDF Generation Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  // --- Summary Total ---
-  const total = [...(selectedQuotes || []), ...(selectedAddons || [])]
-    .reduce((sum, item) => sum + Number(item.price), 0);
-
-  if (currentY > 260) { doc.addPage(); currentY = 20; }
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text(`ESTIMATED TOTAL: $${total.toLocaleString()}`, 185, currentY + 10, { align: "right" });
-
-  // Footer
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.text("Terms: 50% deposit required. Quote valid for 30 days.", 105, 285, { align: "center" });
-
-  const pdfBuffer = doc.output('arraybuffer');
-  return new NextResponse(pdfBuffer, {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="Quote_${submittal.quote_number}.pdf"`,
-    },
-  });
 }
