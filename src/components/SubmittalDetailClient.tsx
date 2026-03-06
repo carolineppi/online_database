@@ -1,7 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Package, FileDown, CheckSquare, Square, Trophy, RefreshCcw, Trash2, PlusSquare, FileText, PlusCircle } from 'lucide-react';
+import { 
+  Package, 
+  FileDown, 
+  CheckSquare, 
+  Square, 
+  Trophy, 
+  RefreshCcw, 
+  Trash2, 
+  PlusSquare, 
+  FileText, 
+  PlusCircle,
+  AlertCircle
+} from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionTrigger from '@/components/AddOptionTrigger';
@@ -16,6 +28,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const supabase = createClient();
   const router = useRouter();
 
+  // Financial Calculations
   const winnerPrice = options?.find((o: any) => o.id === activeJob?.accepted_individual_quote)?.price || 0;
   const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
   const projectTotal = Number(winnerPrice) + addonsTotal;
@@ -26,47 +39,27 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     );
   };
 
-  // 1. SOFT DELETE: Submittal
-  const handleDeleteSubmittal = async () => {
-    if (!confirm("Move this submittal to the trash? It can be restored within 30 days.")) return;
-    
-    setLoading(true);
-    const { error } = await supabase
-      .from('quote_submittals')
-      .update({ deleted_at: new Date().toISOString() }) // Soft delete
-      .eq('id', id);
-
-    if (!error) {
-      toast.success("Submittal moved to trash");
-      router.push('/');
-      router.refresh();
-    } else {
-      toast.error("Error: " + error.message);
-      setLoading(false);
-    }
-  };
-
-  // 2. SOFT DELETE: Individual Option
+  // 1. SOFT DELETE: Individual Pricing Option
   const handleDeleteOption = async (optionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent toggling selection when clicking delete
     if (!confirm("Move this pricing option to the trash?")) return;
     
     setLoading(true);
     const { error } = await supabase
       .from('individual_quotes')
-      .update({ deleted_at: new Date().toISOString() }) // Soft delete
+      .update({ deleted_at: new Date().toISOString() }) // Soft delete logic
       .eq('id', optionId);
 
     if (!error) {
       toast.success("Option moved to trash");
-      router.refresh();
+      router.refresh(); // Trigger server-side re-fetch to hide item
     } else {
       toast.error("Error deleting: " + error.message);
     }
     setLoading(false);
   };
 
-  // 3. SOFT DELETE: Add-on
+  // 2. SOFT DELETE: Add-on Material
   const handleDeleteAddon = async (addonId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Move this add-on to the trash?")) return;
@@ -74,7 +67,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     setLoading(true);
     const { error } = await supabase
       .from('add_ons')
-      .update({ deleted_at: new Date().toISOString() }) // Soft delete
+      .update({ deleted_at: new Date().toISOString() }) // Soft delete logic
       .eq('id', addonId);
 
     if (!error) {
@@ -107,6 +100,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       }
     } catch (err) {
       console.error("PDF Error:", err);
+      toast.error("Failed to generate PDF");
     } finally {
       setGenerating(false);
     }
@@ -149,24 +143,15 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     <div className="lg:col-span-2 space-y-12">
       {/* SECTION 1: MATERIAL OPTIONS */}
       <section>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2 text-zinc-800">
-            <Package size={20} className="text-zinc-400" /> Material Options
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
+            <Package size={22} className="text-blue-600" /> Pricing Options
           </h2>
           <div className="flex gap-3">
             <button 
-              onClick={handleDeleteSubmittal}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-600 hover:text-white transition shadow-sm"
-            >
-              <Trash2 size={14} />
-              Trash Submittal
-            </button>
-
-            <button 
               onClick={handleGeneratePDF}
               disabled={selectedIds.length === 0 || generating}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition shadow-md"
+              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 disabled:opacity-50 transition shadow-lg shadow-zinc-200"
             >
               <FileDown size={14} />
               {generating ? "Generating..." : `Generate PDF (${selectedIds.length})`}
@@ -182,55 +167,55 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
             return (
               <div 
                 key={option.id} 
-                className={`bg-white border rounded-xl p-5 shadow-sm transition flex justify-between items-center relative cursor-pointer ${
-                  isWinner ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-zinc-200 hover:border-blue-300'
+                className={`bg-white border rounded-3xl p-6 shadow-sm transition flex justify-between items-center relative cursor-pointer group ${
+                  isWinner ? 'border-emerald-500 ring-4 ring-emerald-500/10' : 'border-zinc-200 hover:border-blue-300'
                 }`}
                 onClick={() => toggleSelection(option.id)}
               >
                 {isWinner && (
-                  <div className="absolute -top-3 left-6 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                    <Trophy size={10} /> SELECTED WINNER
+                  <div className="absolute -top-3 left-8 bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-md uppercase tracking-widest">
+                    <Trophy size={10} /> Active Winner
                   </div>
                 )}
 
-                <div className="flex items-center gap-4">
-                  <div className="text-blue-600">
-                    {selectedIds.includes(option.id) ? <CheckSquare size={24} /> : <Square size={24} className="text-zinc-300" />}
+                <div className="flex items-center gap-5">
+                  <div className={`${selectedIds.includes(option.id) ? 'text-blue-600' : 'text-zinc-200'} transition-colors`}>
+                    {selectedIds.includes(option.id) ? <CheckSquare size={28} /> : <Square size={28} />}
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg text-zinc-800">{option.material}</h3>
-                    <p className="text-zinc-500 text-sm">{option.mounting_style} • Qty: {option.quantity}</p>
-                    <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider font-semibold">
-                      {option.manufacturer}
+                    <h3 className="font-black text-xl text-zinc-900 leading-tight">{option.material}</h3>
+                    <p className="text-zinc-500 text-sm font-medium mt-1">
+                      {option.mounting_style} • {option.manufacturer} • Qty: {option.quantity}
                     </p>
                   </div>
                 </div>
 
                 <div className="text-right flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
-                  <p className={`text-2xl font-black ${isWinner ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                  <p className={`text-3xl font-black ${isWinner ? 'text-emerald-600' : 'text-zinc-900'}`}>
                     ${Number(option.price).toLocaleString()}
                   </p>
                   
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center gap-3 mt-3">
                     <button
-                      onClick={(e) => handleDeleteOption(option.id, e)}
+                      onClick={(e) => handleDeleteOption(option.id, e)} // Call Soft Delete
                       disabled={loading}
-                      className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      className="p-2 text-zinc-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition border border-transparent hover:border-red-100"
+                      title="Move to Trash"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={20} />
                     </button>
 
                     <button
                       onClick={() => handleSelectWinner(option)}
                       disabled={loading || isWinner}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition min-w-[120px] justify-center ${
+                      className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition shadow-sm ${
                         isWinner 
-                          ? 'bg-emerald-50 text-emerald-600 cursor-default' 
-                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white shadow-sm'
+                          ? 'bg-emerald-50 text-emerald-600 cursor-default border border-emerald-100' 
+                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-900 hover:text-white'
                       }`}
                     >
                       {isWinner ? <CheckSquare size={14} /> : <RefreshCcw size={14} />}
-                      {isWinner ? "Active Winner" : activeJob ? "Change Winner" : "Select Winner"}
+                      {isWinner ? "Selected" : "Mark Winner"}
                     </button>
                   </div>
                 </div>
@@ -241,18 +226,17 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       </section>
 
       {/* SECTION 2: ADD-ONS */}
-      <section className="pt-8 border-t border-zinc-100">
+      <section className="pt-12 border-t border-zinc-100">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold flex items-center gap-2 text-zinc-800">
-            <PlusSquare size={20} className="text-zinc-400" /> Add-on Items
+          <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
+            <PlusSquare size={22} className="text-zinc-400" /> Additional Items
           </h2>
           
           <button 
             onClick={() => setShowAddOnForm(true)}
-            className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition shadow-sm"
+            className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
           >
-            <PlusCircle size={14} />
-            Add Material
+            <PlusCircle size={14} /> Add Item
           </button>
         </div>
 
@@ -261,48 +245,39 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
             <div 
               key={addon.id} 
               onClick={() => toggleSelection(addon.id)}
-              className={`bg-white border rounded-xl p-5 flex justify-between items-center shadow-sm transition cursor-pointer ${
-                selectedIds.includes(addon.id) ? 'border-blue-500 ring-2 ring-blue-500/10' : 'border-zinc-200 hover:border-blue-300'
+              className={`bg-white border rounded-3xl p-6 flex justify-between items-center shadow-sm transition cursor-pointer ${
+                selectedIds.includes(addon.id) ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-zinc-200 hover:border-blue-300'
               }`}
             >
-              <div className="flex items-center gap-4">
-                <div className="text-blue-600">
-                  {selectedIds.includes(addon.id) ? <CheckSquare size={24} /> : <Square size={24} className="text-zinc-300" />}
+              <div className="flex items-center gap-5">
+                <div className={`${selectedIds.includes(addon.id) ? 'text-blue-600' : 'text-zinc-200'}`}>
+                  {selectedIds.includes(addon.id) ? <CheckSquare size={28} /> : <Square size={28} />}
                 </div>
                 
-                <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                  <FileText size={20} />
+                <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center border border-blue-100">
+                  <FileText size={24} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-zinc-900">{addon.material}</h3> 
-                  <p className="text-sm text-zinc-500 italic">{addon.reason || "No reason specified"}</p>
-                  
-                  <div className="flex gap-2 mt-2">
-                    <span className="text-[10px] font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500 uppercase">
-                      Qty: {addon.quantity || 1}
-                    </span>
-                    <span className="text-[10px] font-bold bg-zinc-100 px-2 py-0.5 rounded text-zinc-500 uppercase">
-                      {addon.manufacturer}
-                    </span>
-                  </div>
+                  <h3 className="font-black text-zinc-900 text-lg leading-none">{addon.material}</h3> 
+                  <p className="text-sm text-zinc-500 font-medium mt-1.5">{addon.reason || "Standard addition"}</p>
                 </div>
               </div>
 
               <div className="text-right flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
-                <p className="text-xl font-black text-zinc-900">+${Number(addon.price).toLocaleString()}</p>
+                <p className="text-2xl font-black text-zinc-900">+${Number(addon.price).toLocaleString()}</p>
                 <button 
-                  onClick={(e) => handleDeleteAddon(addon.id, e)}
-                  className="mt-2 p-1.5 text-zinc-400 hover:text-red-600 transition"
+                  onClick={(e) => handleDeleteAddon(addon.id, e)} // Call Soft Delete
+                  className="mt-2 p-2 text-zinc-300 hover:text-red-600 transition"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>
           ))}
 
           {addons?.length === 0 && (
-            <div className="text-center py-8 border-2 border-dashed border-zinc-100 rounded-xl text-zinc-400 text-sm italic">
-              No add-ons associated with this submittal.
+            <div className="text-center py-12 border-4 border-dashed border-zinc-50 rounded-3xl text-zinc-300 font-bold uppercase tracking-widest text-xs">
+              No add-ons applied
             </div>
           )}
         </div>
@@ -310,33 +285,37 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
       {/* SECTION 3: PROJECT TOTAL CARD */}
       <section className="pt-12">
-        <div className="bg-zinc-900 rounded-3xl p-8 text-white shadow-xl shadow-zinc-200 overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <Trophy size={120} />
+        <div className="bg-zinc-900 rounded-[2.5rem] p-10 text-white shadow-2xl shadow-zinc-300 overflow-hidden relative border border-white/5">
+          <div className="absolute -top-10 -right-10 opacity-[0.03]">
+            <Trophy size={280} />
           </div>
 
-          <div className="relative z-10 grid md:grid-cols-3 gap-8 items-center">
+          <div className="relative z-10 grid md:grid-cols-3 gap-10 items-center">
             <div>
-              <p className="text-zinc-400 text-xs font-black uppercase tracking-widest mb-1">Winning Material</p>
-              <p className="text-2xl font-bold">${Number(winnerPrice).toLocaleString()}</p>
+              <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Winning Bid</p>
+              <p className="text-3xl font-black">${Number(winnerPrice).toLocaleString()}</p>
             </div>
 
             <div>
-              <p className="text-zinc-400 text-xs font-black uppercase tracking-widest mb-1">Add-ons Total</p>
-              <p className="text-2xl font-bold text-blue-400">+ ${Number(addonsTotal).toLocaleString()}</p>
+              <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Adjustments</p>
+              <p className="text-3xl font-black text-blue-400">+ ${Number(addonsTotal).toLocaleString()}</p>
             </div>
 
-            <div className="bg-white/10 p-6 rounded-2xl border border-white/10 backdrop-blur-md">
-              <p className="text-zinc-300 text-xs font-black uppercase tracking-widest mb-1">Project Grand Total</p>
-              <p className="text-4xl font-black text-emerald-400">
+            <div className="bg-white/5 p-8 rounded-[2rem] border border-white/10 backdrop-blur-xl">
+              <p className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Project Grand Total</p>
+              <p className="text-5xl font-black text-emerald-400 tracking-tighter">
                 ${projectTotal.toLocaleString()}
               </p>
             </div>
           </div>
         </div>
+        
+        <p className="mt-6 flex items-center justify-center gap-2 text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
+          <AlertCircle size={12} /> Deleted items can be restored from the trash within 30 days
+        </p>
       </section>
 
-      {/* FORM MODAL */}
+      {/* MODAL OVERLAY */}
       {showAddOnForm && (
         <AddOnForm 
           quoteId={id} 

@@ -5,17 +5,18 @@ import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
+// Next.js 15: params must be a Promise
 export default async function SubmittalDetails({ 
   params 
 }: { 
   params: Promise<{ id: string }> 
 }) {
-  // 2. CRITICAL: You must await the params before using the id
+  // 1. Await the params before accessing the ID
   const resolvedParams = await params;
   const id = resolvedParams.id;
   const supabase = await createClient();
 
-  // 1. Soft Delete Server Action for the Submittal
+  // 2. Server Action for Submittal Soft Delete
   async function softDeleteSubmittal() {
     'use server';
     const supabase = await createClient();
@@ -24,20 +25,29 @@ export default async function SubmittalDetails({
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id);
     
+    // Clear caches and redirect
     revalidatePath('/');
     revalidatePath('/trash');
-    redirect('/'); // Redirect back to dashboard after trashing
+    redirect('/'); 
   }
 
-  // 2. Fetch data, excluding items already marked as deleted
+  // 3. Fetch data with 'deleted_at' filter
   const { data: submittal } = await supabase
     .from('quote_submittals')
     .select(`*, linked_customer:customers!customer (*)`)
     .eq('id', id)
-    .is('deleted_at', null) // Safety check
+    .is('deleted_at', null) 
     .maybeSingle();
 
-  if (!submittal) return <div className="p-8">Submittal ID {id} not found or has been deleted.</div>;
+  if (!submittal) {
+    return (
+      <div className="p-8 text-center mt-20">
+        <h2 className="text-xl font-bold text-zinc-800">Submittal not found</h2>
+        <p className="text-zinc-500 mb-6">This item may have been moved to the trash.</p>
+        <Link href="/" className="text-blue-600 font-bold underline">Return to Dashboard</Link>
+      </div>
+    );
+  }
 
   const { data: job } = await supabase
     .from('jobs')
@@ -50,104 +60,56 @@ export default async function SubmittalDetails({
     .from('individual_quotes')
     .select('*')
     .eq('quote_id', id)
-    .is('deleted_at', null); // Only show non-deleted quotes
+    .is('deleted_at', null); // Soft delete filter
 
   const { data: addons } = await supabase
     .from('add_ons')
     .select('*')
-    .eq('quote_id', id);
+    .eq('quote_id', id)
+    .is('deleted_at', null);
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <Link href="/submittals" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
-          <ChevronLeft size={20} /> Back to Inbound Submittals
+        <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
+          <ChevronLeft size={20} /> Back to Dashboard
         </Link>
 
-        {/* 3. Soft Delete Button for the Submittal */}
+        {/* Action button inside a form for Server Action */}
         <form action={softDeleteSubmittal}>
           <button 
             type="submit"
             className="flex items-center gap-2 text-zinc-400 hover:text-red-600 transition text-xs font-black uppercase tracking-widest"
-            onClick={(e) => {
-              if(!confirm("Move this submittal to trash?")) e.preventDefault();
-            }}
+            formAction={softDeleteSubmittal}
           >
             <Trash2 size={16} /> Move to Trash
           </button>
         </form>
       </div>
       
-      <div className="bg-white border-b border-zinc-200 mb-8 px-8 py-6 rounded-2xl shadow-sm">
-        <div className="max-w-7xl mx-auto">
-          {/* ... (Existing Header and Marketing Source Card content) ... */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      {/* ... Header UI ... */}
+      <div className="bg-white border rounded-3xl p-8 mb-8 shadow-sm">
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-2xl font-black text-zinc-900">{submittal.job_name}</h1>
                 <span className="bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded text-sm font-mono font-bold">
                   #{submittal.quote_number}
                 </span>
-                
-                {(submittal.quote_source && submittal.quote_source !== 'Direct') && (
-                  <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 uppercase tracking-tighter">
-                    <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
-                    Paid Ad
-                  </span>
-                )}
               </div>
-              <div className="flex flex-wrap items-center gap-x-6 text-sm text-zinc-500">
-                 <span className="font-semibold text-zinc-700">
-                   {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name}
-                 </span>
-                 <span>{submittal.linked_customer?.email}</span>
-              </div>
+              <p className="text-zinc-500 text-sm">Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name}</p>
             </div>
-            {/* Status and PDF links */}
-            <div className="flex items-center gap-3">
-              {submittal.pdf_url && (
-                <a href={submittal.pdf_url} target="_blank" className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-600 rounded-xl text-xs font-bold hover:bg-zinc-50">
-                  <FileText size={14} className="text-red-500" /> View Original PDF
-                </a>
-              )}
-              <span className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
-                submittal.status === 'Won' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}>
-                {submittal.status}
-              </span>
-            </div>
-          </div>
-          {/* Marketing Card */}
-          {submittal.quote_source && submittal.quote_source !== 'Direct' && (
-            <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="bg-amber-100 p-2.5 rounded-xl text-amber-600">
-                  <Target size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase text-amber-600 leading-none mb-1">Marketing Attribution</p>
-                  <p className="text-sm font-bold text-amber-900">
-                    {submittal.quote_source} {submittal.campaign_source ? `— Campaign: ${submittal.campaign_source}` : ''}
-                  </p>
-                  {submittal.content_source && (
-                    <p className="text-xs text-amber-700/70 mt-0.5 font-medium italic">Ad Content: {submittal.content_source}</p>
-                  )}
-                </div>
-              </div>
-              
-              {submittal.source_url && (
-                <a href={submittal.source_url} target="_blank" className="text-[10px] font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1.5 uppercase transition">
-                  View Landing Page <ExternalLink size={12} />
-                </a>
-              )}
-            </div>
-          )}
-        </div>
+            <span className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border ${
+              submittal.status === 'WON' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              {submittal.status}
+            </span>
+         </div>
       </div>
 
       <SubmittalDetailClient 
         submittal={submittal} 
-        options={options} 
+        options={options || []} 
         addons={addons || []} 
         id={id} 
         activeJob={job} 
