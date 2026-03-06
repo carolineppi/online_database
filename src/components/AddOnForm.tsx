@@ -12,12 +12,11 @@ const PRESET_ITEMS = ["Toilet Partitions", "Urinal Screens", "Privacy Screens", 
 
 interface AddOnFormProps {
   quoteId: string;
-  jobId?: string;
   onClose: () => void;
   initialData?: any;
 }
 
-export default function AddOnForm({ quoteId, jobId, onClose, initialData }: AddOnFormProps) {
+export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormProps) {
   const [loading, setLoading] = useState(false);
   
   // Initialize items from initialData (for duplication/edit) or default
@@ -48,7 +47,6 @@ export default function AddOnForm({ quoteId, jobId, onClose, initialData }: AddO
 
     const { error } = await supabase.from('add_ons').insert({
       quote_id: quoteId,
-      job_id: jobId || null,
       ...formData,
       itemized_breakdown: items,
       quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
