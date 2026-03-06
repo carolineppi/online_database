@@ -65,13 +65,33 @@ export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Material</label>
-                <input required placeholder="Material (e.g. Powder Coated)" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
-                  onChange={e => setFormData({...formData, material: e.target.value})} />
+                  <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none"
+                    value={formData.material}
+                    onChange={e => setFormData({...formData, material: e.target.value})} >
+                    <option>Powder Coated Steel (PCS)</option>
+                    <option>High Pressure Laminate (HPL)</option>
+                    <option>HDPE Solid Plastic</option>
+                    <option>Solid Phenolic</option>
+                    <option>Stainless Steel</option>
+                    <option>Accessories Only</option>
+                  </select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Manufacturer</label>
-                <input required placeholder="Manufacturer (e.g. Hadrian)" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
-                  onChange={e => setFormData({...formData, manufacturer: e.target.value})} />
+                <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none"
+                  value={formData.manufacturer}
+                  onChange={e => setFormData({...formData, manufacturer: e.target.value})}>
+                  <option>ASI</option>
+                  <option>Bobrick</option>
+                  <option>Bradley</option>
+                  <option>Excel</option>
+                  <option>Global</option>
+                  <option>Hadrian</option>
+                  <option>Hawa</option>
+                  <option>Metpar</option>
+                  <option>Scranton Products</option>
+                  <option>Partition Plus</option>
+                </select>
               </div>
             </div>
 
@@ -109,8 +129,12 @@ export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, 
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Shipping</label>
                 <div className="relative">
                   <Truck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                  <input required placeholder="e.g. Included" defaultValue="Included" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
-                    onChange={e => setFormData({...formData, shipping_area: e.target.value})} />
+                <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none"
+                  value={formData.shipping_area}
+                  onChange={e => setFormData({...formData, shipping_area: e.target.value})}>
+                  <option>Includes Shipping</option>
+                  <option>Includes Shipping & Sales Tax</option>
+                </select>                    
                 </div>
               </div>
             </div>
@@ -120,7 +144,7 @@ export default function AddOptionModal({ quoteId, onClose }: { quoteId: string, 
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Hardware Details</label>
               <div className="relative">
                 <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <input required placeholder="Hardware details" defaultValue="All Standard Chrome Hardware Included" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
+                <input required placeholder="Hardware details" defaultValue="All Hardware Needed for Installation is Included" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition"
                   onChange={e => setFormData({...formData, hardware_included: e.target.value})} />
               </div>
             </div>
