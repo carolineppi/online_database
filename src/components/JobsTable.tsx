@@ -74,7 +74,6 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
       {/* 6. Render the Add-On Modal */}
       {addonData && (
         <AddOnForm 
-          jobId={addonData.jobId} 
           quoteId={addonData.quoteId} 
           onClose={() => setAddonData(null)} 
         />
