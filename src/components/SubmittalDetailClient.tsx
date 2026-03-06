@@ -13,23 +13,21 @@ import {
   FileText, 
   PlusCircle,
   AlertCircle,
-  Copy // Added for duplication
+  Copy 
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import AddOptionTrigger from '@/components/AddOptionTrigger';
-import AddOptionModal from '@/components/AddOptionModal'; // Ensure this matches your file path
+import AddOptionModal from '@/components/AddOptionModal';
 import AddOnForm from '@/components/AddOnForm';
 import { toast } from 'sonner';
-
 
 export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAddOnForm, setShowAddOnForm] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false); // Modal visibility
-  const [duplicateData, setDuplicateData] = useState<any>(null); // Duplication state
+  const [showAddModal, setShowAddModal] = useState(false); 
+  const [duplicateData, setDuplicateData] = useState<any>(null); 
   
   const supabase = createClient();
   const router = useRouter();
@@ -42,46 +40,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     setSelectedIds(prev => 
       prev.includes(optionId) ? prev.filter(i => i !== optionId) : [...prev, optionId]
     );
-  };
-
-  // 1. SOFT DELETE: Individual Pricing Option
-  const handleDeleteOption = async (optionId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent toggling selection when clicking delete
-    if (!confirm("Move this pricing option to the trash?")) return;
-    
-    setLoading(true);
-    const { error } = await supabase
-      .from('individual_quotes')
-      .update({ deleted_at: new Date().toISOString() }) // Soft delete logic
-      .eq('id', optionId);
-
-    if (!error) {
-      toast.success("Option moved to trash");
-      router.refresh(); // Trigger server-side re-fetch to hide item
-    } else {
-      toast.error("Error deleting: " + error.message);
-    }
-    setLoading(false);
-  };
-
-  // 2. SOFT DELETE: Add-on Material
-  const handleDeleteAddon = async (addonId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Move this add-on to the trash?")) return;
-    
-    setLoading(true);
-    const { error } = await supabase
-      .from('add_ons')
-      .update({ deleted_at: new Date().toISOString() }) // Soft delete logic
-      .eq('id', addonId);
-
-    if (!error) {
-      toast.success("Add-on moved to trash");
-      router.refresh();
-    } else {
-      toast.error("Error: " + error.message);
-    }
-    setLoading(false);
   };
 
   const handleGeneratePDF = async () => {
@@ -144,14 +102,64 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     setLoading(false);
   };
 
+  const handleDeleteOption = async (optionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Move this pricing option to the trash?")) return;
+    
+    setLoading(true);
+    const { error } = await supabase
+      .from('individual_quotes')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', optionId);
+
+    if (!error) {
+      toast.success("Option moved to trash");
+      router.refresh();
+    } else {
+      toast.error("Error deleting: " + error.message);
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteAddon = async (addonId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Move this add-on to the trash?")) return;
+    
+    setLoading(true);
+    const { error } = await supabase
+      .from('add_ons')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', addonId);
+
+    if (!error) {
+      toast.success("Add-on moved to trash");
+      router.refresh();
+    } else {
+      toast.error("Error: " + error.message);
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="lg:col-span-2 space-y-12">
+      {/* SECTION 1: MATERIAL OPTIONS */}
       <section>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
             <Package size={22} className="text-blue-600" /> Pricing Options
           </h2>
           <div className="flex gap-3">
+            {/* RESTORED GENERATE PDF BUTTON */}
+            <button 
+              onClick={handleGeneratePDF}
+              disabled={selectedIds.length === 0 || generating}
+              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 disabled:opacity-50 transition shadow-lg shadow-zinc-200"
+            >
+              <FileDown size={14} />
+              {generating ? "Generating..." : `Generate PDF (${selectedIds.length})`}
+            </button>
+
+            {/* RESTORED ADD OPTION BUTTON */}
             <button 
               onClick={() => {
                 setDuplicateData(null);
@@ -176,7 +184,11 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                 }`}
                 onClick={() => toggleSelection(option.id)}
               >
-                {/* ... (Winner Badge and Selection Indicator UI) ... */}
+                {isWinner && (
+                  <div className="absolute -top-3 left-8 bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-md uppercase tracking-widest">
+                    <Trophy size={10} /> Active Winner
+                  </div>
+                )}
 
                 <div className="flex items-center gap-5">
                   <div className={`${selectedIds.includes(option.id) ? 'text-blue-600' : 'text-zinc-200'} transition-colors`}>
@@ -279,7 +291,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <div className="text-right flex flex-col items-end" onClick={(e) => e.stopPropagation()}>
                 <p className="text-2xl font-black text-zinc-900">+${Number(addon.price).toLocaleString()}</p>
                 <button 
-                  onClick={(e) => handleDeleteAddon(addon.id, e)} // Call Soft Delete
+                  onClick={(e) => handleDeleteAddon(addon.id, e)}
                   className="mt-2 p-2 text-zinc-300 hover:text-red-600 transition"
                 >
                   <Trash2 size={18} />
@@ -287,12 +299,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               </div>
             </div>
           ))}
-
-          {addons?.length === 0 && (
-            <div className="text-center py-12 border-4 border-dashed border-zinc-50 rounded-3xl text-zinc-300 font-bold uppercase tracking-widest text-xs">
-              No add-ons applied
-            </div>
-          )}
         </div>
       </section>
 
@@ -328,7 +334,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
         </p>
       </section>
 
-      {/* MODAL OVERLAY */}
+      {/* MODAL OVERLAYS */}
       {showAddModal && (
         <AddOptionModal 
           quoteId={id} 
