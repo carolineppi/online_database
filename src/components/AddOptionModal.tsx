@@ -50,7 +50,16 @@ const handleSubmit = async (e: React.FormEvent) => {
   setLoading(true);
 
   try {
-    // 1. PRIMARY ACTION: Save the individual quote
+    // 1. Check if any quotes already exist for this submittal BEFORE inserting
+    const { count, error: countError } = await supabase
+      .from('individual_quotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('quote_id', quoteId)
+      .is('deleted_at', null);
+
+    if (countError) throw countError;
+
+    // 2. Insert the new quote option
     const { error: insertError } = await supabase.from('individual_quotes').insert({
       quote_id: quoteId,
       ...formData,
@@ -60,28 +69,23 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     if (insertError) throw insertError;
 
-    // 2. CHECK FOR FIRST QUOTE: Only proceed if this is the only quote
-    const { count } = await supabase
-      .from('individual_quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('quote_id', quoteId)
-      .is('deleted_at', null);
-
-    if (count === 1) {
-      // Get the logged-in user's ID
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-
-      if (userId) {
-        // Fetch the name_code from the employees/profiles table
-        const { data: employee } = await supabase
-          .from('profiles') // Adjust table name if your employees are in a different table
-          .select('name_code')
-          .eq('id', userId)
+    // 3. If this was the FIRST quote, update the submittal's number and employee ID
+    if (count === 0) {
+      // Get the current logged-in user from Supabase Auth
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // IMPORTANT: Changed table name from 'profiles' to 'employees' to match your SQL
+        const { data: employee, error: empError } = await supabase
+          .from('employees') 
+          .select('name_code, id')
+          .eq('email', user.email) // Matching by email is often safer if IDs differ between auth/public
           .single();
 
+        if (empError) console.error("Employee fetch error:", empError.message);
+
         if (employee?.name_code) {
-          // Fetch current quote number
+          // Get the base quote number (e.g., 26-0170)
           const { data: submittal } = await supabase
             .from('quote_submittals')
             .select('quote_number')
@@ -89,26 +93,27 @@ const handleSubmit = async (e: React.FormEvent) => {
             .single();
 
           if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
-            // Update BOTH the employee_quoted foreign key and the quote_number suffix
-            await supabase
+            // Update BOTH the employee_quoted field and the quote_number suffix
+            const { error: updateError } = await supabase
               .from('quote_submittals')
               .update({ 
                 quote_number: `${submittal.quote_number}${employee.name_code}`,
-                employee_quoted: userId // Assign the logged-in user to this submittal
+                employee_quoted: employee.id // This fills the empty column you saw in SQL
               })
               .eq('id', quoteId);
+              
+            if (updateError) console.error("Submittal update error:", updateError.message);
           }
         }
       }
     }
 
-    toast.success("Quote option added!");
+    toast.success(initialData ? "Quote duplicated successfully!" : "Quote option added!");
     router.refresh();
     onClose();
-
-  } catch (err: any) {
-    console.error("Submission Error:", err.message);
-    toast.error(`Error: ${err.message}`);
+  } catch (error: any) {
+    console.error("Critical Error:", error.message);
+    toast.error(error.message);
   } finally {
     setLoading(false);
   }
