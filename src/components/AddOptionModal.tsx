@@ -60,6 +60,17 @@ const { count } = await supabase
 console.log("Current Quote Count:", count); // DEBUG 1
 
 if (count === 0) {
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log("Auth User Email:", user?.email); // DEBUG 2
+  
+  const { data: employee } = await supabase
+    .from('employees') 
+    .select('*')
+    .eq('email', user?.email)
+    .single();
+
+  console.log("Found Employee:", employee); // DEBUG 3
+}
 
     // 2. Insert the new quote option
     const { error: insertError } = await supabase.from('individual_quotes').insert({
@@ -75,7 +86,6 @@ if (count === 0) {
     if (count === 0) {
       // Get the current logged-in user from Supabase Auth
       const { data: { user } } = await supabase.auth.getUser();
-      console.log("Auth User Email:", user?.email); // DEBUG 2
       
       if (user) {
         // IMPORTANT: Changed table name from 'profiles' to 'employees' to match your SQL
@@ -85,7 +95,6 @@ if (count === 0) {
           .eq('email', user.email) // Matching by email is often safer if IDs differ between auth/public
           .single();
 
-        console.log("Found Employee:", employee); // DEBUG 3
         if (empError) console.error("Employee fetch error:", empError.message);
 
         if (employee?.name_code) {
