@@ -1,5 +1,14 @@
 import { createClient } from '@/utils/supabase/server';
-import { ChevronLeft, FileText, Target, ExternalLink, Trash2, Globe, Megaphone, Download } from 'lucide-react'; 
+import { 
+  ChevronLeft, 
+  Trash2, 
+  Globe, 
+  Target,
+  Megaphone, 
+  FileText, // Added for PDF icon
+  ExternalLink,
+  Download
+} from 'lucide-react';
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
