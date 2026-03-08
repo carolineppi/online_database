@@ -138,7 +138,7 @@ return (
          </div>
       </div>
       {/* NEW: Original Uploaded PDF Section */}
-      {submittal.original_pdf_path && (
+      {submittal.pdf_url && (
         <section className="mb-12">
           <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-6">
@@ -154,14 +154,14 @@ return (
 
             <div className="flex gap-3 w-full md:w-auto">
               <Link 
-                href={submittal.original_pdf_path} 
+                href={submittal.pdf_url} 
                 target="_blank"
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-50 transition"
               >
                 <ExternalLink size={14} /> View PDF
               </Link>
               <a 
-                href={submittal.original_pdf_path} 
+                href={submittal.pdf_url} 
                 download 
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
               >
