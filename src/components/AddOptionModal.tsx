@@ -70,41 +70,46 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (insertError) throw insertError;
 
     // 3. Suffix Logic: Only if this is the FIRST quote
-    if (count === 0) {
-      // Get session directly from the client
-      const { data: { session } } = await supabase.auth.getSession();
-      const userEmail = session?.user?.email;
+  if (count === 0) {
+    // 1. Get the user exactly how your layout.tsx does it
+    const savedEmployee = localStorage.getItem('employee');
+    const loggedInUser = savedEmployee ? JSON.parse(savedEmployee) : null;
 
-      if (userEmail) {
-        // Fetch employee details
-        const { data: employee } = await supabase
-          .from('employees') 
-          .select('name_code, id')
-          .eq('email', userEmail)
+    // Use the email from your custom 'employee' object
+    const userEmail = loggedInUser?.email;
+
+    console.log("Custom Session Email:", userEmail);
+    
+    if (userEmail) {
+      // 2. Query the employees table using this email
+      const { data: employee, error: empError } = await supabase
+        .from('employees') 
+        .select('name_code, id')
+        .eq('email', userEmail)
+        .single();
+
+      if (employee?.name_code) {
+        // 3. Fetch the submittal and append suffix
+        const { data: submittal } = await supabase
+          .from('quote_submittals')
+          .select('quote_number')
+          .eq('id', quoteId)
           .single();
 
-        if (employee?.name_code) {
-          const { data: submittal } = await supabase
+        if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
+          await supabase
             .from('quote_submittals')
-            .select('quote_number')
-            .eq('id', quoteId)
-            .single();
-
-          if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
-            // Update initials and employee foreign key
-            await supabase
-              .from('quote_submittals')
-              .update({ 
-                quote_number: `${submittal.quote_number}${employee.name_code}`,
-                employee_quoted: employee.id 
-              })
-              .eq('id', quoteId);
-          }
+            .update({ 
+              quote_number: `${submittal.quote_number}${employee.name_code}`,
+              employee_quoted: employee.id 
+            })
+            .eq('id', quoteId);
         }
-      } else {
-        console.warn("Auth check failed: User email is still undefined. Ensure NEXT_PUBLIC keys are set and server is restarted.");
       }
+    } else {
+      console.warn("No 'employee' found in localStorage - initials not appended.");
     }
+  }
 
     toast.success("Quote option added!");
     router.refresh();
