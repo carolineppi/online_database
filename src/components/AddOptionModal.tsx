@@ -50,27 +50,14 @@ const handleSubmit = async (e: React.FormEvent) => {
   setLoading(true);
 
   try {
-    // 1. Check if any quotes already exist for this submittal BEFORE inserting
-const { count } = await supabase
-  .from('individual_quotes')
-  .select('*', { count: 'exact', head: true })
-  .eq('quote_id', quoteId)
-  .is('deleted_at', null);
+    // 1. Check for existing quotes
+    const { count, error: countError } = await supabase
+      .from('individual_quotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('quote_id', quoteId)
+      .is('deleted_at', null);
 
-console.log("Current Quote Count:", count); // DEBUG 1
-
-if (count === 0) {
-  const { data: { user } } = await supabase.auth.getUser();
-  console.log("Auth User Email:", user?.email); // DEBUG 2
-  
-  const { data: employee } = await supabase
-    .from('employees') 
-    .select('*')
-    .eq('email', user?.email)
-    .single();
-
-  console.log("Found Employee:", employee); // DEBUG 3
-}
+    if (countError) throw countError;
 
     // 2. Insert the new quote option
     const { error: insertError } = await supabase.from('individual_quotes').insert({
@@ -82,28 +69,21 @@ if (count === 0) {
 
     if (insertError) throw insertError;
 
-    // 3. If this was the FIRST quote, update the submittal's number and employee ID
+    // 3. Suffix Logic: Only if this is the FIRST quote
     if (count === 0) {
-      // 1. Switch to getSession() to ensure we get the browser's current state
+      // Get session directly from the client
       const { data: { session } } = await supabase.auth.getSession();
       const userEmail = session?.user?.email;
 
-      console.log("Session Email:", userEmail); // Should now show your email
-      
       if (userEmail) {
-        // 2. Query the employees table using the confirmed email
-        const { data: employee, error: empError } = await supabase
+        // Fetch employee details
+        const { data: employee } = await supabase
           .from('employees') 
           .select('name_code, id')
           .eq('email', userEmail)
           .single();
 
-        if (empError) {
-          console.error("Employee Lookup Error:", empError.message);
-        }
-
         if (employee?.name_code) {
-          // 3. Update the submittal with initials and employee ID
           const { data: submittal } = await supabase
             .from('quote_submittals')
             .select('quote_number')
@@ -111,6 +91,7 @@ if (count === 0) {
             .single();
 
           if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
+            // Update initials and employee foreign key
             await supabase
               .from('quote_submittals')
               .update({ 
@@ -121,16 +102,15 @@ if (count === 0) {
           }
         }
       } else {
-        console.warn("No active session found - initials not appended.");
+        console.warn("Auth check failed: User email is still undefined. Ensure NEXT_PUBLIC keys are set and server is restarted.");
       }
     }
 
-    toast.success(initialData ? "Quote duplicated successfully!" : "Quote option added!");
+    toast.success("Quote option added!");
     router.refresh();
     onClose();
-  } catch (error: any) {
-    console.error("Critical Error:", error.message);
-    toast.error(error.message);
+  } catch (err: any) {
+    toast.error(`Error: ${err.message}`);
   } finally {
     setLoading(false);
   }
