@@ -50,7 +50,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   setLoading(true);
 
   try {
-    // 1. PRIMARY ACTION: Save the individual quote first (This worked before)
+    // 1. PRIMARY ACTION: Save the individual quote
     const { error: insertError } = await supabase.from('individual_quotes').insert({
       quote_id: quoteId,
       ...formData,
@@ -60,40 +60,42 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     if (insertError) throw insertError;
 
-    // 2. SECONDARY ACTION: Handle the Quote Number Suffix
-    // We only attempt this if this was the FIRST quote added
+    // 2. CHECK FOR FIRST QUOTE: Only proceed if this is the only quote
     const { count } = await supabase
       .from('individual_quotes')
       .select('*', { count: 'exact', head: true })
       .eq('quote_id', quoteId)
       .is('deleted_at', null);
 
-    if (count === 1) { // Exactly one quote exists (the one we just made)
-      // Fetch user session
+    if (count === 1) {
+      // Get the logged-in user's ID
       const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
+      const userId = session?.user?.id;
 
-      if (user) {
-        // Get the name_code from profiles
-        const { data: profile } = await supabase
-          .from('profiles')
+      if (userId) {
+        // Fetch the name_code from the employees/profiles table
+        const { data: employee } = await supabase
+          .from('profiles') // Adjust table name if your employees are in a different table
           .select('name_code')
-          .eq('id', user.id)
+          .eq('id', userId)
           .single();
 
-        if (profile?.name_code) {
-          // Get the current submittal base number (e.g., 26-1234)
+        if (employee?.name_code) {
+          // Fetch current quote number
           const { data: submittal } = await supabase
             .from('quote_submittals')
             .select('quote_number')
             .eq('id', quoteId)
             .single();
 
-          // Append initials only if not already present
-          if (submittal && !submittal.quote_number.endsWith(profile.name_code)) {
+          if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
+            // Update BOTH the employee_quoted foreign key and the quote_number suffix
             await supabase
               .from('quote_submittals')
-              .update({ quote_number: `${submittal.quote_number}${profile.name_code}` })
+              .update({ 
+                quote_number: `${submittal.quote_number}${employee.name_code}`,
+                employee_quoted: userId // Assign the logged-in user to this submittal
+              })
               .eq('id', quoteId);
           }
         }
