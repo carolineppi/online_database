@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", "HDPE Solid Plastic", "Solid Phenolic", "Stainless Steel" ];
+const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", "HDPE Solid Plastic", "Solid Phenolic", "Stainless Steel", "Accessories Only" ];
 const MANUFACTURERS = ["ASI", "Bobrick", "Bradley", "Excel", "Global", "Hadrian", "Hawa", "Metpar", "Partition Plus", "Scranton Products"];
 const PRESET_ITEMS = ["Toilet Partitions", "Urinal Screens", "Privacy Screens", "Alcove Stalls", "In-Corner Stalls", "Shower Units"];
 
@@ -109,6 +109,7 @@ export default function AddOnForm({ quoteId, onClose, initialData }: AddOnFormPr
                     <option>Floor Mounted Only</option>
                     <option>Ceiling Hung</option>
                     <option>Floor to Ceiling Mounted</option>
+                    <option>Accessories Only</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                 </div>

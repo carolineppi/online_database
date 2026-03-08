@@ -52,11 +52,34 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid phone format" }, { status: 400 });
     }
 
-    // 3. Get Next Quote Number
-    const { data: nextSeq, error: seqError } = await supabase.rpc('get_next_quote_number');
-    if (seqError) throw new Error(`Sequence Error: ${seqError.message}`);
-    
-    const quoteNumber = `${nextSeq}WEB`;
+    // --- STEP 2: GENERATE BASE NUMBER (YY-XXXX) ---
+        const now = new Date();
+        const yearSuffix = now.getFullYear().toString().slice(-2); // "26"
+
+        // Search for the highest numeric sequence for the current year
+        const { data: lastQuote } = await supabase
+          .from('quote_submittals')
+          .select('quote_number')
+          .ilike('quote_number', `${yearSuffix}-%`)
+          .order('quote_number', { ascending: false })
+          .limit(1)
+          .single();
+
+        let nextSequence = 1;
+        if (lastQuote?.quote_number) {
+          // Extract the digits between the dash and potential letters (e.g., "26-0001BM" -> "0001")
+          const parts = lastQuote.quote_number.split('-');
+          if (parts.length > 1) {
+            const numericMatch = parts[1].match(/^\d{4}/);
+            if (numericMatch) {
+              nextSequence = parseInt(numericMatch[0]) + 1;
+            }
+          }
+        }
+
+        // Pad to 4 digits (e.g., 1 -> "0001")
+        const paddedSeq = nextSequence.toString().padStart(4, '0');
+        const quoteNumber = `${yearSuffix}-${paddedSeq}`; // Example: "26-0001"
 
     // 4. Customer Linking / Creation
     let { data: customer } = await supabase
