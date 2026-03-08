@@ -84,21 +84,26 @@ if (count === 0) {
 
     // 3. If this was the FIRST quote, update the submittal's number and employee ID
     if (count === 0) {
-      // Get the current logged-in user from Supabase Auth
-      const { data: { user } } = await supabase.auth.getUser();
+      // 1. Switch to getSession() to ensure we get the browser's current state
+      const { data: { session } } = await supabase.auth.getSession();
+      const userEmail = session?.user?.email;
+
+      console.log("Session Email:", userEmail); // Should now show your email
       
-      if (user) {
-        // IMPORTANT: Changed table name from 'profiles' to 'employees' to match your SQL
+      if (userEmail) {
+        // 2. Query the employees table using the confirmed email
         const { data: employee, error: empError } = await supabase
           .from('employees') 
           .select('name_code, id')
-          .eq('email', user.email) // Matching by email is often safer if IDs differ between auth/public
+          .eq('email', userEmail)
           .single();
 
-        if (empError) console.error("Employee fetch error:", empError.message);
+        if (empError) {
+          console.error("Employee Lookup Error:", empError.message);
+        }
 
         if (employee?.name_code) {
-          // Get the base quote number (e.g., 26-0170)
+          // 3. Update the submittal with initials and employee ID
           const { data: submittal } = await supabase
             .from('quote_submittals')
             .select('quote_number')
@@ -106,18 +111,17 @@ if (count === 0) {
             .single();
 
           if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
-            // Update BOTH the employee_quoted field and the quote_number suffix
-            const { error: updateError } = await supabase
+            await supabase
               .from('quote_submittals')
               .update({ 
                 quote_number: `${submittal.quote_number}${employee.name_code}`,
-                employee_quoted: employee.id // This fills the empty column you saw in SQL
+                employee_quoted: employee.id 
               })
               .eq('id', quoteId);
-              
-            if (updateError) console.error("Submittal update error:", updateError.message);
           }
         }
+      } else {
+        console.warn("No active session found - initials not appended.");
       }
     }
 
