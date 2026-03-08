@@ -6,8 +6,9 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-const MATERIALS = ["Powder Coated Steel", "Stainless Steel", "Solid Plastic (HDPE)", "Phenolic Black Core", "Phenolic Color Thru"];
-const MANUFACTURERS = ["Hadrian", "Bradley (Mills)", "Bobrick", "Scranton Products", "Global Partitions"];
+// Extracted from legacy SQL data
+const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", "HDPE Solid Plastic", "Solid Phenolic", "Stainless Steel", "Accessories Only" ];
+const MANUFACTURERS = ["ASI", "Bobrick", "Bradley", "Excel", "Global", "Hadrian", "Hawa", "Metpar", "Partition Plus", "Scranton Products"];
 const PRESET_ITEMS = ["Toilet Partitions", "Urinal Screens", "Privacy Screens", "Alcove Stalls", "In-Corner Stalls", "Shower Units"];
 
 interface AddOptionModalProps {
@@ -15,13 +16,15 @@ interface AddOptionModalProps {
   onClose: () => void;
   initialData?: any;
 }
+interface QuoteItem {
+  item: string;
+  qty: number;
+}
 
 export default function AddOptionModal({ quoteId, onClose, initialData }: AddOptionModalProps) {
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
-  const router = useRouter();
   
-  const [items, setItems] = useState(
+  const [items, setItems] = useState<QuoteItem[]>(
     initialData?.itemized_breakdown || [{ item: "Toilet Partitions", qty: 0 }]
   );
   
@@ -30,84 +33,72 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
     manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
     price: '', 
     color: initialData?.color || '',
-    mounting_style: initialData?.mounting_style || 'Floor Anchored / Overhead Braced',
-    shipping_included: initialData?.shipping_included || 'Included',
-    hardware_included: initialData?.hardware_included || 'All Standard Chrome Hardware Included'
+    mounting_style: initialData?.mounting_style || 'Floor Mounted / Overhead Braced',
+    shipping_included: initialData?.shipping_included || 'Includes Shipping',
+    hardware_included: initialData?.hardware_included || 'All Hardware Needed for Installation is Included'
   });
+  
+  const supabase = createClient();
+  const router = useRouter();
 
   const addItemRow = () => setItems([...items, { item: "", qty: 1 }]);
   const removeItemRow = (index: number) => 
-    setItems(items.filter((_: any, i: number) => i !== index));
+    setItems(items.filter((item: QuoteItem, i: number) => i !== index));
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
+    // 1. Check if any quotes already exist for this submittal
+      const { count } = await supabase
+        .from('individual_quotes')
+        .select('*', { count: 'exact', head: true })
+        .eq('quote_id', quoteId)
+        .is('deleted_at', null);
 
-  try {
-    // 1. Fetch current quote count before inserting
-    const { count, error: countError } = await supabase
-      .from('individual_quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('quote_id', quoteId)
-      .is('deleted_at', null);
-
-    if (countError) throw countError;
-
-    // 2. Insert the new quote option
-    const { error: insertError } = await supabase.from('individual_quotes').insert({
+    const { error } = await supabase.from('individual_quotes').insert({
       quote_id: quoteId,
       ...formData,
       itemized_breakdown: items,
       quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
     });
 
-    if (insertError) throw insertError;
 
-    // 3. Suffix Logic: Only if this is the first quote
-    if (count === 0) {
-      // Get the authenticated user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-
-      // Fetch name_code from profiles
-      const { data: profile, error: profileError } = await supabase
+    // 3. If this is the FIRST quote, append the user suffix
+    if (!error && count === 0) {
+      // Fetch the logged-in user's name_code
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
         .from('profiles')
         .select('name_code')
         .eq('id', user?.id)
         .single();
 
-      if (profileError) throw profileError;
-
       if (profile?.name_code) {
-        // Fetch current quote number to append suffix
+        // Get current submittal number
         const { data: submittal } = await supabase
           .from('quote_submittals')
           .select('quote_number')
           .eq('id', quoteId)
           .single();
 
-        // Check if suffix already exists to prevent double appending
-        if (submittal && !submittal.quote_number.endsWith(profile.name_code)) {
-          const finalQuoteNumber = `${submittal.quote_number}${profile.name_code}`;
-          
+        if (submittal) {
+          // Append suffix (e.g., 26-1234 -> 26-1234BM)
           await supabase
             .from('quote_submittals')
-            .update({ quote_number: finalQuoteNumber })
+            .update({ quote_number: `${submittal.quote_number}${profile.name_code}` })
             .eq('id', quoteId);
         }
       }
     }
-
-    toast.success("Quote successfully updated!");
-    router.refresh();
-    onClose();
-  } catch (err: any) {
-    console.error("Supabase Error:", err.message);
-    toast.error(`Database Error: ${err.message}`);
-  } finally {
+    if (!error) {
+      toast.success(initialData ? "Quote duplicated successfully!" : "Quote option added!");
+      router.refresh();
+      onClose();
+    } else {
+      toast.error(error.message);
+    }
     setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -122,6 +113,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
           </div>
 
           <div className="space-y-6">
+            {/* 1. Material & Manufacturer Selects */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Material</label>
@@ -145,22 +137,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest text-blue-600">Price (Required)</label>
-                <input required type="number" step="0.01" value={formData.price} placeholder="0.00" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-2 ring-blue-100 focus:ring-2 focus:ring-blue-500 transition font-bold text-blue-600"
-                  onChange={e => setFormData({...formData, price: e.target.value})} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
-                <div className="relative">
-                  <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                  <input value={formData.color} placeholder="Optional" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
-                    onChange={e => setFormData({...formData, color: e.target.value})} />
-                </div>
-              </div>
-            </div>
-
+            {/* 2. Mounting Style & Color */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Mounting Style</label>
@@ -168,13 +145,31 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                   <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
                     value={formData.mounting_style}
                     onChange={e => setFormData({...formData, mounting_style: e.target.value})}>
-                    <option>Floor Anchored / Overhead Braced</option>
-                    <option>Floor to Ceiling Anchored</option>
+                    <option>Floor Mounted / Overhead Braced</option>
+                    <option>Floor Mounted Only</option>
                     <option>Ceiling Hung</option>
-                    <option>Floor Anchored</option>
+                    <option>Floor to Ceiling Mounted</option>
+                    <option>Accessories Only</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                 </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
+                <div className="relative">
+                  <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                  <input value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                    onChange={e => setFormData({...formData, color: e.target.value})} />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Price & Shipping Select */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Price</label>
+                <input required type="number" step="0.01" value={formData.price} placeholder="0.00" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold text-blue-600"
+                  onChange={e => setFormData({...formData, price: e.target.value})} />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Shipping Status</label>
@@ -183,14 +178,15 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                   <select className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
                     value={formData.shipping_included}
                     onChange={e => setFormData({...formData, shipping_included: e.target.value})}>
-                    <option value="Included">Shipping Included</option>
-                    <option value="Plus Shipping">Plus Shipping</option>
+                    <option value="Shipping Only">Includes Shipping</option>
+                    <option value="Shipping & Sales Tax">Includes Shipping & Sales Tax</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                 </div>
               </div>
             </div>
 
+            {/* 4. Hardware Details */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Hardware Details</label>
               <div className="relative">
@@ -200,6 +196,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               </div>
             </div>
 
+            {/* 5. Searchable Item + Quantity List */}
             <div className="bg-zinc-100 p-6 rounded-[2rem] border border-zinc-200">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">Itemized Breakdown</p>
               
