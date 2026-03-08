@@ -45,60 +45,78 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   const removeItemRow = (index: number) => 
     setItems(items.filter((item: QuoteItem, i: number) => i !== index));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    // 1. Check if any quotes already exist for this submittal
-      const { count } = await supabase
-        .from('individual_quotes')
-        .select('*', { count: 'exact', head: true })
-        .eq('quote_id', quoteId)
-        .is('deleted_at', null);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
 
-    const { error } = await supabase.from('individual_quotes').insert({
+  try {
+    // 1. Get the current count of quotes for this submittal
+    const { count, error: countError } = await supabase
+      .from('individual_quotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('quote_id', quoteId)
+      .is('deleted_at', null);
+
+    if (countError) throw countError;
+
+    // 2. Insert the new individual quote
+    const { error: insertError } = await supabase.from('individual_quotes').insert({
       quote_id: quoteId,
       ...formData,
       itemized_breakdown: items,
       quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
     });
 
+    if (insertError) throw insertError;
 
-    // 3. If this is the FIRST quote, append the user suffix
-    if (!error && count === 0) {
-      // Fetch the logged-in user's name_code
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase
+    // 3. If this is the FIRST quote, append the user's name_code
+    if (count === 0) {
+      // Get current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("User not authenticated");
+
+      // Fetch the name_code from the profiles table
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('name_code')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single();
 
+      if (profileError) throw profileError;
+
       if (profile?.name_code) {
-        // Get current submittal number
-        const { data: submittal } = await supabase
+        // Fetch current submittal number
+        const { data: submittal, error: subError } = await supabase
           .from('quote_submittals')
           .select('quote_number')
           .eq('id', quoteId)
           .single();
 
-        if (submittal) {
-          // Append suffix (e.g., 26-1234 -> 26-1234BM)
-          await supabase
+        if (subError) throw subError;
+
+        // Only append if it's not already there
+        if (submittal && !submittal.quote_number.endsWith(profile.name_code)) {
+          const { error: updateError } = await supabase
             .from('quote_submittals')
             .update({ quote_number: `${submittal.quote_number}${profile.name_code}` })
             .eq('id', quoteId);
+          
+          if (updateError) throw updateError;
         }
       }
     }
-    if (!error) {
-      toast.success(initialData ? "Quote duplicated successfully!" : "Quote option added!");
-      router.refresh();
-      onClose();
-    } else {
-      toast.error(error.message);
-    }
+
+    toast.success("Quote option successfully added!");
+    router.refresh();
+    onClose();
+  } catch (err: any) {
+    console.error("Submission Error:", err.message);
+    // This will now show you exactly WHICH step failed
+    toast.error(`Error: ${err.message}`);
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
