@@ -51,13 +51,15 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   try {
     // 1. Check if any quotes already exist for this submittal BEFORE inserting
-    const { count, error: countError } = await supabase
-      .from('individual_quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('quote_id', quoteId)
-      .is('deleted_at', null);
+const { count } = await supabase
+  .from('individual_quotes')
+  .select('*', { count: 'exact', head: true })
+  .eq('quote_id', quoteId)
+  .is('deleted_at', null);
 
-    if (countError) throw countError;
+console.log("Current Quote Count:", count); // DEBUG 1
+
+if (count === 0) {
 
     // 2. Insert the new quote option
     const { error: insertError } = await supabase.from('individual_quotes').insert({
@@ -73,6 +75,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (count === 0) {
       // Get the current logged-in user from Supabase Auth
       const { data: { user } } = await supabase.auth.getUser();
+      console.log("Auth User Email:", user?.email); // DEBUG 2
       
       if (user) {
         // IMPORTANT: Changed table name from 'profiles' to 'employees' to match your SQL
@@ -82,6 +85,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           .eq('email', user.email) // Matching by email is often safer if IDs differ between auth/public
           .single();
 
+        console.log("Found Employee:", employee); // DEBUG 3
         if (empError) console.error("Employee fetch error:", empError.message);
 
         if (employee?.name_code) {
