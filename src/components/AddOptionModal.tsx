@@ -45,21 +45,12 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   const removeItemRow = (index: number) => 
     setItems(items.filter((item: QuoteItem, i: number) => i !== index));
 
- const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
 
   try {
-    // 1. Get the current count of quotes for this submittal
-    const { count, error: countError } = await supabase
-      .from('individual_quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('quote_id', quoteId)
-      .is('deleted_at', null);
-
-    if (countError) throw countError;
-
-    // 2. Insert the new individual quote
+    // 1. PRIMARY ACTION: Save the individual quote first (This worked before)
     const { error: insertError } = await supabase.from('individual_quotes').insert({
       quote_id: quoteId,
       ...formData,
@@ -69,49 +60,52 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
 
     if (insertError) throw insertError;
 
-    // 3. If this is the FIRST quote, append the user's name_code
-    if (count === 0) {
-      // Get current authenticated user
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error("User not authenticated");
+    // 2. SECONDARY ACTION: Handle the Quote Number Suffix
+    // We only attempt this if this was the FIRST quote added
+    const { count } = await supabase
+      .from('individual_quotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('quote_id', quoteId)
+      .is('deleted_at', null);
 
-      // Fetch the name_code from the profiles table
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('name_code')
-        .eq('id', user.id)
-        .single();
+    if (count === 1) { // Exactly one quote exists (the one we just made)
+      // Fetch user session
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
 
-      if (profileError) throw profileError;
-
-      if (profile?.name_code) {
-        // Fetch current submittal number
-        const { data: submittal, error: subError } = await supabase
-          .from('quote_submittals')
-          .select('quote_number')
-          .eq('id', quoteId)
+      if (user) {
+        // Get the name_code from profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name_code')
+          .eq('id', user.id)
           .single();
 
-        if (subError) throw subError;
-
-        // Only append if it's not already there
-        if (submittal && !submittal.quote_number.endsWith(profile.name_code)) {
-          const { error: updateError } = await supabase
+        if (profile?.name_code) {
+          // Get the current submittal base number (e.g., 26-1234)
+          const { data: submittal } = await supabase
             .from('quote_submittals')
-            .update({ quote_number: `${submittal.quote_number}${profile.name_code}` })
-            .eq('id', quoteId);
-          
-          if (updateError) throw updateError;
+            .select('quote_number')
+            .eq('id', quoteId)
+            .single();
+
+          // Append initials only if not already present
+          if (submittal && !submittal.quote_number.endsWith(profile.name_code)) {
+            await supabase
+              .from('quote_submittals')
+              .update({ quote_number: `${submittal.quote_number}${profile.name_code}` })
+              .eq('id', quoteId);
+          }
         }
       }
     }
 
-    toast.success("Quote option successfully added!");
+    toast.success("Quote option added!");
     router.refresh();
     onClose();
+
   } catch (err: any) {
     console.error("Submission Error:", err.message);
-    // This will now show you exactly WHICH step failed
     toast.error(`Error: ${err.message}`);
   } finally {
     setLoading(false);
