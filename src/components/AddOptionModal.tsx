@@ -68,7 +68,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
         
         // Fetch the user's name_code from their profile
         const { data: profile } = await supabase
-          .from('profiles')
+          .from('employees')
           .select('name_code')
           .eq('id', user?.id)
           .single();
