@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 // Extracted from legacy SQL data
-const MATERIALS = ["Powder Coated Steel", "Stainless Steel", "Solid Plastic (HDPE)", "Phenolic Black Core", "Phenolic Color Thru"];
-const MANUFACTURERS = ["Hadrian", "Bradley (Mills)", "Bobrick", "Scranton Products", "Global Partitions"];
+const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", "HDPE Solid Plastic", "Solid Phenolic", "Stainless Steel" ];
+const MANUFACTURERS = ["ASI", "Bobrick", "Bradley", "Excel", "Global", "Hadrian", "Hawa", "Metpar", "Partition Plus", "Scranton Products"];
 const PRESET_ITEMS = ["Toilet Partitions", "Urinal Screens", "Privacy Screens", "Alcove Stalls", "In-Corner Stalls", "Shower Units"];
 
 interface AddOptionModalProps {
@@ -33,9 +33,9 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
     manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
     price: '', 
     color: initialData?.color || '',
-    mounting_style: initialData?.mounting_style || 'Floor Anchored / Overhead Braced',
-    shipping_included: initialData?.shipping_included || 'Included',
-    hardware_included: initialData?.hardware_included || 'All Standard Chrome Hardware Included'
+    mounting_style: initialData?.mounting_style || 'Floor Mounted / Overhead Braced',
+    shipping_included: initialData?.shipping_included || 'Includes Shipping',
+    hardware_included: initialData?.hardware_included || 'All Hardware Needed for Installation is Included'
   });
   
   const supabase = createClient();
@@ -111,10 +111,10 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                   <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
                     value={formData.mounting_style}
                     onChange={e => setFormData({...formData, mounting_style: e.target.value})}>
-                    <option>Floor Anchored / Overhead Braced</option>
-                    <option>Floor to Ceiling Anchored</option>
+                    <option>Floor Mounted / Overhead Braced</option>
+                    <option>Floor Mounted Only</option>
                     <option>Ceiling Hung</option>
-                    <option>Floor Anchored</option>
+                    <option>Floor to Ceiling Mounted</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                 </div>
@@ -143,9 +143,8 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                   <select className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
                     value={formData.shipping_included}
                     onChange={e => setFormData({...formData, shipping_included: e.target.value})}>
-                    <option value="Included">Shipping Included</option>
-                    <option value="Plus Shipping">Plus Shipping (Quote Separately)</option>
-                    <option value="Customer Pickup">Customer Pickup / Will Call</option>
+                    <option value="Shipping Only">Includes Shipping</option>
+                    <option value="Shipping & Sales Tax">Includes Shipping & Sales Tax</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                 </div>
