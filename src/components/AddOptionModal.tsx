@@ -40,65 +40,74 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
     setItems(items.filter((_: any, i: number) => i !== index));
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      // 1. Check if this is the FIRST individual_quote for this submittal
-      const { count } = await supabase
-        .from('individual_quotes')
-        .select('*', { count: 'exact', head: true })
-        .eq('quote_id', quoteId)
-        .is('deleted_at', null);
+  try {
+    // 1. Fetch current quote count before inserting
+    const { count, error: countError } = await supabase
+      .from('individual_quotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('quote_id', quoteId)
+      .is('deleted_at', null);
 
-      // 2. Insert the new quote option
-      const { error: insertError } = await supabase.from('individual_quotes').insert({
-        quote_id: quoteId,
-        ...formData,
-        itemized_breakdown: items,
-        quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
-      });
+    if (countError) throw countError;
 
-      if (insertError) throw insertError;
+    // 2. Insert the new quote option
+    const { error: insertError } = await supabase.from('individual_quotes').insert({
+      quote_id: quoteId,
+      ...formData,
+      itemized_breakdown: items,
+      quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
+    });
 
-      // 3. STEP 3: APPEND USER SUFFIX
-      // Only runs if this was the very first quote added to the submittal
-      if (count === 0) {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        // Fetch the user's name_code from their profile
-        const { data: profile } = await supabase
-          .from('employees')
-          .select('name_code')
-          .eq('id', user?.id)
+    if (insertError) throw insertError;
+
+    // 3. Suffix Logic: Only if this is the first quote
+    if (count === 0) {
+      // Get the authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      // Fetch name_code from profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('name_code')
+        .eq('id', user?.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      if (profile?.name_code) {
+        // Fetch current quote number to append suffix
+        const { data: submittal } = await supabase
+          .from('quote_submittals')
+          .select('quote_number')
+          .eq('id', quoteId)
           .single();
 
-        if (profile?.name_code) {
-          const { data: submittal } = await supabase
+        // Check if suffix already exists to prevent double appending
+        if (submittal && !submittal.quote_number.endsWith(profile.name_code)) {
+          const finalQuoteNumber = `${submittal.quote_number}${profile.name_code}`;
+          
+          await supabase
             .from('quote_submittals')
-            .select('quote_number')
-            .eq('id', quoteId)
-            .single();
-
-          if (submittal && !submittal.quote_number.includes(profile.name_code)) {
-            // Update the quote_number to include the initials (e.g., 26-1234 -> 26-1234BM)
-            await supabase
-              .from('quote_submittals')
-              .update({ quote_number: `${submittal.quote_number}${profile.name_code}` })
-              .eq('id', quoteId);
-          }
+            .update({ quote_number: finalQuoteNumber })
+            .eq('id', quoteId);
         }
       }
-
-      toast.success(initialData ? "Quote duplicated!" : "Quote option added!");
-      router.refresh();
-      onClose();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    toast.success("Quote successfully updated!");
+    router.refresh();
+    onClose();
+  } catch (err: any) {
+    console.error("Supabase Error:", err.message);
+    toast.error(`Database Error: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
