@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
-import { ChevronLeft, FileText, Target, ExternalLink, Trash2, Globe, Megaphone } from 'lucide-react'; 
+import { ChevronLeft, FileText, Target, ExternalLink, Trash2, Globe, Megaphone, Download } from 'lucide-react'; 
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
@@ -128,7 +128,40 @@ return (
             </div>
          </div>
       </div>
+      {/* NEW: Original Uploaded PDF Section */}
+      {submittal.original_pdf_path && (
+        <section className="mb-12">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-zinc-200 flex items-center justify-center text-red-500">
+                <FileText size={32} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Source Document</p>
+                <h3 className="text-lg font-black text-zinc-900">Original Quote Tool PDF</h3>
+                <p className="text-sm text-zinc-500 font-medium">Uploaded on {new Date(submittal.created_at).toLocaleDateString()}</p>
+              </div>
+            </div>
 
+            <div className="flex gap-3 w-full md:w-auto">
+              <Link 
+                href={submittal.original_pdf_path} 
+                target="_blank"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-50 transition"
+              >
+                <ExternalLink size={14} /> View PDF
+              </Link>
+              <a 
+                href={submittal.original_pdf_path} 
+                download 
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
+              >
+                <Download size={14} /> Download
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
       <SubmittalDetailClient 
         submittal={submittal} 
         options={options || []} 
