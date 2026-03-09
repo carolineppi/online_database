@@ -58,43 +58,70 @@ export default function SettingsPage() {
         <p className="text-zinc-500">Manage your integrations and account preferences.</p>
       </div>
 
-      // Add this to your main container div
-      <div className="p-8 max-w-4xl mx-auto min-h-screen bg-slate-900 bg-[url('/grid.svg')] text-slate-300">
-        
-        {/* Update the RingCentral Card */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg shadow-2xl overflow-hidden backdrop-blur-sm">
-          <div className="p-6 border-b border-slate-700 bg-slate-800 flex justify-between items-center">
+      <div className="grid gap-8">
+        {/* RingCentral Integration Card */}
+        <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
+          <div className="p-6 border-b bg-zinc-50/50 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-md flex items-center justify-center">
+              <div className="h-10 w-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center">
                 <Phone size={20} />
               </div>
               <div>
-                <h3 className="font-mono font-bold text-white uppercase tracking-tighter">Integration_RC_01</h3>
-                <p className="text-[10px] text-slate-500 font-mono italic">TELEPHONY_SYNC_ENABLED</p>
+                <h3 className="font-bold text-zinc-900">RingCentral Integration</h3>
+                <p className="text-xs text-zinc-500">Sync live calls with your submittal dashboard.</p>
               </div>
             </div>
             
-            {/* Stamped Status Badges */}
             {isConnected ? (
-              <div className="border-2 border-cyan-500/50 text-cyan-400 px-3 py-1 rounded-sm text-[10px] font-black uppercase rotate-[-2deg] shadow-[0_0_10px_rgba(6,182,212,0.2)]">
-                ACTIVE_LINK
+              <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                <CheckCircle2 size={12} /> Connected
               </div>
             ) : (
-              <div className="border-2 border-amber-500/50 text-amber-500 px-3 py-1 rounded-sm text-[10px] font-black uppercase rotate-[1deg]">
-                LINK_REQUIRED
+              <div className="flex items-center gap-1 text-amber-600 bg-amber-50 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                <AlertCircle size={12} /> Disconnected
               </div>
             )}
           </div>
 
-          {/* Update Action Buttons */}
-          <button 
-            onClick={handleSetupWebhook}
-            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-4 font-mono font-bold uppercase tracking-widest transition-all shadow-[0_4px_0_rgb(8,145,178)] active:translate-y-[2px] active:shadow-none"
-          >
-            [ EXECUTE_WEBHOOK_ACTIVATION ]
-          </button>
+          <div className="p-8">
+            {!isConnected ? (
+              <div className="text-center py-4">
+                <p className="text-sm text-zinc-600 mb-6 font-medium">
+                  Authorize your RingCentral account to enable real-time call tracking and one-click submittal creation.
+                </p>
+                <button 
+                  onClick={handleLinkAccount}
+                  className="bg-zinc-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-black transition flex items-center gap-2 mx-auto shadow-lg shadow-zinc-200"
+                >
+                  <LinkIcon size={18} />
+                  Link RingCentral Account
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="p-5 bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Next Step</p>
+                  <p className="text-sm text-zinc-700 mb-4 font-medium">
+                    Your account is successfully linked. Now, register the webhook to start receiving live call notifications in your dashboard.
+                  </p>
+                  <button 
+                    onClick={handleSetupWebhook}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition text-sm shadow-md shadow-blue-100"
+                  >
+                    Activate Call Webhook
+                  </button>
+                </div>
+                
+                <button 
+                  onClick={handleLinkAccount}
+                  className="text-zinc-400 text-xs font-bold hover:text-red-600 transition underline underline-offset-4 decoration-zinc-200"
+                >
+                  Reconnect or Change Account
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
         {/* 1. SYSTEM AUDIT LOG SECTION */}
         <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
@@ -142,5 +169,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
   );
 }
