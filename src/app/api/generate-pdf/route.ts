@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import { createClient } from '@/utils/supabase/server';
 
-const blueColor = [50, 50, 50] as const; 
-const redColor = [183, 0, 32] as const;  
+const darkText = [50, 50, 50] as const;   // #323232
+const redColor = [183, 0, 32] as const;   // #b70020
+const lightGray = [243, 243, 243] as const; // #f3f3f3
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,221 +44,206 @@ export async function POST(req: NextRequest) {
     const applyWatermark = (pdfDoc: jsPDF) => {
       pdfDoc.saveGraphicsState();
       pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.03 }));
+      // Adjust watermark position to roughly match the PHP template
       pdfDoc.addImage(logoBase64, 'PNG', 100, 250, 400, 50); 
       pdfDoc.restoreGraphicsState();
+    };
+
+    const checkPageBreak = (currentY: number, neededSpace: number) => {
+      if (currentY + neededSpace > 700) {
+        doc.addPage();
+        applyWatermark(doc);
+        return 60; // reset Y
+      }
+      return currentY;
     };
 
     // --- RENDER PAGE 1 ---
     applyWatermark(doc);
     
-    // Header Logo
-    doc.addImage(logoBase64, 'PNG', 40, 40, 180, 25); 
+    // 1. Header Area
+    doc.addImage(logoBase64, 'PNG', 40, 40, 200, 25); 
     
-    // Branding Text
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.setTextColor(...blueColor);
+    doc.setTextColor(...darkText);
     doc.text("We Make it ", 40, 85);
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 95, 85);
-    doc.setTextColor(...blueColor);
-    doc.text("to Buy Toilet Partitions", 175, 85);
+    doc.text("Easy for Anyone ", 100, 85);
+    doc.setTextColor(...darkText);
+    doc.text("to Buy Toilet Partitions", 40, 100);
 
-    // Company Contact Info (Stacked Right Aligned)
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    // Header Right Info
     doc.setTextColor(0);
-    doc.text("341 Granary Road, Suite A-B", 570, 50, { align: 'right' });
-    doc.text("Forest Hill, MD 21050", 570, 63, { align: 'right' });
-    doc.text("+1-800-298-9696", 570, 76, { align: 'right' });
-    doc.setTextColor(...redColor);
-    doc.text("sales@partitionplus.com", 570, 89, { align: 'right' });
-
-    // ---------------------------------------------------------
-    // TABLE 1: Attention, Date, Job, Quote # (Matches PHP HTML)
-    // ---------------------------------------------------------
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.5);
-    
-    // Grid Lines
-    doc.rect(40, 110, 530, 46); // Outer border
-    doc.line(40, 133, 570, 133); // Horizontal divider
-    doc.line(380, 110, 380, 156); // Vertical divider
-
-    doc.setTextColor(0);
-    doc.setFontSize(11);
-    
-    // Row 1
-    doc.setFont("helvetica", "normal");
-    doc.text("Attn: ", 45, 126);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${submittal.linked_customer?.first_name || ''} ${submittal.linked_customer?.last_name || ''}`, 75, 126);
-    
-    doc.setFont("helvetica", "bold");
     const quoteDate = new Date(submittal.created_at || new Date()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    doc.text(quoteDate, 475, 126, { align: 'center' }); // Centered in right column
+    doc.setFontSize(12);
+    doc.text(quoteDate, 570, 45, { align: 'right' });
+    doc.setFontSize(10);
+    doc.text("341 Granary Road, Suite A-B", 570, 60, { align: 'right' });
+    doc.text("Forest Hill, MD 21050", 570, 75, { align: 'right' });
+    doc.text("+1-800-298-9696", 570, 90, { align: 'right' });
+    doc.text("sales@partitionplus.com", 570, 105, { align: 'right' });
 
-    // Row 2
-    doc.setFont("helvetica", "normal");
-    doc.text("Job: ", 45, 149);
-    doc.setFont("helvetica", "bold");
-    doc.text(submittal.job_name || "PROPOSAL", 70, 149);
-
-    doc.setFont("helvetica", "normal");
-    doc.text("Quote #: ", 385, 149);
-    doc.setFont("helvetica", "bold");
-    doc.text(submittal.quote_number, 435, 149);
-
-    // ---------------------------------------------------------
-    // TEXT BLOCKS (Matches PHP $text1, $text2, $text3, $text4)
-    // ---------------------------------------------------------
-    let yPos = 185;
+    // 2. Quote Info Box (Gray Background)
+    doc.setFillColor(...lightGray);
+    doc.rect(40, 125, 530, 45, 'F');
     
-    // Text 1
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`Attention: ${submittal.linked_customer?.first_name || ''} ${submittal.linked_customer?.last_name || ''}`, 50, 142);
+    
+    doc.setFontSize(12);
+    doc.text(submittal.job_name || "PROPOSAL", 50, 160);
+
+    doc.setFontSize(12);
+    doc.text("Quote #: ", 420, 150);
+    doc.setFontSize(14);
+    doc.setTextColor(...redColor);
+    doc.text(submittal.quote_number, 475, 150);
+
+    // 3. Quote Details
+    let yPos = 200;
+    doc.setTextColor(0);
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.text("We are pleased to enter our price on the following: ", 40, yPos);
     doc.setFont("helvetica", "bold");
-    const pleasedName = submittal.pleased_name || submittal.job_name || ""; 
-    doc.text(pleasedName, 305, yPos); 
+    doc.text(submittal.pleased_name || submittal.job_name || "", 315, yPos);
 
-    // Text 2 & 3 (Description)
     yPos += 25;
     doc.setFont("helvetica", "bold");
     doc.text("Description:", 40, yPos);
     doc.setLineWidth(0.75);
-    doc.line(40, yPos + 2, 107, yPos + 2); // Underline
-
-    yPos += 15;
+    doc.line(40, yPos + 2, 108, yPos + 2); // Underline Description
+    
     doc.setFont("helvetica", "normal");
     const descText = `${submittal.description || ''} ${submittal.mounting_style || ''}`.trim() || 'Toilet Compartments are: Floor Mounted w/ Overhead Brace';
-    doc.text(descText, 40, yPos);
+    doc.text(descText, 115, yPos);
 
-    // Text 4 (Quantity & Color)
     yPos += 25;
     doc.setFont("helvetica", "bold");
     doc.text("Quantity:", 40, yPos);
-    doc.line(40, yPos + 2, 92, yPos + 2); // Underline
+    doc.line(40, yPos + 2, 92, yPos + 2); // Underline Quantity
     doc.setFont("helvetica", "normal");
     doc.text(submittal.quantity || '(3) toilet stalls and (3) urinal screens', 97, yPos);
 
     doc.setFont("helvetica", "bold");
-    doc.text("Color:", 380, yPos);
-    doc.line(380, yPos + 2, 415, yPos + 2); // Underline
+    doc.text("Color:", 340, yPos);
+    doc.line(340, yPos + 2, 375, yPos + 2); // Underline Color
     doc.setFont("helvetica", "normal");
-    doc.text(submittal.color || 'Black', 420, yPos);
+    doc.text(submittal.color || 'Black', 380, yPos);
 
-    // ---------------------------------------------------------
-    // MATERIALS LOOP
-    // ---------------------------------------------------------
-    yPos += 50;
+    // 4. Materials Loop
+    yPos += 40;
     
     options.forEach((opt: any) => {
-      if (yPos > 600) {
-        doc.addPage();
-        applyWatermark(doc);
-        yPos = 60;
-      }
+      yPos = checkPageBreak(yPos, 50);
 
-      // Material Title (Underlined, Bold)
-      doc.setTextColor(0);
+      // Material Title & Price (Both Red & Bold in new PHP)
+      doc.setTextColor(...redColor);
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(opt.material, 40, yPos);
-      const textWidth = doc.getTextWidth(opt.material);
-      doc.line(40, yPos + 2, 40 + textWidth, yPos + 2); // Dynamic Underline
 
-      // Price
-      const priceFmt = new Intl.NumberFormat('en-US', { 
-        style: 'currency', 
-        currency: 'USD' 
-      }).format(opt.price);
+      const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
       doc.text(priceFmt, 570, yPos, { align: 'right' });
 
-      // Manufacturer & Includes Shipping
-      yPos += 15;
-      doc.setFontSize(11);
+      // Manufacturer & Shipping Subtext
+      yPos += 16;
+      doc.setTextColor(0);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text("Manufacturer: ", 40, yPos);
       doc.setFont("helvetica", "bold");
-      doc.text(opt.manufacturer || 'HADRIAN', 115, yPos);
+      doc.text(opt.manufacturer || 'HADRIAN', 110, yPos);
       
-      doc.setFont("helvetica", "bold");
       doc.text("** includes shipping **", 570, yPos, { align: 'right' });
 
-      yPos += 45; // Spacing for next option
+      yPos += 30; // Padding for next item
     });
 
-    // Add-ons handling (Optional, retaining your previous addition)
+    // Add-ons
     if (addons && addons.length > 0) {
-      if (yPos > 550) { doc.addPage(); applyWatermark(doc); yPos = 60; }
-      yPos += 10;
-      doc.setFontSize(11);
+      yPos = checkPageBreak(yPos, 40 + (addons.length * 15));
+      doc.setTextColor(...redColor);
+      doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text("ADDITIONAL ACCESSORIES / HARDWARE", 40, yPos);
-      doc.line(40, yPos + 2, 280, yPos + 2);
       
       yPos += 15;
+      doc.setTextColor(0);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       addons.forEach((addon: any) => {
         doc.text(`${addon.quantity || 1}x ${addon.material}`, 40, yPos);
         const addonPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(addon.price);
         doc.text(addonPrice, 570, yPos, { align: 'right' });
-        yPos += 18;
+        yPos += 15;
       });
-      yPos += 20;
+      yPos += 15;
     }
 
-    // ---------------------------------------------------------
-    // TERMS & CONDITIONS (Replaces quoteTerms.jpg)
-    // ---------------------------------------------------------
-    if (yPos > 480) {
-      doc.addPage();
-      applyWatermark(doc);
-      yPos = 60;
-    } else {
-      yPos = 520; // Pin to bottom-ish if on the first page to match layout
-    }
-
-    // Centered Hardware Notice
+    // 5. Hardware Banner (Red Background, White Text)
+    yPos = checkPageBreak(yPos, 40);
+    yPos += 10;
+    doc.setFillColor(...redColor);
+    doc.rect(40, yPos, 530, 22, 'F');
+    doc.setTextColor(255);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("** All hardware needed for installation is included **", 305, yPos, { align: 'center' });
-    doc.line(160, yPos + 2, 450, yPos + 2); // Underline for the center text
+    doc.text("** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
+    yPos += 45;
 
-    yPos += 40;
-
-    doc.setFontSize(10);
+    // 6. Terms Box
+    yPos = checkPageBreak(yPos, 180);
+    
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(11);
     doc.setTextColor(0);
     doc.text("Important terms of use information:", 40, yPos);
     
-    yPos += 15;
+    yPos += 10;
+    doc.setFillColor(...lightGray);
+    doc.rect(40, yPos, 530, 160, 'F');
     
+    // Terms Content (Centered)
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
+    doc.setTextColor(0);
+    
     doc.setFont("helvetica", "bold");
     const terms1 = '**** Damaged material that is signed for as "damaged" is replaced at NO CHARGE. ****';
-    doc.text(terms1, 40, yPos);
+    doc.text(terms1, 305, yPos + 20, { align: 'center' });
+    const t1Width = doc.getTextWidth(terms1);
+    doc.setLineWidth(0.5);
+    doc.line(305 - (t1Width/2), yPos + 22, 305 + (t1Width/2), yPos + 22);
 
     doc.setFont("helvetica", "normal");
     const terms2 = "Although damage is unlikely please inspect all material for possible damage at time of delivery, while the driver is still there so that you can sign for it as damaged. Do not refuse the delivery as this may cause a re-delivery fee. If material is damaged and not signed for accordingly we will not be able to file a claim against the freight company and it will be the customer's responsibility for payment of replacement items. Our contract with the carriers allows for a full inspection of all material regardless of the time it takes.";
-    const splitTerms2 = doc.splitTextToSize(terms2, 530);
-    doc.text(splitTerms2, 40, yPos + 15);
+    const splitTerms2 = doc.splitTextToSize(terms2, 500);
+    doc.text(splitTerms2, 305, yPos + 45, { align: 'center' });
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Terms of Offer", 40, yPos + 80);
-    doc.setFont("helvetica", "normal");
-    const terms3 = "By completing/paying for your order, you agree with and have verified the measurements we have provided on our shop drawings. This offer is good for 60 days from the date of this quotation.";
-    doc.text(doc.splitTextToSize(terms3, 530), 40, yPos + 95);
+    doc.text("Terms of Offer", 305, yPos + 105, { align: 'center' });
+    
+    const terms3 = "By completing/paying for your order, you agree with and have verified the measurements we have provided on our shop drawings.";
+    doc.text(doc.splitTextToSize(terms3, 500), 305, yPos + 120, { align: 'center' });
+    const t3Width = doc.getTextWidth(terms3);
+    doc.line(305 - (t3Width/2), yPos + 122, 305 + (t3Width/2), yPos + 122);
 
-    const terms4 = "Methods of payment are: Visa, MasterCard, Discover, AmEx, Wire, or Check.";
-    doc.text(terms4, 40, yPos + 125);
+    doc.text("This offer is good for 60 days from the date of this quotation.", 305, yPos + 140, { align: 'center' });
+    doc.text("Methods of payment are: Visa, MasterCard, Discover, AmEx, Wire, or Check.", 305, yPos + 152, { align: 'center' });
 
-    // Final Call-to-Action Footer
+    yPos += 180;
+
+    // 7. Footer CTA
+    yPos = checkPageBreak(yPos, 40);
     doc.setFillColor(...redColor);
-    doc.rect(40, 720, 530, 25, 'F');
+    doc.rect(40, yPos, 530, 25, 'F');
     doc.setTextColor(255);
     doc.setFont("helvetica", "bold");
-    doc.text("Have Questions about your Partitions? - Give us a Call!", 305, 737, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text("Have Questions about your Partitions? - Give us a Call!", 305, yPos + 17, { align: 'center' });
 
     // Output
     const pdfOutput = doc.output('arraybuffer');
