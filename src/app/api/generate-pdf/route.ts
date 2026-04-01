@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(...darkText);
     doc.text("We Make it ", 40, 85);
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 100, 85);
+    doc.text("Easy for Anyone ", 98, 85);
     doc.setTextColor(...darkText);
     doc.text("to Buy Toilet Partitions", 40, 100);
 
@@ -119,14 +119,14 @@ export async function POST(req: NextRequest) {
     
     doc.setFont("helvetica", "normal");
     const descText = `${submittal.description || ''} ${submittal.mounting_style || ''}`.trim() || 'Toilet Compartments are: Floor Mounted w/ Overhead Brace';
-    doc.text(descText, 115, yPos);
+    doc.text(descText, 113, yPos);
 
     yPos += 25;
     doc.setFont("helvetica", "bold");
     doc.text("Quantity:", 40, yPos);
     doc.line(40, yPos + 2, 90, yPos + 2); // Underline Quantity
     doc.setFont("helvetica", "normal");
-    doc.text(submittal.quantity || '(3) toilet stalls and (3) urinal screens', 97, yPos);
+    doc.text(submittal.quantity || '(3) toilet stalls and (3) urinal screens', 95, yPos);
 
     doc.setFont("helvetica", "bold");
     doc.text("Color:", 340, yPos);
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
       doc.text(opt.material, 40, yPos);
 
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
-      doc.text(priceFmt, 550, yPos, { align: 'center' });
+      doc.text(priceFmt, 525, yPos, { align: 'center' });
 
       // Manufacturer & Shipping Subtext
       yPos += 16;
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
       doc.setFont("helvetica", "bold");
       doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
       
-      doc.text("** includes shipping **", 550, yPos, { align: 'center' });
+      doc.text("** includes shipping **", 525, yPos, { align: 'center' });
 
       yPos += 30; // Padding for next item
     });
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
     // 7. Footer CTA
     yPos = checkPageBreak(yPos, 40);
     doc.setFillColor(...redColor);
-    doc.rect(40, yPos, 530, 25, 'F');
+    doc.rect(40, yPos + 10, 530, 25, 'F');
     doc.setTextColor(255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
