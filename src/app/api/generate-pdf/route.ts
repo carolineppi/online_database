@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       pdfDoc.saveGraphicsState();
       pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.03 }));
       // Adjust watermark position to roughly match the PHP template
-      pdfDoc.addImage(logoBase64, 'PNG', 100, 250, 400, 50); 
+      pdfDoc.addImage(logoBase64, 'PNG', 100, 550, 400, 50); 
       pdfDoc.restoreGraphicsState();
     };
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(...darkText);
     doc.text("We Make it ", 40, 85);
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 100, 85);
+    doc.text("Easy for Anyone ", 90, 85);
     doc.setTextColor(...darkText);
     doc.text("to Buy Toilet Partitions", 40, 100);
 
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     doc.text("Quote #: ", 420, 150);
     doc.setFontSize(14);
     doc.setTextColor(...redColor);
-    doc.text(submittal.quote_number, 475, 150);
+    doc.text(submittal.quote_number, 475, 142);
 
     // 3. Quote Details
     let yPos = 200;
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "normal");
     doc.text("We are pleased to enter our price on the following: ", 40, yPos);
     doc.setFont("helvetica", "bold");
-    doc.text(submittal.pleased_name || submittal.job_name || "", 315, yPos);
+    doc.text(submittal.pleased_name || submittal.job_name || "", 300, yPos);
 
     yPos += 25;
     doc.setFont("helvetica", "bold");
