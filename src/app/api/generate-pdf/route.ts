@@ -227,12 +227,13 @@ export async function POST(req: NextRequest) {
     doc.text("Terms of Offer", 305, yPos + 105, { align: 'center' });
     
     const terms3 = "By completing/paying for your order, you agree with and have verified the measurements we have provided on our shop drawings.";
-    doc.text(doc.splitTextToSize(terms3, 500), 305, yPos + 120, { align: 'center' });
+    doc.text(doc.splitTextToSize(terms3, 500), 305, yPos + 115, { align: 'center' });
     const t3Width = doc.getTextWidth(terms3);
-    doc.line(305 - (t3Width/2), yPos + 122, 305 + (t3Width/2), yPos + 122);
+    // doc.line(305 - (t3Width/2), yPos + 122, 305 + (t3Width/2), yPos + 122);
 
     doc.text("This offer is good for 60 days from the date of this quotation.", 305, yPos + 140, { align: 'center' });
-    doc.text("Methods of payment are: Visa, MasterCard, Discover, AmEx, Wire, or Check.", 305, yPos + 152, { align: 'center' });
+    doc.text("Methods of payment are:", 305, yPos + 152, { align: 'center' });
+    doc.text("Visa, MasterCard, Discover, AmEx, Wire, or Check.", 305, yPos + 164, { align: 'center' });
 
     yPos += 180;
 
