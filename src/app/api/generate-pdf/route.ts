@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(...darkText);
     doc.text("We Make it ", 40, 85);
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 90, 85);
+    doc.text("Easy for Anyone ", 100, 85);
     doc.setTextColor(...darkText);
     doc.text("to Buy Toilet Partitions", 40, 100);
 
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     doc.text(submittal.job_name || "PROPOSAL", 50, 160);
 
     doc.setFontSize(12);
-    doc.text("Quote #: ", 420, 150);
+    doc.text("Quote #: ", 420, 142);
     doc.setFontSize(14);
     doc.setTextColor(...redColor);
     doc.text(submittal.quote_number, 475, 142);
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
       doc.text(opt.material, 40, yPos);
 
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
-      doc.text(priceFmt, 570, yPos, { align: 'right' });
+      doc.text(priceFmt, 570, yPos, { align: 'center' });
 
       // Manufacturer & Shipping Subtext
       yPos += 16;
@@ -156,9 +156,9 @@ export async function POST(req: NextRequest) {
       doc.setFont("helvetica", "normal");
       doc.text("Manufacturer: ", 40, yPos);
       doc.setFont("helvetica", "bold");
-      doc.text(opt.manufacturer || 'HADRIAN', 110, yPos);
+      doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
       
-      doc.text("** includes shipping **", 570, yPos, { align: 'right' });
+      doc.text("** includes shipping **", 570, yPos, { align: 'center' });
 
       yPos += 30; // Padding for next item
     });
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
     
     yPos += 10;
     doc.setFillColor(...lightGray);
-    doc.rect(40, yPos, 530, 160, 'F');
+    doc.rect(40, yPos, 530, 180, 'F');
     
     // Terms Content (Centered)
     doc.setFont("helvetica", "normal");
