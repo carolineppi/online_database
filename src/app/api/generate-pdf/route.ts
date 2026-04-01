@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       // Set faint opacity to match legacy mPDF settings
       pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.03 }));
       // Position logo in center background
-      pdfDoc.addImage(logoBase64, 'PNG', 100, 250, 400, 100); 
+      pdfDoc.addImage(logoBase64, 'PNG', 100, 250, 400, 50); 
       pdfDoc.restoreGraphicsState();
     };
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     applyWatermark(doc);
     
     // Header Logo (Full Opacity)
-    doc.addImage(logoBase64, 'PNG', 40, 40, 180, 45); 
+    doc.addImage(logoBase64, 'PNG', 40, 40, 180, 35); 
     
     // Branding Text (Matches PHP $header)
     doc.setFont("helvetica", "bold");
@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(10);
     doc.text(`Attention: ${submittal.linked_customer?.first_name} ${submittal.linked_customer?.last_name}`, 50, 137);
     doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
     doc.text(submittal.job_name, 50, 152);
     
     doc.setFontSize(14);
@@ -173,9 +174,16 @@ export async function POST(req: NextRequest) {
     doc.rect(40, yPos + 8, 530, 110, 'F');
     
     doc.setTextColor(0);
-    doc.setFont("helvetica", "normal");
-    const termsText = "Although damage is unlikely please inspect all material for possible damage at time of delivery, while the driver is still there so that you can sign for it as damaged... Methods of payment are: Visa, MasterCard, Discover, AmEx, Wire, or Check.";
+    doc.setFont("helvetica", "U", "normal");
+    const termsText = '**** Damaged material that is signed for as "damaged" is replaced at NO CHARGE. ****';
     doc.text(doc.splitTextToSize(termsText, 500), 55, yPos + 30);
+    doc.setFont("helvetica", "normal");
+    const termsText2 = "Although damage is unlikely please inspect all material for possible damage at time of delivery, while the driver is still there so that you can sign for it as damaged. Do not refuse the delivery as this may cause a re-delivery fee. If material is damaged and not signed for accordingly we will not be able to file a claim against the freight company and it will be the customer's responsibility for payment of replacement items. Our contract with the carriers allows for a full inspection of all material regardless of the time it takes."
+    doc.text(doc.splitTextToSize(termsText2, 500), 55, yPos + 30);
+    const termsText3 = "Terms of Offer \n By completing/paying for your order, you agree with and have verified the measurements we have provided on our shop drawings."
+    doc.text(doc.splitTextToSize(termsText3, 500), 55, yPos + 30);
+    const termsText4 = "This offer is good for 60 days from the date of this quotation. \n Methods of payment are: \n Visa, MasterCard, Discover, AmEx, Wire, or Check."
+    doc.text(doc.splitTextToSize(termsText4, 500), 55, yPos + 30);
 
     // Final Red Call-to-Action Footer
     doc.setFillColor(...redColor);
