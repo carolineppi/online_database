@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "bold");
     doc.text("Description:", 40, yPos);
     doc.setLineWidth(0.75);
-    doc.line(40, yPos + 2, 108, yPos + 2); // Underline Description
+    doc.line(40, yPos + 2, 106, yPos + 2); // Underline Description
     
     doc.setFont("helvetica", "normal");
     const descText = `${submittal.description || ''} ${submittal.mounting_style || ''}`.trim() || 'Toilet Compartments are: Floor Mounted w/ Overhead Brace';
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     yPos += 25;
     doc.setFont("helvetica", "bold");
     doc.text("Quantity:", 40, yPos);
-    doc.line(40, yPos + 2, 92, yPos + 2); // Underline Quantity
+    doc.line(40, yPos + 2, 90, yPos + 2); // Underline Quantity
     doc.setFont("helvetica", "normal");
     doc.text(submittal.quantity || '(3) toilet stalls and (3) urinal screens', 97, yPos);
 
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
       doc.text(opt.material, 40, yPos);
 
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
-      doc.text(priceFmt, 570, yPos, { align: 'center' });
+      doc.text(priceFmt, 550, yPos, { align: 'center' });
 
       // Manufacturer & Shipping Subtext
       yPos += 16;
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
       doc.setFont("helvetica", "bold");
       doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
       
-      doc.text("** includes shipping **", 570, yPos, { align: 'center' });
+      doc.text("** includes shipping **", 550, yPos, { align: 'center' });
 
       yPos += 30; // Padding for next item
     });
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text("Have Questions about your Partitions? - Give us a Call!", 305, yPos + 17, { align: 'center' });
+    doc.text("Have Questions about your Partitions? - Give us a Call!", 305, yPos + 27, { align: 'center' });
 
     // Output
     const pdfOutput = doc.output('arraybuffer');
