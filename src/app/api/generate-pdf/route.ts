@@ -179,11 +179,11 @@ export async function POST(req: NextRequest) {
     doc.text(doc.splitTextToSize(termsText, 500), 55, yPos + 30);
     doc.setFont("helvetica", "normal");
     const termsText2 = "Although damage is unlikely please inspect all material for possible damage at time of delivery, while the driver is still there so that you can sign for it as damaged. Do not refuse the delivery as this may cause a re-delivery fee. If material is damaged and not signed for accordingly we will not be able to file a claim against the freight company and it will be the customer's responsibility for payment of replacement items. Our contract with the carriers allows for a full inspection of all material regardless of the time it takes."
-    doc.text(doc.splitTextToSize(termsText2, 500), 55, yPos + 30);
+    doc.text(doc.splitTextToSize(termsText2, 500), 55, yPos + 50);
     const termsText3 = "Terms of Offer \n By completing/paying for your order, you agree with and have verified the measurements we have provided on our shop drawings."
-    doc.text(doc.splitTextToSize(termsText3, 500), 55, yPos + 30);
+    doc.text(doc.splitTextToSize(termsText3, 500), 55, yPos + 90);
     const termsText4 = "This offer is good for 60 days from the date of this quotation. \n Methods of payment are: \n Visa, MasterCard, Discover, AmEx, Wire, or Check."
-    doc.text(doc.splitTextToSize(termsText4, 500), 55, yPos + 30);
+    doc.text(doc.splitTextToSize(termsText4, 500), 55, yPos + 110);
 
     // Final Red Call-to-Action Footer
     doc.setFillColor(...redColor);
