@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     applyWatermark(doc);
     
     // Header Logo (Full Opacity)
-    doc.addImage(logoBase64, 'PNG', 40, 40, 180, 35); 
+    doc.addImage(logoBase64, 'PNG', 40, 40, 180, 25); 
     
     // Branding Text (Matches PHP $header)
     doc.setFont("helvetica", "bold");
@@ -176,14 +176,14 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(0);
     doc.setFont("helvetica", "U", "normal");
     const termsText = '**** Damaged material that is signed for as "damaged" is replaced at NO CHARGE. ****';
-    doc.text(doc.splitTextToSize(termsText, 500), 55, yPos + 30);
+    doc.text(doc.splitTextToSize(termsText, 500), 55, yPos + 30, { align: 'center' });
     doc.setFont("helvetica", "normal");
     const termsText2 = "Although damage is unlikely please inspect all material for possible damage at time of delivery, while the driver is still there so that you can sign for it as damaged. Do not refuse the delivery as this may cause a re-delivery fee. If material is damaged and not signed for accordingly we will not be able to file a claim against the freight company and it will be the customer's responsibility for payment of replacement items. Our contract with the carriers allows for a full inspection of all material regardless of the time it takes."
-    doc.text(doc.splitTextToSize(termsText2, 500), 55, yPos + 50);
+    doc.text(doc.splitTextToSize(termsText2, 500), 55, yPos + 50, { align: 'center' });
     const termsText3 = "Terms of Offer \n By completing/paying for your order, you agree with and have verified the measurements we have provided on our shop drawings."
-    doc.text(doc.splitTextToSize(termsText3, 500), 55, yPos + 90);
+    doc.text(doc.splitTextToSize(termsText3, 500), 55, yPos + 120, { align: 'center' });
     const termsText4 = "This offer is good for 60 days from the date of this quotation. \n Methods of payment are: \n Visa, MasterCard, Discover, AmEx, Wire, or Check."
-    doc.text(doc.splitTextToSize(termsText4, 500), 55, yPos + 110);
+    doc.text(doc.splitTextToSize(termsText4, 500), 55, yPos + 150, { align: 'center' });
 
     // Final Red Call-to-Action Footer
     doc.setFillColor(...redColor);
