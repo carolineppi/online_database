@@ -1,8 +1,3 @@
-Here is the updated route.ts. I have translated the specific layouts, grid borders, underlines, and inline variable placements from the pdf.php script into pure native jsPDF commands.
-
-This includes the 2x2 bordered info table, the specific "Description", "Quantity", and "Color" formatting with underlines, and the dynamic spacing for the materials list.
-
-TypeScript
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import { createClient } from '@/utils/supabase/server';
