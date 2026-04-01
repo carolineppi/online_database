@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       pdfDoc.saveGraphicsState();
       pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.03 }));
       // Adjust watermark position to roughly match the PHP template
-      pdfDoc.addImage(logoBase64, 'PNG', 100, 550, 400, 50); 
+      pdfDoc.addImage(logoBase64, 'PNG', 100, 300, 400, 50); 
       pdfDoc.restoreGraphicsState();
     };
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(...darkText);
     doc.text("We Make it ", 40, 85);
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 98, 85);
+    doc.text("Easy for Anyone ", 97, 85);
     doc.setTextColor(...darkText);
     doc.text("to Buy Toilet Partitions", 40, 100);
 
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "normal");
     doc.text("We are pleased to enter our price on the following: ", 40, yPos);
     doc.setFont("helvetica", "bold");
-    doc.text(submittal.pleased_name || submittal.job_name || "", 300, yPos);
+    doc.text(submittal.pleased_name || submittal.job_name || "", 280, yPos);
 
     yPos += 25;
     doc.setFont("helvetica", "bold");
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
       doc.text(opt.material, 40, yPos);
 
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
-      doc.text(priceFmt, 525, yPos, { align: 'center' });
+      doc.text(priceFmt, 515, yPos, { align: 'center' });
 
       // Manufacturer & Shipping Subtext
       yPos += 16;
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
       doc.setFont("helvetica", "bold");
       doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
       
-      doc.text("** includes shipping **", 525, yPos, { align: 'center' });
+      doc.text("** includes shipping **", 515, yPos, { align: 'center' });
 
       yPos += 30; // Padding for next item
     });
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
     // Add-ons
     if (addons && addons.length > 0) {
       yPos = checkPageBreak(yPos, 40 + (addons.length * 15));
-      doc.setTextColor(...redColor);
+      doc.setTextColor(0);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text("ADDITIONAL ACCESSORIES / HARDWARE", 40, yPos);
