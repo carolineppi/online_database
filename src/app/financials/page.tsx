@@ -62,6 +62,8 @@ export default function FinancialDashboard() {
     const filteredQuotes = mappedQuotes.filter(q => {
       if (campaignFilter === 'all') return true;
       if (campaignFilter === 'paid') return q.is_paid;
+      if (campaignFilter === 'organic') return !q.is_paid && !q.is_manual;
+      if (campaignFilter === 'manual') return q.is_manual;
       return q.display_campaign_name === campaignFilter;
     });
 
@@ -126,8 +128,11 @@ export default function FinancialDashboard() {
       })
       .filter((job): job is any => job !== null)
       .filter(job => {
+        // NEW: Filter logic for Organic and Manual
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return job.quote_submittals.is_paid;
+        if (campaignFilter === 'organic') return !job.quote_submittals.is_paid && !job.quote_submittals.is_manual;
+        if (campaignFilter === 'manual') return job.quote_submittals.is_manual;
         return job.quote_submittals.display_campaign_name === campaignFilter;
       });
 
@@ -169,6 +174,10 @@ export default function FinancialDashboard() {
             >
               <option value="all">All Channels</option>
               <option value="paid">All Paid Ads</option>
+              {/* NEW: Added Organic and PM Input filters */}
+              <option value="organic">Organic / Direct</option>
+              <option value="manual">PM Input</option>
+              <option disabled>──────────</option>
               {availableCampaigns.map(camp => (
                 <option key={camp} value={camp}>Campaign: {camp}</option>
               ))}
@@ -210,7 +219,7 @@ export default function FinancialDashboard() {
           </div>
           {campaignFilter !== 'all' && (
             <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
-              <Target size={12} /> {campaignFilter} Filter Active
+              <Target size={12} /> {campaignFilter === 'organic' ? 'Organic' : campaignFilter === 'manual' ? 'Manual' : campaignFilter} Filter Active
             </span>
           )}
         </div>
