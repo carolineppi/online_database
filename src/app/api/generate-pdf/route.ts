@@ -66,11 +66,11 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...darkText);
-    doc.text("We Make it ", 40, 85, { align: 'center' });
+    doc.text("We Make it ", 80, 85, { align: 'center' });
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 97, 85);
+    doc.text("Easy for Anyone ", 136, 85);
     doc.setTextColor(...darkText);
-    doc.text("to Buy Toilet Partitions", 40, 100, { align: 'center' });
+    doc.text("to Buy Toilet Partitions", 80, 100, { align: 'center' });
 
     // Header Right Info
     doc.setTextColor(0);
@@ -107,8 +107,6 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.text("We are pleased to enter our price on the following: ", 40, yPos);
-    doc.setFont("helvetica", "bold");
-    doc.text(submittal.job_name || "", 290, yPos);
 
     // Shipping Address
     yPos += 15;
