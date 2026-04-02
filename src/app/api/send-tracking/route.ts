@@ -20,10 +20,10 @@ export async function POST(req: NextRequest) {
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
-      secure: false, 
+      secure: false, // true for 465, false for other ports like 587
       auth: {
         user: 'tracking@partitionplus.com',
-        pass: 'annmlhcntvtmgtrg', // Temporarily hardcoded
+        pass: process.env.EMAIL_PASSWORD, // Use .env for security!
       },
     });
 
