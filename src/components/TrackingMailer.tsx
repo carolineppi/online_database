@@ -79,22 +79,12 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
     setFreightPhone(phone);
   };
 
-  const handleSendTracking = async (e: React.FormEvent) => {
+const handleSendTracking = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // 1. Insert into tracking_mailer table using ONLY relational foreign keys
-      const { error } = await supabase.from('tracking_mailer').insert({
-        job_id: job.id,
-        tracking_number: trackingNumber,
-        freight_website: freightWebsite,
-        freight_phone: freightPhone
-      });
-
-      if (error) throw error;
-
-      // 2. Call your API route to actually send the email
+      // 1. ATTEMPT TO SEND EMAIL FIRST
       const res = await fetch('/api/send-tracking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,11 +97,45 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
         })
       });
 
-      if (!res.ok) throw new Error("Failed to dispatch email");
+      const responseData = await res.json();
+
+      // If the API route returns an error status, throw it to stop the process
+      if (!res.ok) {
+        throw new Error(responseData.error || "Failed to dispatch email via SMTP");
+      }
+
+      // 2. IF EMAIL SUCCEEDS, SAVE TO DATABASE
+      const { error: dbError } = await supabase.from('tracking_mailer').insert({
+        job_id: job.id,
+        tracking_number: trackingNumber,
+        freight_website: freightWebsite,
+        freight_phone: freightPhone
+      });
+
+      if (dbError) throw new Error("Email sent, but failed to log to database: " + dbError.message);
 
       toast.success('Tracking email dispatched successfully!');
-      onClose();
+      
+      // Add the new submission to the UI immediately without requiring a refresh
+      setRecentSubmissions(prev => [{
+        id: Math.random(), // Temp ID for immediate UI update
+        created_at: new Date().toISOString(),
+        tracking_number: trackingNumber,
+        jobs: {
+          quote_submittals: {
+            quote_number: poNumber,
+            customers: { email: customerEmail }
+          }
+        }
+      }, ...prev]);
+
+      // Reset the form fields
+      setTrackingNumber('');
+      setFreightWebsite('');
+      setFreightPhone('');
+
     } catch (err: any) {
+      console.error("Tracking Error:", err);
       toast.error(err.message || 'Failed to send tracking info.');
     } finally {
       setIsLoading(false);
