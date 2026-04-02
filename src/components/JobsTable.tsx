@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { TrendingUp, Edit3, PlusCircle } from 'lucide-react'; // 1. Added PlusCircle
+import { TrendingUp, Edit3, PlusCircle, Truck } from 'lucide-react';
 import EditJobFinancials from './EditJobFinancials';
-import AddOnForm from './AddOnForm'; // 2. Import your new form
+import AddOnForm from './AddOnForm'; 
+import TrackingMailer from './TrackingMailer'; // Import the new modal
 
 export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
   const [selectedJob, setSelectedJob] = useState<any>(null);
-  
-  // 3. Add state to track the Job/Quote being appended
   const [addonData, setAddonData] = useState<{ jobId: string; quoteId: string } | null>(null);
+  const [trackingJob, setTrackingJob] = useState<any>(null); // State for Tracking Mailer
 
   return (
     <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
@@ -41,7 +41,16 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                 </span>
               </td>
               <td className="px-6 py-4 text-right flex justify-end gap-2">
-                {/* 4. The NEW Add-On Button */}
+                {/* NEW: Send Tracking Button */}
+                <button 
+                  onClick={() => setTrackingJob(job)}
+                  className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition"
+                  title="Send Tracking Info"
+                >
+                  <Truck size={18} />
+                </button>
+
+                {/* Record Add-On Button */}
                 <button 
                   onClick={() => setAddonData({ jobId: job.id, quoteId: job.quote_id })}
                   className="p-2 hover:bg-zinc-100 text-zinc-600 rounded-lg transition"
@@ -50,6 +59,7 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                   <PlusCircle size={18} />
                 </button>
 
+                {/* Edit Financials Button */}
                 <button 
                   onClick={() => setSelectedJob(job)}
                   className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition"
@@ -60,10 +70,17 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
               </td>
             </tr>
           ))}
+          {initialJobs.length === 0 && (
+            <tr>
+              <td colSpan={5} className="px-6 py-12 text-center text-zinc-400 font-medium">
+                No active jobs found. Win a quote to see it here!
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
-      {/* 5. Render Edit Slide-over */}
+      {/* Render Edit Slide-over */}
       {selectedJob && (
         <EditJobFinancials 
           job={selectedJob} 
@@ -71,11 +88,19 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
         />
       )}
 
-      {/* 6. Render the Add-On Modal */}
+      {/* Render the Add-On Modal */}
       {addonData && (
         <AddOnForm 
           quoteId={addonData.quoteId} 
           onClose={() => setAddonData(null)} 
+        />
+      )}
+
+      {/* NEW: Render the Tracking Mailer Modal */}
+      {trackingJob && (
+        <TrackingMailer 
+          job={trackingJob} 
+          onClose={() => setTrackingJob(null)} 
         />
       )}
     </div>

@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "normal");
     doc.text("We are pleased to enter our price on the following: ", 40, yPos);
     doc.setFont("helvetica", "bold");
-    doc.text(submittal.pleased_name || submittal.job_name || "", 280, yPos);
+    doc.text(submittal.pleased_name || submittal.job_name || "", 290, yPos);
 
     yPos += 25;
     doc.setFont("helvetica", "bold");
