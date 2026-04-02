@@ -5,27 +5,6 @@ import { Truck, X, Search, Navigation } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 
-const CARRIERS = [
-  { name: 'AAA Cooper', site: 'https://www.aaacooper.com/pwb/Transit/ProTrackResults.aspx', phone: '334-793-2284' },
-  { name: 'Aduiepyle', site: 'https://www.aduiepyle.com/', phone: '800-523-5020' },
-  { name: 'ABF', site: 'https://arcb.com/tools/tracking.html', phone: '800-610-5544' },
-  { name: 'Dayton', site: 'https://www.daytonfreight.com/', phone: '800-860-5102' },
-  { name: 'DHE', site: 'https://www.dhetransport.com', phone: '909-510-6103' },
-  { name: 'Emiliani', site: 'Please call Emiliani Transport', phone: '570-291-0232' },
-  { name: 'Fedex FR', site: 'https://www.fedex.com/en-us/tracking.html', phone: '866-393-4585' },
-  { name: 'Fedex GR', site: 'https://www.fedex.com/en-us/tracking.html', phone: '800-463-3339' },
-  { name: 'NEMF', site: 'https://www.nemf.com/', phone: '' },
-  { name: 'Old Dom', site: 'https://www.odfl.com/us/en/tools/trace-track-ltl-freight/trace.html', phone: '800-235-5569' },
-  { name: 'PittOhio', site: 'https://pittohio.com/myPittOhio/Shipping/LTL/TraceRequest', phone: '800-291-7488' },
-  { name: 'Reddaway', site: 'https://www.reddawayregional.com/', phone: '888-420-8960' },
-  { name: 'R&L', site: 'https://www2.rlcarriers.com/freight/shipping/shipment-tracing', phone: '800-543-5589' },
-  { name: 'SAIA', site: 'https://www.saia.com/track', phone: '800-765-7242' },
-  { name: 'SEFL', site: 'https://sefl.com/Tracing/index.jsp', phone: '800-637-7335' },
-  { name: 'UPS', site: 'https://www.ups.com/track?loc=en_US&requester=ST/', phone: '800-742-5877' },
-  { name: 'XPO', site: 'https://app.ltl.xpo.com/appjs/tracking/#/tracking', phone: '800-755-2728' },
-  { name: 'YRCC', site: 'https://my.yrc.com/tools/track/shipments?referenceNumberType=PRO', phone: '' },
-];
-
 export default function TrackingMailer({ job, onClose }: { job: any, onClose: () => void }) {
   const [customerEmail, setCustomerEmail] = useState('');
   const [poNumber] = useState(job.quote_submittals?.quote_number || '');
@@ -34,6 +13,7 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
   const [freightPhone, setFreightPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
+  const [carriers, setCarriers] = useState<any[]>([]);
 
   const supabase = createClient();
 
@@ -45,6 +25,12 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
       const { data } = await supabase.from('customers').select('email').eq('id', customerId).single();
       if (data) setCustomerEmail(data.email);
     };
+
+    const fetchCarriers = async () => {
+      const { data } = await supabase.from('carriers').select('*').order('name');
+      if (data) setCarriers(data);
+    };
+    fetchCarriers();
 
     // 2. Fetch Recent Tracking Submissions using Relational Joins
     const fetchRecent = async () => {
