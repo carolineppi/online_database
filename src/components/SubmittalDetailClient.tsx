@@ -17,7 +17,7 @@ import {
   Truck, 
   Edit3,
   MapPin,
-  CheckCircle2 // New icon for auto-save confirmation
+  CheckCircle2
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -42,7 +42,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const [showAddModal, setShowAddModal] = useState(false); 
   const [showTrackingMailer, setShowTrackingMailer] = useState(false);
   const [showEditFinancials, setShowEditFinancials] = useState(false);
-  const [duplicateData, setDuplicateData] = useState<any>(null); 
+  const [modalData, setModalData] = useState<any>(null); // Replaced duplicateData with modalData
   
   const supabase = createClient();
   const router = useRouter();
@@ -62,9 +62,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     );
   };
 
-  // NEW: Auto-Save Function
   const handleAutoSave = async (field: 'shipping_address' | 'description', value: string) => {
-    // Only save if the value actually changed
     if (value === submittal[field]) return;
 
     setSaveStatus('saving');
@@ -78,7 +76,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       setSaveStatus('idle');
     } else {
       setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000); // Hide the "Saved" indicator after 2 seconds
+      setTimeout(() => setSaveStatus('idle'), 2000); 
       router.refresh();
     }
   };
@@ -192,7 +190,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <MapPin size={22} className="text-blue-600" /> Project Details
             </h2>
             
-            {/* Auto-Save Status Indicator */}
             <div className="h-8 flex items-center justify-end min-w-[100px]">
               {saveStatus === 'saving' && (
                 <span className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest animate-pulse">
@@ -248,7 +245,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
             <button 
               onClick={() => {
-                setDuplicateData(null);
+                setModalData(null);
                 setShowAddModal(true);
               }}
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-100"
@@ -294,10 +291,25 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                   </p>
                   
                   <div className="flex items-center gap-3 mt-3">
+                    {/* NEW: Edit Button */}
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModalData(option); // Passes entire option WITH ID for editing
+                        setShowAddModal(true);
+                      }}
+                      className="p-2 text-zinc-300 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition border border-transparent hover:border-amber-100"
+                      title="Edit Pricing Option"
+                    >
+                      <Edit3 size={20} />
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Strip the ID so the modal treats it as a NEW option
                         const { price, id: oldId, created_at, ...rest } = option; 
-                        setDuplicateData(rest);
+                        setModalData(rest);
                         setShowAddModal(true);
                       }}
                       className="p-2 text-zinc-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition border border-transparent hover:border-blue-100"
@@ -316,7 +328,10 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                     </button>
 
                     <button
-                      onClick={() => handleSelectWinner(option)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectWinner(option);
+                      }}
                       disabled={loading || isWinner}
                       className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition shadow-sm ${
                         isWinner 
@@ -444,9 +459,9 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           quoteId={id} 
           onClose={() => {
             setShowAddModal(false);
-            setDuplicateData(null);
+            setModalData(null);
           }} 
-          initialData={duplicateData}
+          initialData={modalData}
         />
       )}
 

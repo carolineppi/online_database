@@ -31,7 +31,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   const [formData, setFormData] = useState({
     material: initialData?.material || MATERIALS[0],
     manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
-    price: '', 
+    price: initialData?.price || '', // Fixed: pre-populates price when editing
     color: initialData?.color || '',
     mounting_style: initialData?.mounting_style || 'Floor Mounted / Overhead Braced',
     shipping_included: initialData?.shipping_included || 'Includes Shipping',
@@ -45,81 +45,89 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   const removeItemRow = (index: number) => 
     setItems(items.filter((item: QuoteItem, i: number) => i !== index));
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    // 1. Check for existing quotes
-    const { count, error: countError } = await supabase
-      .from('individual_quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('quote_id', quoteId)
-      .is('deleted_at', null);
+    try {
+      const payload = {
+        quote_id: quoteId,
+        ...formData,
+        itemized_breakdown: items,
+        quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
+      };
 
-    if (countError) throw countError;
+      const isEditMode = !!initialData?.id;
 
-    // 2. Insert the new quote option
-    const { error: insertError } = await supabase.from('individual_quotes').insert({
-      quote_id: quoteId,
-      ...formData,
-      itemized_breakdown: items,
-      quantity: items.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0)
-    });
+      if (isEditMode) {
+        // UPDATE existing record
+        const { error: updateError } = await supabase
+          .from('individual_quotes')
+          .update(payload)
+          .eq('id', initialData.id);
 
-    if (insertError) throw insertError;
+        if (updateError) throw updateError;
+        toast.success('Pricing option updated!');
+      } else {
+        // INSERT new record
+        const { error: insertError } = await supabase
+          .from('individual_quotes')
+          .insert([payload]);
 
-    // 3. Suffix Logic: Only if this is the FIRST quote
-  if (count === 0) {
-    // 1. Get the user exactly how your layout.tsx does it
-    const savedEmployee = localStorage.getItem('employee');
-    const loggedInUser = savedEmployee ? JSON.parse(savedEmployee) : null;
+        if (insertError) throw insertError;
 
-    // Use the email from your custom 'employee' object
-    const userEmail = loggedInUser?.email;
+        // --- Suffix Logic: Only append if this is the FIRST option added ---
+        const { count, error: countError } = await supabase
+          .from('individual_quotes')
+          .select('*', { count: 'exact', head: true })
+          .eq('quote_id', quoteId)
+          .is('deleted_at', null);
 
-    console.log("Custom Session Email:", userEmail);
-    
-    if (userEmail) {
-      // 2. Query the employees table using this email
-      const { data: employee, error: empError } = await supabase
-        .from('employees') 
-        .select('name_code, id')
-        .eq('email', userEmail)
-        .single();
+        if (countError) throw countError;
 
-      if (employee?.name_code) {
-        // 3. Fetch the submittal and append suffix
-        const { data: submittal } = await supabase
-          .from('quote_submittals')
-          .select('quote_number')
-          .eq('id', quoteId)
-          .single();
+        // If count === 1, it means the insert above was the very first active quote
+        if (count === 1) {
+          const savedEmployee = localStorage.getItem('employee');
+          const loggedInUser = savedEmployee ? JSON.parse(savedEmployee) : null;
+          const userEmail = loggedInUser?.email;
 
-        if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
-          await supabase
-            .from('quote_submittals')
-            .update({ 
-              quote_number: `${submittal.quote_number}${employee.name_code}`,
-              employee_quoted: employee.id 
-            })
-            .eq('id', quoteId);
+          if (userEmail) {
+            const { data: employee } = await supabase
+              .from('employees') 
+              .select('name_code, id')
+              .eq('email', userEmail)
+              .single();
+
+            if (employee?.name_code) {
+              const { data: submittal } = await supabase
+                .from('quote_submittals')
+                .select('quote_number')
+                .eq('id', quoteId)
+                .single();
+
+              if (submittal && !submittal.quote_number.endsWith(employee.name_code)) {
+                await supabase
+                  .from('quote_submittals')
+                  .update({ 
+                    quote_number: `${submittal.quote_number}${employee.name_code}`,
+                    employee_quoted: employee.id 
+                  })
+                  .eq('id', quoteId);
+              }
+            }
+          }
         }
+        toast.success("Quote option added!");
       }
-    } else {
-      console.warn("No 'employee' found in localStorage - initials not appended.");
-    }
-  }
 
-    toast.success("Quote option added!");
-    router.refresh();
-    onClose();
-  } catch (err: any) {
-    toast.error(`Error: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+      router.refresh();
+      onClose();
+    } catch (err: any) {
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -128,7 +136,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-black text-zinc-900 uppercase flex items-center gap-3">
               <Package className="text-blue-600" size={28} /> 
-              {initialData ? "Duplicate Quote Option" : "Add Quote Option"}
+              {initialData?.id ? "Edit Quote Option" : (initialData ? "Duplicate Quote Option" : "Add Quote Option")}
             </h2>
             <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition">✕</button>
           </div>
@@ -268,7 +276,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <div className="flex gap-4 mt-10">
             <button type="button" onClick={onClose} className="flex-1 p-5 rounded-2xl font-black text-zinc-500 hover:bg-zinc-100 transition uppercase tracking-widest text-[10px]">Cancel</button>
             <button type="submit" disabled={loading} className="flex-1 p-5 bg-zinc-900 text-white rounded-2xl font-black hover:bg-blue-600 transition uppercase tracking-widest text-[10px] shadow-xl shadow-zinc-200">
-              {loading ? "Processing..." : (initialData ? "Duplicate Quote" : "Add to Proposal")}
+              {loading ? "Processing..." : (initialData?.id ? "Save Changes" : (initialData ? "Duplicate Quote" : "Add to Proposal"))}
             </button>
           </div>
         </form>
