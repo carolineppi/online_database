@@ -81,8 +81,20 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
 
       if (error) throw error;
 
-      // 2. Call your API route to actually send the email (You will build this next)
-      // await fetch('/api/send-tracking', { ... })
+      // 2. Call your API route to actually send the email
+      const res = await fetch('/api/send-tracking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_email: customerEmail,
+          po_number: poNumber,
+          tracking_number: trackingNumber,
+          freight_website: freightWebsite,
+          freight_phone: freightPhone
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to dispatch email");
 
       toast.success('Tracking email dispatched successfully!');
       onClose();
