@@ -37,7 +37,7 @@ export default function UserProfile() {
           isOpen ? 'bg-zinc-100' : 'hover:bg-zinc-50'
         }`}
       >
-        <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shrink-0 shadow-sm">
+        <div className="h-10 w-10 bg-red-600 rounded-xl flex items-center justify-center text-white font-bold shrink-0 shadow-sm">
           {employee.name_code}
         </div>
         <div className="flex-1 text-left overflow-hidden">

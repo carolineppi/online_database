@@ -18,8 +18,8 @@ export default function Sidebar({ user }: { user: any }) {
   return (
     <div className="w-64 bg-zinc-900 h-screen text-zinc-300 flex flex-col fixed left-0 top-0">
       <div className="p-6 flex items-center gap-3 border-b border-zinc-800">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">P</div>
-        <span className="text-xl font-bold text-white">Partition+</span>
+        <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center font-bold text-white">P</div>
+        <span className="text-xl font-bold text-white">PartitionPlus</span>
       </div>
       
       <nav className="flex-1 p-4 space-y-2">

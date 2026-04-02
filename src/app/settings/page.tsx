@@ -1,15 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UserPlus, Save, Users, Shield, Truck } from 'lucide-react';
+import { UserPlus, Save, Users, Shield, Truck, Key } from 'lucide-react';
 import { toast } from 'sonner';
-import ManageCarriers from '@/components/ManageCarriers'; // Import the new component
+import ManageCarriers from '@/components/ManageCarriers';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'team' | 'carriers'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security'>('team');
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const supabase = createClient();
+
+  // Fetch the logged-in user on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('employee');
+    if (saved) {
+      setCurrentUser(JSON.parse(saved));
+    }
+  }, []);
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -37,6 +46,59 @@ export default function SettingsPage() {
       (e.target as HTMLFormElement).reset();
     } catch (err: any) {
       toast.error(err.message || "Failed to create user.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!currentUser) return toast.error("User session not found.");
+    
+    setLoading(true);
+    const formData = new FormData(e.currentTarget);
+    const currentPass = formData.get('current_password') as string;
+    const newPass = formData.get('new_password') as string;
+    const confirmPass = formData.get('confirm_password') as string;
+
+    // 1. Verify new passwords match
+    if (newPass !== confirmPass) {
+      toast.error("New passwords do not match.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 2. Verify current password is correct
+      const { data: verifyUser, error: verifyError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('id', currentUser.id)
+        .eq('password', currentPass)
+        .single();
+
+      if (verifyError || !verifyUser) {
+        throw new Error("Incorrect current password.");
+      }
+
+      // 3. Update to the new password
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update({ password: newPass })
+        .eq('id', currentUser.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Password updated successfully!");
+      
+      // Update localStorage so the session stays valid
+      const updatedSession = { ...currentUser, password: newPass };
+      localStorage.setItem('employee', JSON.stringify(updatedSession));
+      setCurrentUser(updatedSession);
+      
+      (e.target as HTMLFormElement).reset();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update password.");
     } finally {
       setLoading(false);
     }
@@ -71,8 +133,13 @@ export default function SettingsPage() {
             <Truck size={18} /> Freight Carriers
           </button>
 
-          <button className="w-full flex items-center gap-3 p-4 rounded-2xl text-zinc-400 font-medium cursor-not-allowed border border-transparent">
-            <Shield size={18} /> Security (Soon)
+          <button 
+            onClick={() => setActiveTab('security')}
+            className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold border transition ${
+              activeTab === 'security' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'text-zinc-500 hover:bg-white hover:border-zinc-200 border-transparent'
+            }`}
+          >
+            <Shield size={18} /> Security
           </button>
         </div>
 
@@ -134,6 +201,67 @@ export default function SettingsPage() {
           {activeTab === 'carriers' && (
             <div className="animate-in fade-in slide-in-from-bottom-2">
               <ManageCarriers />
+            </div>
+          )}
+
+          {/* SECURITY TAB */}
+          {activeTab === 'security' && (
+            <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+              <div className="p-6 border-b bg-zinc-50/50 flex items-center gap-3">
+                <div className="h-10 w-10 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center">
+                  <Key size={20} />
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg text-zinc-900">Change Password</h2>
+                  <p className="text-xs text-zinc-500 uppercase font-black">Update your account security credentials</p>
+                </div>
+              </div>
+
+              <form onSubmit={handlePasswordChange} className="p-6 space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Current Password</label>
+                  <input 
+                    name="current_password" 
+                    type="password" 
+                    required 
+                    placeholder="Enter your current password" 
+                    className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-purple-500 rounded-xl outline-none transition font-medium" 
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-zinc-100">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">New Password</label>
+                    <input 
+                      name="new_password" 
+                      type="password" 
+                      required 
+                      placeholder="Enter new password" 
+                      className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-purple-500 rounded-xl outline-none transition font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Confirm New Password</label>
+                    <input 
+                      name="confirm_password" 
+                      type="password" 
+                      required 
+                      placeholder="Re-type new password" 
+                      className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-purple-500 rounded-xl outline-none transition font-medium" 
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button 
+                    type="submit" 
+                    disabled={loading} 
+                    className="w-full flex items-center justify-center gap-2 bg-zinc-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-purple-600 transition shadow-lg shadow-zinc-200 disabled:opacity-50"
+                  >
+                    <Shield size={16} /> {loading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
