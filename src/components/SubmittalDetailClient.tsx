@@ -16,8 +16,8 @@ import {
   Copy,
   Truck, 
   Edit3,
-  MapPin, // New Icon
-  Save    // New Icon
+  MapPin,
+  CheckCircle2 // New icon for auto-save confirmation
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -32,10 +32,10 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // NEW: Project Details State
+  // Project Details State
   const [shippingAddress, setShippingAddress] = useState(submittal.shipping_address || 'Toilet Partitions shipping to ');
   const [description, setDescription] = useState(submittal.description || 'Toilet Compartments are: ');
-  const [savingDetails, setSavingDetails] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   // Modal States
   const [showAddOnForm, setShowAddOnForm] = useState(false);
@@ -62,24 +62,25 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     );
   };
 
-  // NEW: Save Details Function
-  const handleSaveDetails = async () => {
-    setSavingDetails(true);
+  // NEW: Auto-Save Function
+  const handleAutoSave = async (field: 'shipping_address' | 'description', value: string) => {
+    // Only save if the value actually changed
+    if (value === submittal[field]) return;
+
+    setSaveStatus('saving');
     const { error } = await supabase
       .from('quote_submittals')
-      .update({
-        shipping_address: shippingAddress,
-        description: description
-      })
+      .update({ [field]: value })
       .eq('id', id);
 
     if (error) {
-      toast.error("Failed to save project details");
+      toast.error(`Failed to auto-save project details.`);
+      setSaveStatus('idle');
     } else {
-      toast.success("Project details saved successfully!");
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000); // Hide the "Saved" indicator after 2 seconds
       router.refresh();
     }
-    setSavingDetails(false);
   };
 
   const handleGeneratePDF = async () => {
@@ -183,20 +184,27 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   return (
     <div className="lg:col-span-2 space-y-12">
       
-      {/* NEW SECTION: PROJECT DETAILS */}
+      {/* SECTION: PROJECT DETAILS (AUTO-SAVING) */}
       <section>
-        <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-8 shadow-sm">
+        <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-8 shadow-sm transition-all duration-300">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
               <MapPin size={22} className="text-blue-600" /> Project Details
             </h2>
-            <button
-              onClick={handleSaveDetails}
-              disabled={savingDetails}
-              className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200 disabled:opacity-50"
-            >
-              <Save size={14} /> {savingDetails ? 'Saving...' : 'Save Details'}
-            </button>
+            
+            {/* Auto-Save Status Indicator */}
+            <div className="h-8 flex items-center justify-end min-w-[100px]">
+              {saveStatus === 'saving' && (
+                <span className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest animate-pulse">
+                  Saving...
+                </span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 uppercase tracking-widest animate-in fade-in">
+                  <CheckCircle2 size={14} /> Saved
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -205,6 +213,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <textarea
                 value={shippingAddress}
                 onChange={(e) => setShippingAddress(e.target.value)}
+                onBlur={(e) => handleAutoSave('shipping_address', e.target.value)}
                 className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-2xl outline-none transition font-medium text-zinc-900 min-h-[100px] resize-none"
               />
             </div>
@@ -213,6 +222,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onBlur={(e) => handleAutoSave('description', e.target.value)}
                 className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-2xl outline-none transition font-medium text-zinc-900 min-h-[100px] resize-none"
               />
             </div>
