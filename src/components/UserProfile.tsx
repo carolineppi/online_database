@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  User, 
   Settings, 
   LogOut, 
   ChevronUp, 
@@ -19,41 +18,44 @@ export default function UserProfile() {
     const saved = localStorage.getItem('employee');
     if (saved) {
       setEmployee(JSON.parse(saved));
-    } else {
-      // If no employee is found, you might want to redirect to login
-      // router.push('/login'); 
     }
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('employee');
-    // Using window.location forces a total state reset instantly
     window.location.href = '/login'; 
   };
 
   if (!employee) return null;
 
   return (
-    <div className="relative mt-auto border-t border-zinc-100 pt-4 px-2">
-      {/* Profile Toggle Button */}
+    <div className="relative mt-auto border-t border-zinc-800 pt-4 px-2 mb-4">
+      {/* Profile Toggle Button - Added 'group' class here */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${
+        className={`group w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${
           isOpen ? 'bg-zinc-100' : 'hover:bg-zinc-50'
         }`}
       >
-        <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shrink-0">
+        <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shrink-0 shadow-sm">
           {employee.name_code}
         </div>
         <div className="flex-1 text-left overflow-hidden">
-          <p className="text-sm font-bold text-zinc-900 truncate">
+          {/* TEXT COLOR LOGIC: White/light by default, dark when open or hovered */}
+          <p className={`text-sm font-bold truncate transition-colors ${
+            isOpen ? 'text-zinc-900' : 'text-zinc-100 group-hover:text-zinc-900'
+          }`}>
             {employee.first_name} {employee.last_name}
           </p>
-          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
             Estimator
           </p>
         </div>
-        {isOpen ? <ChevronDown size={16} className="text-zinc-400" /> : <ChevronUp size={16} className="text-zinc-400" />}
+        {isOpen ? (
+          <ChevronDown size={16} className="text-zinc-400" />
+        ) : (
+          <ChevronUp size={16} className="text-zinc-500 group-hover:text-zinc-400 transition-colors" />
+        )}
       </button>
 
       {/* Dropdown Menu */}

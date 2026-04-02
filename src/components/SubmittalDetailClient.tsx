@@ -13,20 +13,28 @@ import {
   FileText, 
   PlusCircle,
   AlertCircle,
-  Copy 
+  Copy,
+  Truck, // Added icon
+  Edit3  // Added icon
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionModal from '@/components/AddOptionModal';
 import AddOnForm from '@/components/AddOnForm';
+import TrackingMailer from '@/components/TrackingMailer'; // Imported Modal
+import EditJobFinancials from '@/components/EditJobFinancials'; // Imported Modal
 import { toast } from 'sonner';
 
 export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // Modal States
   const [showAddOnForm, setShowAddOnForm] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false); 
+  const [showTrackingMailer, setShowTrackingMailer] = useState(false);
+  const [showEditFinancials, setShowEditFinancials] = useState(false);
   const [duplicateData, setDuplicateData] = useState<any>(null); 
   
   const supabase = createClient();
@@ -35,6 +43,12 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const winnerPrice = options?.find((o: any) => o.id === activeJob?.accepted_individual_quote)?.price || 0;
   const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
   const projectTotal = Number(winnerPrice) + addonsTotal;
+
+  // Merge the activeJob and submittal so the Modals receive the expected relational format
+  const mergedJob = activeJob ? {
+    ...activeJob,
+    quote_submittals: submittal
+  } : null;
 
   const toggleSelection = (optionId: string) => {
     setSelectedIds(prev => 
@@ -149,7 +163,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
             <Package size={22} className="text-blue-600" /> Pricing Options
           </h2>
           <div className="flex gap-3">
-            {/* RESTORED GENERATE PDF BUTTON */}
             <button 
               onClick={handleGeneratePDF}
               disabled={selectedIds.length === 0 || generating}
@@ -159,7 +172,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               {generating ? "Generating..." : `Generate PDF (${selectedIds.length})`}
             </button>
 
-            {/* RESTORED ADD OPTION BUTTON */}
             <button 
               onClick={() => {
                 setDuplicateData(null);
@@ -208,7 +220,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                   </p>
                   
                   <div className="flex items-center gap-3 mt-3">
-                    {/* DUPLICATE BUTTON */}
                     <button
                       onClick={() => {
                         const { price, id: oldId, created_at, ...rest } = option; 
@@ -320,11 +331,31 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <p className="text-3xl font-black text-blue-400">+ ${Number(addonsTotal).toLocaleString()}</p>
             </div>
 
-            <div className="bg-white/5 p-8 rounded-[2rem] border border-white/10 backdrop-blur-xl">
-              <p className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Project Grand Total</p>
-              <p className="text-5xl font-black text-emerald-400 tracking-tighter">
-                ${projectTotal.toLocaleString()}
-              </p>
+            <div className="flex flex-col gap-4">
+              <div className="bg-white/5 p-8 rounded-[2rem] border border-white/10 backdrop-blur-xl">
+                <p className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Project Grand Total</p>
+                <p className="text-5xl font-black text-emerald-400 tracking-tighter">
+                  ${projectTotal.toLocaleString()}
+                </p>
+              </div>
+              
+              {/* NEW: POST-WIN ACTION BUTTONS */}
+              {mergedJob && (
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowEditFinancials(true)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-widest transition backdrop-blur-md border border-white/10"
+                  >
+                    <Edit3 size={16} /> Job Cost
+                  </button>
+                  <button 
+                    onClick={() => setShowTrackingMailer(true)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-widest transition backdrop-blur-md border border-emerald-500/20"
+                  >
+                    <Truck size={16} /> Track
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -349,8 +380,21 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       {showAddOnForm && (
         <AddOnForm 
           quoteId={id} 
-          // jobId={activeJob?.id} <- REMOVED THIS LINE
           onClose={() => setShowAddOnForm(false)} 
+        />
+      )}
+
+      {showTrackingMailer && mergedJob && (
+        <TrackingMailer 
+          job={mergedJob} 
+          onClose={() => setShowTrackingMailer(false)} 
+        />
+      )}
+
+      {showEditFinancials && mergedJob && (
+        <EditJobFinancials 
+          job={mergedJob} 
+          onClose={() => setShowEditFinancials(false)} 
         />
       )}
     </div>

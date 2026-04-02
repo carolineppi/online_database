@@ -115,6 +115,7 @@ export default function CreateSubmittalForm({ onClose, initialPhone = '' }: Crea
           quote_number: finalQuoteNumber,
           status: 'Pending',
           customer: finalCustomerId,
+          quote_source: 'PM Input', // ADD THIS LINE
         }])
         .select().single();
 

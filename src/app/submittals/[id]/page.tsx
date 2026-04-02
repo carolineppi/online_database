@@ -5,9 +5,10 @@ import {
   Globe, 
   Target,
   Megaphone, 
-  FileText, // Added for PDF icon
+  FileText, 
   ExternalLink,
-  Download
+  Download,
+  User // Add this icon
 } from 'lucide-react';
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
@@ -59,7 +60,8 @@ export default async function SubmittalDetails({
   }
 
   // Marketing Source Logic
-  const isPaid = submittal.quote_source !== "Organic / Direct" && !isNaN(Number(submittal.quote_source));
+  const isManual = submittal.quote_source === "PM Input";
+  const isPaid = !isManual && submittal.quote_source !== "Organic / Direct" && !isNaN(Number(submittal.quote_source));
 
   const { data: job } = await supabase
     .from('jobs')
@@ -116,15 +118,17 @@ return (
               <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${
                 isPaid 
                   ? 'bg-blue-50 border-blue-100 text-blue-700' 
+                  : isManual
+                  ? 'bg-purple-50 border-purple-100 text-purple-700'
                   : 'bg-zinc-50 border-zinc-100 text-zinc-600'
               }`}>
-                {isPaid ? <Megaphone size={18} /> : <Globe size={18} />}
+                {isPaid ? <Megaphone size={18} /> : isManual ? <User size={18} /> : <Globe size={18} />}
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">
-                    {isPaid ? 'Paid Acquisition' : 'Organic Traffic'}
+                    {isPaid ? 'Paid Acquisition' : isManual ? 'Manual Entry' : 'Organic Traffic'}
                   </p>
                   <p className="text-sm font-bold">
-                    {isPaid ? submittal.campaign_source : 'Direct / Search'}
+                    {isPaid ? submittal.campaign_source : isManual ? 'PM Input' : 'Direct / Search'}
                   </p>
                 </div>
               </div>
