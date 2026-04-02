@@ -1,27 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSign, PhoneIncoming } from 'lucide-react';
+import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSign, Trash2 } from 'lucide-react';
 import UserProfile from './UserProfile';
 
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Inbound Submittals', href: '/submittals', icon: FileText },
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
-  { name: 'Financials', href: '/financials', icon: DollarSign }, // Add this line
-  { name: 'Customers', href: '/customers', icon: Users }, // Added link
-  
+  { name: 'Financials', href: '/financials', icon: DollarSign },
+  { name: 'Customers', href: '/customers', icon: Users },
 ];
 
 export default function Sidebar({ user }: { user: any }) {
-  // If no user passed from layout, don't render anything
   if (!user) return null;
+  
   return (
     <div className="w-64 bg-zinc-900 h-screen text-zinc-300 flex flex-col fixed left-0 top-0">
       <div className="p-6 flex items-center gap-3 border-b border-zinc-800">
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">P</div>
         <span className="text-xl font-bold text-white">Partition+</span>
       </div>
+      
       <nav className="flex-1 p-4 space-y-2">
         {navItems.map((item) => (
           <Link
@@ -34,12 +34,13 @@ export default function Sidebar({ user }: { user: any }) {
           </Link>
         ))}
       </nav>
-      <Link href="/calls" className="flex items-center gap-3 p-3 hover:bg-zinc-50 rounded-2xl transition group">
-        <PhoneIncoming size={20} className="text-zinc-400 group-hover:text-blue-600" />
-        <span className="text-sm font-bold text-zinc-600 group-hover:text-zinc-900">Call Queue</span>
-        {/* Optional: Add a badge if there are active calls */}
+
+      {/* NEW: Replaced Call Queue with System Trash */}
+      <Link href="/trash" className="flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl transition group mx-2 mb-2">
+        <Trash2 size={20} className="text-zinc-500 group-hover:text-red-500 transition-colors" />
+        <span className="text-sm font-bold text-zinc-400 group-hover:text-zinc-100 transition-colors">System Trash</span>
       </Link>
-    {/* NEW: User Profile at the bottom */}
+
       <UserProfile />
     </div>
   );

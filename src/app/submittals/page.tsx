@@ -2,14 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, ChevronRight, Plus } from 'lucide-react'; // Added Plus icon
+import { Search, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import CreateSubmittalForm from '@/components/CreateSubmittalForm'; // Import the new form
 
 export default function SubmittalFeed() {
   const [searchTerm, setSearchTerm] = useState('');
   const [submittals, setSubmittals] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false); // State to control the modal
   const supabase = createClient();
 
   useEffect(() => {
@@ -32,18 +30,10 @@ export default function SubmittalFeed() {
     <div className="p-8 bg-zinc-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         
-        {/* Header with New Action Button */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Inbound Submittals</h1>
-            <p className="text-sm text-zinc-500">Manage digital leads and manual entries</p>
-          </div>
-          <button 
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2 shadow-sm"
-          >
-            <Plus size={18} /> New Entry
-          </button>
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-zinc-900">Inbound Submittals</h1>
+          <p className="text-sm text-zinc-500">Manage digital leads and manual entries</p>
         </div>
         
         {/* Search Bar */}
@@ -101,11 +91,6 @@ export default function SubmittalFeed() {
           </table>
         </div>
       </div>
-
-      {/* Modal Overlay for Manual Creation */}
-      {showForm && (
-        <CreateSubmittalForm onClose={() => setShowForm(false)} />
-      )}
     </div>
   );
 }

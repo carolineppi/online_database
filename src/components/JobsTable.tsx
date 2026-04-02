@@ -50,14 +50,14 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                   <Truck size={18} />
                 </button>
 
-                {/* Record Add-On Button */}
+                {/* Record Add-On Button
                 <button 
                   onClick={() => setAddonData({ jobId: job.id, quoteId: job.quote_id })}
                   className="p-2 hover:bg-zinc-100 text-zinc-600 rounded-lg transition"
                   title="Record Add-on"
                 >
                   <PlusCircle size={18} />
-                </button>
+                </button> */}
 
                 {/* Edit Financials Button */}
                 <button 

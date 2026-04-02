@@ -3,8 +3,9 @@ import { createClient } from '@/utils/supabase/server';
 import RecentActivity from '@/components/RecentActivity';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Plus, ClipboardList, UserCheck, Trash2 } from 'lucide-react'; // Added Trash2
+import { Search, Plus, ClipboardList, UserCheck, Trash2 } from 'lucide-react'; 
 import SubmittalSearchBar from '@/components/SubmittalSearchBar';
+import NewSubmittalButton from '@/components/NewSubmittalButton'; // NEW IMPORT
 import { revalidatePath } from 'next/cache';
 
 export default async function Page() {
@@ -54,10 +55,8 @@ export default async function Page() {
             <h1 className="text-3xl font-black text-zinc-900 uppercase tracking-tight">Pipeline Dashboard</h1>
             <p className="text-zinc-500">Manage incoming submittals and your active quotes.</p>
           </div>
-          {/* Link to the new Trash page */}
-          <Link href="/trash" className="flex items-center gap-2 text-zinc-400 hover:text-red-500 transition font-bold text-xs uppercase tracking-widest">
-            <Trash2 size={16} /> View Trash
-          </Link>
+          {/* NEW: Replaced Trash Link with New Entry Button */}
+          <NewSubmittalButton />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
