@@ -28,7 +28,7 @@ const CARRIERS = [
 
 export default function TrackingMailer({ job, onClose }: { job: any, onClose: () => void }) {
   const [customerEmail, setCustomerEmail] = useState('');
-  const [poNumber, setPoNumber] = useState(job.quote_submittals?.quote_number || '');
+  const [poNumber] = useState(job.quote_submittals?.quote_number || '');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [freightWebsite, setFreightWebsite] = useState('');
   const [freightPhone, setFreightPhone] = useState('');
@@ -38,7 +38,7 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
   const supabase = createClient();
 
   useEffect(() => {
-    // Fetch Customer Email
+    // 1. Fetch Customer Email for the UI and the API payload
     const fetchCustomerInfo = async () => {
       const customerId = job.quote_submittals?.customer;
       if (!customerId) return;
@@ -46,13 +46,27 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
       if (data) setCustomerEmail(data.email);
     };
 
-    // Fetch Recent Tracking Submissions
+    // 2. Fetch Recent Tracking Submissions using Relational Joins
     const fetchRecent = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('tracking_mailer')
-        .select('*')
+        .select(`
+          id,
+          created_at,
+          tracking_number,
+          jobs (
+            quote_submittals (
+              quote_number,
+              customers!customer (
+                email
+              )
+            )
+          )
+        `)
         .order('created_at', { ascending: false })
         .limit(5);
+
+      if (error) console.error("Error fetching recent:", error);
       if (data) setRecentSubmissions(data);
     };
 
@@ -70,10 +84,9 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
     setIsLoading(true);
 
     try {
-      // 1. Insert into tracking_mailer table
+      // 1. Insert into tracking_mailer table using ONLY relational foreign keys
       const { error } = await supabase.from('tracking_mailer').insert({
-        customer_email: customerEmail,
-        po_number: poNumber,
+        job_id: job.id,
         tracking_number: trackingNumber,
         freight_website: freightWebsite,
         freight_phone: freightPhone
@@ -130,11 +143,13 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
             <div className="flex flex-col gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Customer Email</label>
-                <input required type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition font-bold" />
+                {/* Disabled because it's derived from the job relation */}
+                <input disabled type="email" value={customerEmail} className="w-full p-4 bg-zinc-100 rounded-2xl border-none text-zinc-500 font-bold cursor-not-allowed" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">PO Number</label>
-                <input required type="text" value={poNumber} onChange={e => setPoNumber(e.target.value)} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition font-bold text-zinc-600" />
+                {/* Disabled because it's derived from the job relation */}
+                <input disabled type="text" value={poNumber} className="w-full p-4 bg-zinc-100 rounded-2xl border-none text-zinc-500 font-bold cursor-not-allowed" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">PRO / Tracking #</label>
@@ -186,7 +201,7 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
             </button>
           </div>
 
-          {/* Recent Submissions */}
+          {/* Recent Submissions Using Foreign Keys */}
           <div className="mt-8">
             <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Recent Dispatches</h3>
             {recentSubmissions.length > 0 ? (
@@ -200,13 +215,19 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200">
-                    {recentSubmissions.map((sub: any) => (
-                      <tr key={sub.id}>
-                        <td className="px-6 py-3 text-zinc-500 font-medium">{new Date(sub.created_at).toLocaleDateString()}</td>
-                        <td className="px-6 py-3 font-bold text-zinc-800">{sub.customer_email}</td>
-                        <td className="px-6 py-3 text-zinc-600 font-mono">#{sub.po_number}</td>
-                      </tr>
-                    ))}
+                    {recentSubmissions.map((sub: any) => {
+                      // Extract joined data safely
+                      const derivedEmail = sub.jobs?.quote_submittals?.customers?.email || 'Unknown';
+                      const derivedPo = sub.jobs?.quote_submittals?.quote_number || 'Unknown';
+
+                      return (
+                        <tr key={sub.id}>
+                          <td className="px-6 py-3 text-zinc-500 font-medium">{new Date(sub.created_at).toLocaleDateString()}</td>
+                          <td className="px-6 py-3 font-bold text-zinc-800">{derivedEmail}</td>
+                          <td className="px-6 py-3 text-zinc-600 font-mono">#{derivedPo}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
