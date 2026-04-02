@@ -201,6 +201,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     onChange={e => setFormData({...formData, shipping_included: e.target.value})}>
                     <option value="Shipping Only">Includes Shipping</option>
                     <option value="Shipping & Sales Tax">Includes Shipping & Sales Tax</option>
+                    <option value="Shipping with LIFTGATE">Includes Shipping with LIFTGATE</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
                 </div>
