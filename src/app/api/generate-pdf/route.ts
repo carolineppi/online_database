@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
     const applyWatermark = (pdfDoc: jsPDF) => {
       pdfDoc.saveGraphicsState();
       pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.03 }));
-      // Adjust watermark position to roughly match the PHP template
       pdfDoc.addImage(logoBase64, 'PNG', 100, 300, 400, 50); 
       pdfDoc.restoreGraphicsState();
     };
@@ -102,45 +101,40 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(...redColor);
     doc.text(submittal.quote_number, 475, 142);
 
-    // 3. Quote Details
+    // 3. Quote Details & Address
     let yPos = 200;
     doc.setTextColor(0);
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.text("We are pleased to enter our price on the following: ", 40, yPos);
     doc.setFont("helvetica", "bold");
-    doc.text(submittal.pleased_name || submittal.job_name || "", 290, yPos);
+    doc.text(submittal.job_name || "", 290, yPos);
 
-    yPos += 25;
+    // Shipping Address
+    yPos += 20;
+    doc.setFont("helvetica", "normal");
+    const addressText = submittal.shipping_address || 'Toilet Partitions shipping to: TBD';
+    const splitAddress = doc.splitTextToSize(addressText, 530);
+    doc.text(splitAddress, 40, yPos);
+    yPos += (splitAddress.length * 14) + 10;
+
+    // Description
     doc.setFont("helvetica", "bold");
     doc.text("Description:", 40, yPos);
     doc.setLineWidth(0.75);
     doc.line(40, yPos + 2, 106, yPos + 2); // Underline Description
+    doc.setFont("helvetica", "normal");
     
-    doc.setFont("helvetica", "normal");
-    const descText = `${submittal.description || ''} ${submittal.mounting_style || ''}`.trim() || 'Toilet Compartments are: Floor Mounted w/ Overhead Brace';
-    doc.text(descText, 113, yPos);
+    const descText = submittal.description || 'Toilet Compartments are: ';
+    const splitDesc = doc.splitTextToSize(descText, 440);
+    doc.text(splitDesc, 113, yPos);
+    yPos += (splitDesc.length * 14) + 20;
 
-    yPos += 25;
-    doc.setFont("helvetica", "bold");
-    doc.text("Quantity:", 40, yPos);
-    doc.line(40, yPos + 2, 90, yPos + 2); // Underline Quantity
-    doc.setFont("helvetica", "normal");
-    doc.text(submittal.quantity || '(3) toilet stalls and (3) urinal screens', 95, yPos);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Color:", 340, yPos);
-    doc.line(340, yPos + 2, 375, yPos + 2); // Underline Color
-    doc.setFont("helvetica", "normal");
-    doc.text(submittal.color || 'Black', 380, yPos);
-
-    // 4. Materials Loop
-    yPos += 40;
-    
+    // 4. Materials Loop (Now contains Quantity and Color)
     options.forEach((opt: any) => {
-      yPos = checkPageBreak(yPos, 50);
+      yPos = checkPageBreak(yPos, 100);
 
-      // Material Title & Price (Both Red & Bold in new PHP)
+      // Material Title & Price
       doc.setTextColor(...redColor);
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
@@ -150,7 +144,7 @@ export async function POST(req: NextRequest) {
       doc.text(priceFmt, 515, yPos, { align: 'center' });
 
       // Manufacturer & Shipping Subtext
-      yPos += 16;
+      yPos += 18;
       doc.setTextColor(0);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
@@ -158,9 +152,33 @@ export async function POST(req: NextRequest) {
       doc.setFont("helvetica", "bold");
       doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
       
+      doc.setFont("helvetica", "normal");
       doc.text("** includes shipping **", 515, yPos, { align: 'center' });
 
-      yPos += 30; // Padding for next item
+      // Color
+      yPos += 16;
+      doc.setFont("helvetica", "normal");
+      doc.text("Color: ", 40, yPos);
+      doc.setFont("helvetica", "bold");
+      doc.text(opt.color || 'To Be Determined', 70, yPos);
+
+      // Itemized Quantity List
+      yPos += 16;
+      doc.setFont("helvetica", "normal");
+      doc.text("Quantity: ", 40, yPos);
+      doc.setFont("helvetica", "bold");
+      
+      // Parse the JSON array into "(5) item name, (1) item name"
+      let formattedQty = opt.quantity || "N/A";
+      if (opt.itemized_breakdown && Array.isArray(opt.itemized_breakdown) && opt.itemized_breakdown.length > 0) {
+         formattedQty = opt.itemized_breakdown.map((item: any) => `(${item.qty || item.quantity || 0}) ${item.item || item.name || 'item'}`).join(', ');
+      }
+      
+      // Use splitTextToSize to gracefully wrap long lists of items
+      const splitQty = doc.splitTextToSize(formattedQty, 450);
+      doc.text(splitQty, 85, yPos);
+      
+      yPos += (splitQty.length * 14) + 20; // Extra padding for next material
     });
 
     // Add-ons
@@ -228,9 +246,7 @@ export async function POST(req: NextRequest) {
     
     const terms3 = "By completing/paying for your order, you agree with and have verified the measurements we have provided on our shop drawings.";
     doc.text(doc.splitTextToSize(terms3, 500), 305, yPos + 115, { align: 'center' });
-    const t3Width = doc.getTextWidth(terms3);
-    // doc.line(305 - (t3Width/2), yPos + 122, 305 + (t3Width/2), yPos + 122);
-
+    
     doc.text("This offer is good for 60 days from the date of this quotation.", 305, yPos + 140, { align: 'center' });
     doc.text("Methods of payment are:", 305, yPos + 152, { align: 'center' });
     doc.text("Visa, MasterCard, Discover, AmEx, Wire, or Check.", 305, yPos + 164, { align: 'center' });

@@ -80,35 +80,38 @@ export default async function Page() {
 
 <div className="divide-y divide-zinc-100">
                 {unquotedSubmittals?.length ? unquotedSubmittals.map((item) => {
-                  // NEW: Proper Marketing Source Logic
+                  
+                  // NEW: Database-driven Marketing Source Logic
+                  const matchedCampaign = campaignSources?.find(c => c.campaign_id === item.quote_source);
                   const isManual = item.quote_source === 'PM Input';
-                  const isPaid = !isManual && item.quote_source !== 'Organic / Direct' && item.quote_source !== 'Unknown' && !isNaN(Number(item.quote_source));
+                  
+                  // It's a paid ad if it exists in the new mapping table, OR if it passes the numeric fallback test
+                  const isPaid = !!matchedCampaign || (!isManual && item.quote_source !== 'Organic / Direct' && item.quote_source !== 'Unknown' && !isNaN(Number(item.quote_source)));
+
+                  // Decide what text to show in the badge
+                  const badgeText = matchedCampaign ? matchedCampaign.campaign_name : 'Paid Ad';
 
                   return (
                     <div key={item.id} className="group flex items-center hover:bg-zinc-50 transition">
-                      <Link 
-                        href={`/submittals/${item.id}`}
-                        className="flex-grow block p-6"
-                      >
+                      <Link href={`/submittals/${item.id}`} className="flex-grow block p-6">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">
                               #{item.quote_number}
                             </span>
                             
-                            {/* PAID AD BADGE */}
+                            {/* DYNAMIC PAID AD BADGE */}
                             {isPaid && (
                               <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
                                 <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
-                                Paid Ad
+                                {badgeText}
                               </span>
                             )}
 
                             {/* MANUAL ENTRY BADGE */}
                             {isManual && (
                               <span className="flex items-center gap-1 text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
-                                <User size={10} />
-                                PM Input
+                                <User size={10} /> PM Input
                               </span>
                             )}
 
