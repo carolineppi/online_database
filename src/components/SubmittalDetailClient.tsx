@@ -14,15 +14,17 @@ import {
   PlusCircle,
   AlertCircle,
   Copy,
-  Truck, // Added icon
-  Edit3  // Added icon
+  Truck, 
+  Edit3,
+  MapPin, // New Icon
+  Save    // New Icon
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import AddOptionModal from '@/components/AddOptionModal';
 import AddOnForm from '@/components/AddOnForm';
-import TrackingMailer from '@/components/TrackingMailer'; // Imported Modal
-import EditJobFinancials from '@/components/EditJobFinancials'; // Imported Modal
+import TrackingMailer from '@/components/TrackingMailer';
+import EditJobFinancials from '@/components/EditJobFinancials';
 import { toast } from 'sonner';
 
 export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
@@ -30,6 +32,11 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
   
+  // NEW: Project Details State
+  const [shippingAddress, setShippingAddress] = useState(submittal.shipping_address || 'Toilet Partitions shipping to ');
+  const [description, setDescription] = useState(submittal.description || 'Toilet Compartments are: ');
+  const [savingDetails, setSavingDetails] = useState(false);
+
   // Modal States
   const [showAddOnForm, setShowAddOnForm] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false); 
@@ -44,7 +51,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
   const projectTotal = Number(winnerPrice) + addonsTotal;
 
-  // Merge the activeJob and submittal so the Modals receive the expected relational format
   const mergedJob = activeJob ? {
     ...activeJob,
     quote_submittals: submittal
@@ -54,6 +60,26 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     setSelectedIds(prev => 
       prev.includes(optionId) ? prev.filter(i => i !== optionId) : [...prev, optionId]
     );
+  };
+
+  // NEW: Save Details Function
+  const handleSaveDetails = async () => {
+    setSavingDetails(true);
+    const { error } = await supabase
+      .from('quote_submittals')
+      .update({
+        shipping_address: shippingAddress,
+        description: description
+      })
+      .eq('id', id);
+
+    if (error) {
+      toast.error("Failed to save project details");
+    } else {
+      toast.success("Project details saved successfully!");
+      router.refresh();
+    }
+    setSavingDetails(false);
   };
 
   const handleGeneratePDF = async () => {
@@ -156,6 +182,44 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
   return (
     <div className="lg:col-span-2 space-y-12">
+      
+      {/* NEW SECTION: PROJECT DETAILS */}
+      <section>
+        <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-8 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
+              <MapPin size={22} className="text-blue-600" /> Project Details
+            </h2>
+            <button
+              onClick={handleSaveDetails}
+              disabled={savingDetails}
+              className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200 disabled:opacity-50"
+            >
+              <Save size={14} /> {savingDetails ? 'Saving...' : 'Save Details'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Shipping Address / Location</label>
+              <textarea
+                value={shippingAddress}
+                onChange={(e) => setShippingAddress(e.target.value)}
+                className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-2xl outline-none transition font-medium text-zinc-900 min-h-[100px] resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Quote Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-2xl outline-none transition font-medium text-zinc-900 min-h-[100px] resize-none"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* SECTION 1: MATERIAL OPTIONS */}
       <section>
         <div className="flex justify-between items-center mb-6">
@@ -339,7 +403,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                 </p>
               </div>
               
-              {/* NEW: POST-WIN ACTION BUTTONS */}
               {mergedJob && (
                 <div className="flex gap-3">
                   <button 
