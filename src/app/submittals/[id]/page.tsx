@@ -59,9 +59,18 @@ export default async function SubmittalDetails({
     );
   }
 
+  /// Fetch Campaign Mappings
+  const { data: campaignSources } = await supabase.from('campaign_sources').select('*');
+  const matchedCampaign = campaignSources?.find(c => c.campaign_id === submittal.quote_source);
+
   // Marketing Source Logic
   const isManual = submittal.quote_source === "PM Input";
-  const isPaid = !isManual && submittal.quote_source !== "Organic / Direct" && !isNaN(Number(submittal.quote_source));
+  const isPaid = !!matchedCampaign || (!isManual && submittal.quote_source !== "Organic / Direct" && submittal.quote_source !== "Unknown" && !isNaN(Number(submittal.quote_source)));
+  
+  // Decide the display name
+  const displayName = matchedCampaign 
+    ? matchedCampaign.campaign_name 
+    : (isPaid ? (submittal.campaign_source || submittal.quote_source) : (isManual ? 'PM Input' : 'Direct / Search'));
 
   const { data: job } = await supabase
     .from('jobs')
@@ -128,7 +137,7 @@ return (
                     {isPaid ? 'Paid Acquisition' : isManual ? 'Manual Entry' : 'Organic Traffic'}
                   </p>
                   <p className="text-sm font-bold">
-                    {isPaid ? submittal.campaign_source : isManual ? 'PM Input' : 'Direct / Search'}
+                    {displayName}
                   </p>
                 </div>
               </div>

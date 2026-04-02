@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache';
 export default async function Page() {
   const CURRENT_EMPLOYEE_ID = '1';
   const supabase = await createClient();
+  const { data: campaignSources } = await supabase.from('campaign_sources').select('*');
 
   // 1. Fetch Submittals where status is 'Pending' AND not deleted
   const { data: unquotedSubmittals, error: fetchError } = await supabase
