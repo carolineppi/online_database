@@ -174,7 +174,7 @@ const handleSendTracking = async (e: React.FormEvent) => {
             <div className="lg:col-span-2">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest mb-2 block">Quick Select Carrier</label>
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                {CARRIERS.map(carrier => (
+                {carriers.map(carrier => (
                   <button 
                     key={carrier.name} 
                     type="button" 
