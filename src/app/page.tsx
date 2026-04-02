@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import RecentActivity from '@/components/RecentActivity';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Plus, ClipboardList, UserCheck, Trash2 } from 'lucide-react'; 
+import { Search, Plus, ClipboardList, UserCheck, Trash2, User } from 'lucide-react';
 import SubmittalSearchBar from '@/components/SubmittalSearchBar';
 import NewSubmittalButton from '@/components/NewSubmittalButton'; // NEW IMPORT
 import { revalidatePath } from 'next/cache';
@@ -77,55 +77,72 @@ export default async function Page() {
                 </span>
               </div>
 
-              <div className="divide-y divide-zinc-100">
-                {unquotedSubmittals?.length ? unquotedSubmittals.map((item) => (
-                  <div key={item.id} className="group flex items-center hover:bg-zinc-50 transition">
-                    <Link 
-                      href={`/submittals/${item.id}`}
-                      className="flex-grow block p-6"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">
-                            #{item.quote_number}
-                          </span>
-                          {(item.quote_source && item.quote_source !== 'Organic / Direct') && (
-                            <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
-                              <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
-                              Paid Ad
-                            </span>
-                          )}
-                          <span className="text-xs text-zinc-400 font-medium">
-                            {new Date(item.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-zinc-900 group-hover:text-blue-600 transition">
-                          {item.job_name}
-                        </h3>
-                      </div>
-                    </Link>
+<div className="divide-y divide-zinc-100">
+                {unquotedSubmittals?.length ? unquotedSubmittals.map((item) => {
+                  // NEW: Proper Marketing Source Logic
+                  const isManual = item.quote_source === 'PM Input';
+                  const isPaid = !isManual && item.quote_source !== 'Organic / Direct' && item.quote_source !== 'Unknown' && !isNaN(Number(item.quote_source));
 
-                    {/* Action Buttons: Delete & View */}
-                    <div className="flex items-center gap-3 pr-6">
-                      <form action={softDeleteSubmittal}>
-                        <input type="hidden" name="id" value={item.id} />
-                        <button 
-                          type="submit"
-                          className="h-9 w-9 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition shadow-sm bg-white"
-                          title="Move to Trash"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </form>
+                  return (
+                    <div key={item.id} className="group flex items-center hover:bg-zinc-50 transition">
                       <Link 
                         href={`/submittals/${item.id}`}
-                        className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
+                        className="flex-grow block p-6"
                       >
-                        <Plus size={18} />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">
+                              #{item.quote_number}
+                            </span>
+                            
+                            {/* PAID AD BADGE */}
+                            {isPaid && (
+                              <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                                <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
+                                Paid Ad
+                              </span>
+                            )}
+
+                            {/* MANUAL ENTRY BADGE */}
+                            {isManual && (
+                              <span className="flex items-center gap-1 text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
+                                <User size={10} />
+                                PM Input
+                              </span>
+                            )}
+
+                            <span className="text-xs text-zinc-400 font-medium">
+                              {new Date(item.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-zinc-900 group-hover:text-blue-600 transition">
+                            {item.job_name}
+                          </h3>
+                        </div>
                       </Link>
+
+                      {/* Action Buttons: Delete & View */}
+                      <div className="flex items-center gap-3 pr-6">
+                        <form action={softDeleteSubmittal}>
+                          <input type="hidden" name="id" value={item.id} />
+                          <button 
+                            type="submit"
+                            className="h-9 w-9 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition shadow-sm bg-white"
+                            title="Move to Trash"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </form>
+                        <Link 
+                          href={`/submittals/${item.id}`}
+                          className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
+                        >
+                          <Plus size={18} />
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                )) : (
+                  );
+                }) : (
                   <div className="p-16 text-center">
                     <p className="text-zinc-400 font-medium">All submittals have been quoted!</p>
                   </div>
