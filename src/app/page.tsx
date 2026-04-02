@@ -140,7 +140,7 @@ export default async function Page() {
               <SubmittalSearchBar />
             </div>
 
-            <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
+            {/* <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
               <div className="p-6 border-b bg-zinc-50/50 flex items-center gap-3">
                 <UserCheck className="text-emerald-600" size={20} />
                 <h2 className="font-bold text-zinc-900">Awaiting Job Status</h2>
@@ -153,7 +153,7 @@ export default async function Page() {
                   </Link>
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
