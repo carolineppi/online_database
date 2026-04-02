@@ -66,11 +66,11 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...darkText);
-    doc.text("We Make it ", 100, 85, { align: 'center' });
+    doc.text("We Make it ", 99, 85, { align: 'center' });
     doc.setTextColor(...redColor);
     doc.text("Easy for Anyone ", 126, 85);
     doc.setTextColor(...darkText);
-    doc.text("to Buy Toilet Partitions", 100, 100, { align: 'center' });
+    doc.text("to Buy Toilet Partitions", 140, 100, { align: 'center' });
 
     // Header Right Info
     doc.setTextColor(0);
