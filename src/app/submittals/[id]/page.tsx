@@ -119,7 +119,7 @@ return (
                   #{submittal.quote_number}
                 </span>
               </div>
-              <p className="text-zinc-500 text-sm">Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name}</p>
+              <p className="text-zinc-500 text-sm">Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name} | Phone: {submittal.linked_customer?.phone} | Email: {submittal.linked_customer?.email}</p>
             </div>
 
             {/* NEW: Marketing Source Indicator */}
