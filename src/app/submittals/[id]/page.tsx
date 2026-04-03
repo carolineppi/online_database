@@ -8,25 +8,22 @@ import {
   FileText, 
   ExternalLink,
   Download,
-  User // Add this icon
+  User 
 } from 'lucide-react';
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-// Next.js 15: params must be a Promise
 export default async function SubmittalDetails({ 
   params 
 }: { 
   params: Promise<{ id: string }> 
 }) {
-  // 1. Await the params before accessing the ID
   const resolvedParams = await params;
   const id = resolvedParams.id;
   const supabase = await createClient();
 
-  // 2. Server Action for Submittal Soft Delete
   async function softDeleteSubmittal() {
     'use server';
     const supabase = await createClient();
@@ -35,13 +32,11 @@ export default async function SubmittalDetails({
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id);
     
-    // Clear caches and redirect
     revalidatePath('/');
     revalidatePath('/trash');
     redirect('/'); 
   }
 
-  // 3. Fetch data with 'deleted_at' filter
   const { data: submittal } = await supabase
     .from('quote_submittals')
     .select(`*, linked_customer:customers!customer (*)`)
@@ -59,15 +54,12 @@ export default async function SubmittalDetails({
     );
   }
 
-  /// Fetch Campaign Mappings
   const { data: campaignSources } = await supabase.from('campaign_sources').select('*');
   const matchedCampaign = campaignSources?.find(c => c.campaign_id === submittal.quote_source);
 
-  // Marketing Source Logic
   const isManual = submittal.quote_source === "PM Input";
   const isPaid = !!matchedCampaign || (!isManual && submittal.quote_source !== "Organic / Direct" && submittal.quote_source !== "Unknown" && !isNaN(Number(submittal.quote_source)));
   
-  // Decide the display name
   const displayName = matchedCampaign 
     ? matchedCampaign.campaign_name 
     : (isPaid ? (submittal.campaign_source || submittal.quote_source) : (isManual ? 'PM Input' : 'Direct / Search'));
@@ -83,7 +75,7 @@ export default async function SubmittalDetails({
     .from('individual_quotes')
     .select('*')
     .eq('quote_id', id)
-    .is('deleted_at', null); // Soft delete filter
+    .is('deleted_at', null);
 
   const { data: addons } = await supabase
     .from('add_ons')
@@ -91,28 +83,24 @@ export default async function SubmittalDetails({
     .eq('quote_id', id)
     .is('deleted_at', null);
 
-  function formatPhoneNumber(phoneNumberString: string): string | null {
-    // 1. Remove all non-digit characters
+  // UPDATED: Formats to XXX-XXX-XXXX
+  function formatPhoneNumber(phoneNumberString: string | null | undefined): string | null {
+    if (!phoneNumberString) return null;
     const cleaned = phoneNumberString.replace(/\D/g, '');
-
-    // 2. Check if the input is valid (10 digits)
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-
     if (match) {
-      return `(${match[1]}) ${match[2]}-${match[3]}`;
+      return `${match[1]}-${match[2]}-${match[3]}`;
     }
-
-    return null;
+    return phoneNumberString; // Fallback to raw string if it doesn't match 10 digits
   }
 
-return (
+  return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
           <ChevronLeft size={20} /> Back to Dashboard
         </Link>
 
-        {/* Action button inside a form for Server Action */}
         <form action={softDeleteSubmittal}>
           <button 
             type="submit"
@@ -133,10 +121,12 @@ return (
                   #{submittal.quote_number}
                 </span>
               </div>
-              <p className="text-zinc-500 text-sm">Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name} | Phone: {formatPhoneNumber(submittal.linked_customer?.phone)} | Email: {submittal.linked_customer?.email}</p>
+              {/* UPDATED: Applied the formatPhoneNumber function here */}
+              <p className="text-zinc-500 text-sm">
+                Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name} | Phone: {formatPhoneNumber(submittal.linked_customer?.phone) || 'N/A'} | Email: {submittal.linked_customer?.email}
+              </p>
             </div>
 
-            {/* NEW: Marketing Source Indicator */}
             <div className="flex items-center gap-4">
               <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${
                 isPaid 
@@ -164,7 +154,7 @@ return (
             </div>
          </div>
       </div>
-      {/* NEW: Original Uploaded PDF Section */}
+      
       {submittal.pdf_url && (
         <section className="mb-12">
           <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
