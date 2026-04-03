@@ -91,6 +91,20 @@ export default async function SubmittalDetails({
     .eq('quote_id', id)
     .is('deleted_at', null);
 
+  function formatPhoneNumber(phoneNumberString: string): string | null {
+    // 1. Remove all non-digit characters
+    const cleaned = phoneNumberString.replace(/\D/g, '');
+
+    // 2. Check if the input is valid (10 digits)
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+
+    if (match) {
+      return `(${match[1]}) ${match[2]}-${match[3]}`;
+    }
+
+    return null;
+  }
+
 return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -119,7 +133,7 @@ return (
                   #{submittal.quote_number}
                 </span>
               </div>
-              <p className="text-zinc-500 text-sm">Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name} | Phone: {submittal.linked_customer?.phone} | Email: {submittal.linked_customer?.email}</p>
+              <p className="text-zinc-500 text-sm">Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name} | Phone: {formatPhoneNumber(submittal.linked_customer?.phone)} | Email: {submittal.linked_customer?.email}</p>
             </div>
 
             {/* NEW: Marketing Source Indicator */}
