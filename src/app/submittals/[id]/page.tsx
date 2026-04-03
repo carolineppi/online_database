@@ -83,15 +83,20 @@ export default async function SubmittalDetails({
     .eq('quote_id', id)
     .is('deleted_at', null);
 
-  // UPDATED: Formats to XXX-XXX-XXXX
-  function formatPhoneNumber(phoneNumberString: string | null | undefined): string | null {
-    if (!phoneNumberString) return null;
-    const cleaned = phoneNumberString.replace(/\D/g, '');
+  // FIXED: Safely convert input to a String before running regex to prevent crashes
+  function formatPhoneNumber(phoneNumberRaw: any): string | null {
+    if (!phoneNumberRaw) return null;
+    
+    // Safely cast to string
+    const stringData = String(phoneNumberRaw);
+    const cleaned = stringData.replace(/\D/g, '');
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    
     if (match) {
       return `${match[1]}-${match[2]}-${match[3]}`;
     }
-    return phoneNumberString; // Fallback to raw string if it doesn't match 10 digits
+    
+    return stringData; // Fallback to raw string
   }
 
   return (
@@ -121,7 +126,6 @@ export default async function SubmittalDetails({
                   #{submittal.quote_number}
                 </span>
               </div>
-              {/* UPDATED: Applied the formatPhoneNumber function here */}
               <p className="text-zinc-500 text-sm">
                 Customer: {submittal.linked_customer?.first_name} {submittal.linked_customer?.last_name} | Phone: {formatPhoneNumber(submittal.linked_customer?.phone) || 'N/A'} | Email: {submittal.linked_customer?.email}
               </p>
