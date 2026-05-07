@@ -17,6 +17,7 @@ import {
   Briefcase,
   Layers
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function FinancialDashboard() {
   const supabase = createClient();
@@ -56,7 +57,7 @@ export default function FinancialDashboard() {
     const campaignMap = new Map(campaignsData?.map(c => [c.campaign_id, c.campaign_name]) || []);
 
     // 2. Fetch all active submittals in the date range INCLUDING their options and addons
-    const { data: allQuotesData } = await supabase
+    const { data: allQuotesData, error: quotesError } = await supabase
         .from('quote_submittals')
         .select(`
           id, 
@@ -74,6 +75,11 @@ export default function FinancialDashboard() {
         .lte('created_at', `${dateRange.end}T23:59:59`)
         .order('created_at', { ascending: false });
 
+    if (quotesError) {
+      console.error("Quotes Query Error:", quotesError);
+      toast.error(`Failed to load quotes: ${quotesError.message}`);
+    }
+
     // Helper function to map a quote's source
     const mapQuoteSource = (quote: any) => {
       const rawSource = quote.quote_source;
@@ -86,8 +92,13 @@ export default function FinancialDashboard() {
     // 3. Map all quotes and filter them based on the current dropdown selection
     const mappedQuotes = (allQuotesData || []).map(q => {
       const mapData = mapQuoteSource(q);
-      const activeOptions = (q.individual_quotes || []).filter((o: any) => !o.deleted_at);
-      const activeAddons = (q.add_ons || []).filter((a: any) => !a.deleted_at);
+      
+      // Safely ensure these are arrays before filtering
+      const rawOptions = Array.isArray(q.individual_quotes) ? q.individual_quotes : [];
+      const rawAddons = Array.isArray(q.add_ons) ? q.add_ons : [];
+
+      const activeOptions = rawOptions.filter((o: any) => !o.deleted_at);
+      const activeAddons = rawAddons.filter((a: any) => !a.deleted_at);
       const addonsTotal = activeAddons.reduce((sum: number, a: any) => sum + (Number(a.price) || 0), 0);
 
       return {
@@ -112,8 +123,8 @@ export default function FinancialDashboard() {
     )) as string[];
     setAvailableCampaigns(uniqueCampaigns);
 
-    // 4. Fetch Jobs for the Jobs Ledger
-    const { data: jobsData } = await supabase
+    // 4. Fetch Jobs for the Jobs Ledger (Removed the strict FK hint here!)
+    const { data: jobsData, error: jobsError } = await supabase
       .from('jobs')
       .select(`
         id,
@@ -121,7 +132,7 @@ export default function FinancialDashboard() {
         sale_amount,
         estimated_cost,
         quote_id,
-        quote_submittals!fk_jobs_to_submittals (
+        quote_submittals (
           job_name,
           quote_number,
           quote_source,
@@ -134,13 +145,19 @@ export default function FinancialDashboard() {
       .gte('created_at', `${dateRange.start}T00:00:00`)
       .lte('created_at', `${dateRange.end}T23:59:59`);
 
+    if (jobsError) {
+      console.error("Jobs Query Error:", jobsError);
+      toast.error(`Failed to load jobs: ${jobsError.message}`);
+    }
+
     // 5. Transform and Filter Jobs Data
     const formattedJobs = (jobsData || [])
       .map(job => {
         const submittalData = Array.isArray(job.quote_submittals) ? job.quote_submittals[0] : job.quote_submittals;
         if (!submittalData || submittalData.deleted_at) return null;
 
-        const activeAddons = (submittalData.add_ons || []).filter((a: any) => !a.deleted_at);
+        const rawAddons = Array.isArray(submittalData.add_ons) ? submittalData.add_ons : [];
+        const activeAddons = rawAddons.filter((a: any) => !a.deleted_at);
         const addonsTotal = activeAddons.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
         
         const contractAmount = (Number(job.sale_amount) || 0) + addonsTotal;
