@@ -29,14 +29,14 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   );
   
   const [formData, setFormData] = useState({
-    material: initialData?.material || MATERIALS[0],
+    material: initialData?.material || '',
     manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
     price: initialData?.price || '', // Fixed: pre-populates price when editing
     details: initialData?.details || '',
-    color: initialData?.color || 'TBD',
-    mounting_style: initialData?.mounting_style || 'Floor Mounted / Overhead Braced',
+    color: initialData?.color || '',
+    mounting_style: initialData?.mounting_style || '',
     shipping_included: initialData?.shipping_included || 'Includes Shipping',
-    hardware_included: initialData?.hardware_included || 'All Hardware Needed for Installation is Included'
+    hardware_included: initialData?.hardware_included || ''
   });
   
   const supabase = createClient();

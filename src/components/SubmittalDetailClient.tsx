@@ -353,7 +353,7 @@ const handleGeneratePDF = async () => {
       </section>
 
       {/* SECTION 2: ADD-ONS */}
-      <section className="pt-12 border-t border-zinc-100">
+      {/* <section className="pt-12 border-t border-zinc-100">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
             <PlusSquare size={22} className="text-zinc-400" /> Additional Items
@@ -402,7 +402,7 @@ const handleGeneratePDF = async () => {
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* SECTION 3: PROJECT TOTAL CARD */}
       <section className="pt-12">
