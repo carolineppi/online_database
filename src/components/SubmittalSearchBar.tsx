@@ -10,13 +10,12 @@ export default function SubmittalSearchBar() {
   const [results, setResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1); // Tracks arrow key position
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   
   const router = useRouter();
   const supabase = createClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -27,9 +26,7 @@ export default function SubmittalSearchBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch results as user types
   useEffect(() => {
-    // Inside your useEffect in SubmittalSearchBar.tsx
     const fetchResults = async () => {
       const trimmedQuery = query.trim();
       if (trimmedQuery.length < 2) {
@@ -39,16 +36,30 @@ export default function SubmittalSearchBar() {
       }
 
       setIsSearching(true);
-      
-      // Clean the query to prevent injection or syntax errors
       const searchPattern = `%${trimmedQuery}%`;
 
+      // 1. Check if the query matches any customers directly
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`first_name.ilike.${searchPattern},last_name.ilike.${searchPattern}`)
+        .limit(10);
+
+      // 2. Build the OR query for the submittals table
+      let orQuery = `quote_number.ilike.${searchPattern},job_name.ilike.${searchPattern}`;
+      
+      // If we found matching customers, inject their IDs into the search
+      if (customers && customers.length > 0) {
+        const custIds = customers.map(c => c.id).join(',');
+        orQuery += `,customer.in.(${custIds})`;
+      }
+
+      // 3. Fetch the submittals matching the job name, quote number, OR the customer IDs
       const { data, error } = await supabase
         .from('quote_submittals')
-        .select('id, quote_number, job_name')
-        // Corrected syntax: no spaces, explicit ilike patterns
-        .or(`quote_number.ilike.${searchPattern},job_name.ilike.${searchPattern}`)
-        .limit(5);
+        .select('id, quote_number, job_name, linked_customer:customers!customer(first_name, last_name)')
+        .or(orQuery)
+        .limit(6);
 
       if (error) {
         console.error("Search Error:", error.message);
@@ -72,7 +83,6 @@ export default function SubmittalSearchBar() {
     setShowDropdown(false);
   };
 
-  // Keyboard controls
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showDropdown || results.length === 0) return;
 
@@ -95,7 +105,7 @@ export default function SubmittalSearchBar() {
       <div className="relative">
         <input 
           type="text" 
-          placeholder="Search number or name..."
+          placeholder="Search job, quote #, or customer..."
           className="w-full pl-10 pr-4 py-3 bg-zinc-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 transition"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -132,7 +142,11 @@ export default function SubmittalSearchBar() {
                       {item.quote_number}
                     </p>
                     <p className="text-sm font-bold text-zinc-900 truncate">
-                      {item.job_name}
+                      {item.job_name} 
+                      {/* Added Customer Name to the dropdown UI */}
+                      <span className="text-zinc-400 font-medium ml-2">
+                        ({item.linked_customer?.first_name} {item.linked_customer?.last_name})
+                      </span>
                     </p>
                   </div>
                 </div>

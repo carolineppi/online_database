@@ -14,17 +14,23 @@ export default function SubmittalFeed() {
     const fetchSubmittals = async () => {
       const { data } = await supabase
         .from('quote_submittals')
-        .select('*')
+        // Added the customer join here to pull first and last names
+        .select('*, linked_customer:customers!customer(first_name, last_name)')
         .order('created_at', { ascending: false });
       if (data) setSubmittals(data);
     };
     fetchSubmittals();
   }, [supabase]);
 
-  const filtered = submittals.filter(s => 
-    s.job_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.quote_number.toString().includes(searchTerm)
-  );
+  // Updated filter to include the customer name
+  const filtered = submittals.filter(s => {
+    const jobMatch = s.job_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const quoteMatch = s.quote_number?.toString().includes(searchTerm);
+    const customerName = `${s.linked_customer?.first_name || ''} ${s.linked_customer?.last_name || ''}`.toLowerCase();
+    const customerMatch = customerName.includes(searchTerm.toLowerCase());
+    
+    return jobMatch || quoteMatch || customerMatch;
+  });
 
   return (
     <div className="p-8 bg-zinc-50 min-h-screen">
@@ -41,7 +47,7 @@ export default function SubmittalFeed() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
           <input 
             type="text"
-            placeholder="Search by Job Name or Quote #..."
+            placeholder="Search by Job Name, Quote #, or Customer..."
             className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-200 focus:ring-2 focus:ring-blue-500 outline-none transition shadow-sm"
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -53,6 +59,7 @@ export default function SubmittalFeed() {
             <thead className="bg-zinc-50 border-b border-zinc-100">
               <tr>
                 <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Job Name</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Customer</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Quote #</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Status</th>
                 <th className="px-6 py-4"></th>
@@ -62,6 +69,9 @@ export default function SubmittalFeed() {
               {filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-blue-50/30 transition">
                   <td className="px-6 py-4 font-semibold text-zinc-900">{s.job_name}</td>
+                  <td className="px-6 py-4 text-zinc-700">
+                    {s.linked_customer?.first_name} {s.linked_customer?.last_name}
+                  </td>
                   <td className="px-6 py-4 text-zinc-500">#{s.quote_number}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -82,7 +92,7 @@ export default function SubmittalFeed() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-zinc-400">
+                  <td colSpan={5} className="px-6 py-12 text-center text-zinc-400">
                     No submittals found matching your search.
                   </td>
                 </tr>
