@@ -161,6 +161,13 @@ export async function POST(req: NextRequest) {
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
       doc.text(priceFmt, 515, yPos, { align: 'center' });
 
+      // Mounting Style
+      yPos += 16;
+      doc.setFont("helvetica", "normal");
+      doc.text("Color: ", 40, yPos);
+      doc.setFont("helvetica", "bold");
+      doc.text(opt.mounting_style || '' + ' ' + opt.details || '' , 70, yPos);
+      
       // Manufacturer & Shipping Subtext
       yPos += 18;
       doc.setTextColor(0);

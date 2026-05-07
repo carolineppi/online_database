@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Search, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
+
 export default function SubmittalFeed() {
   const [searchTerm, setSearchTerm] = useState('');
   const [submittals, setSubmittals] = useState<any[]>([]);
