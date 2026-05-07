@@ -58,7 +58,7 @@ export default function FinancialDashboard() {
       const { data: campaignsData } = await supabase.from('campaign_sources').select('*');
       const campaignMap = new Map(campaignsData?.map(c => [c.campaign_id, c.campaign_name]) || []);
 
-      // 2. Fetch Base Queries in Parallel (AVOIDS FOREIGN KEY AMBIGUITY CRASHES)
+      // 2. Fetch Base Queries in Parallel
       const [quotesRes, jobsRes] = await Promise.all([
         supabase.from('quote_submittals').select('id, quote_number, job_name, quote_source, campaign_source, status, created_at')
           .is('deleted_at', null)
@@ -151,7 +151,9 @@ export default function FinancialDashboard() {
           contractAmount, costAmount, profit, margin,
           addonCount: submittal.addons.length 
         };
-      }).filter(Boolean).filter((job: any) => {
+      })
+      .filter((job): job is any => job !== null) // <-- Explicit Type Guard for TS compiler
+      .filter((job: any) => {
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return job.quote_submittals.is_paid;
         if (campaignFilter === 'organic') return !job.quote_submittals.is_paid && !job.quote_submittals.is_manual;
@@ -160,7 +162,9 @@ export default function FinancialDashboard() {
       });
 
       // Format Quotes List (Only those created IN the date range)
-      const formattedQuotes = quotesInDateRange.map(q => submittalsMap.get(q.id)).filter(q => {
+      const formattedQuotes = quotesInDateRange.map(q => submittalsMap.get(q.id))
+      .filter((q): q is any => q !== null) // <-- Explicit Type Guard for TS compiler
+      .filter((q: any) => {
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return q.is_paid;
         if (campaignFilter === 'organic') return !q.is_paid && !q.is_manual;
@@ -174,8 +178,8 @@ export default function FinancialDashboard() {
       setAvailableCampaigns(uniqueCampaigns);
 
       // Aggregates
-      const totalRevenue = formattedJobs.reduce((acc, job) => acc + job.contractAmount, 0);
-      const totalCost = formattedJobs.reduce((acc, job) => acc + job.costAmount, 0);
+      const totalRevenue = formattedJobs.reduce((acc, job: any) => acc + job.contractAmount, 0); // Added : any
+      const totalCost = formattedJobs.reduce((acc, job: any) => acc + job.costAmount, 0); // Added : any
       const totalProfit = totalRevenue - totalCost;
       const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
@@ -233,7 +237,7 @@ export default function FinancialDashboard() {
     return { ...q, mode, potentialValue, optionsCount, isConverted };
   });
 
-  const totalPotentialRevenue = quotesViewData.reduce((sum, q) => sum + q.potentialValue, 0);
+  const totalPotentialRevenue = quotesViewData.reduce((sum, q: any) => sum + q.potentialValue, 0); // Added : any
   const avgQuoteValue = quotesViewData.length > 0 ? totalPotentialRevenue / quotesViewData.length : 0;
   const avgDealSize = stats.wonJobs > 0 ? stats.totalRevenue / stats.wonJobs : 0;
 
