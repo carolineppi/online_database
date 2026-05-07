@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone } from 'lucide-react';
+import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone, Palette } from 'lucide-react';
 import { toast } from 'sonner';
 import ManageCarriers from '@/components/ManageCarriers';
 import ManageSources from '@/components/ManageSources';
+import ManageColors from '@/components/ManageColors';
 
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security' | 'sources'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security' | 'sources' | 'colors'>('team');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const supabase = createClient();
@@ -152,6 +153,14 @@ export default function SettingsPage() {
           >
             <Megaphone size={18} /> Marketing Sources
           </button>    
+          <button 
+            onClick={() => setActiveTab('colors')}
+            className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold border transition ${
+              activeTab === 'colors' ? 'bg-pink-50 text-pink-700 border-pink-100' : 'text-zinc-500 hover:bg-white hover:border-zinc-200 border-transparent'
+            }`}
+          >
+            <Palette size={18} /> Material Colors
+          </button>
         </div>
 
         {/* Main Settings Content */}
@@ -278,6 +287,12 @@ export default function SettingsPage() {
           {activeTab === 'sources' && (
             <div className="animate-in fade-in slide-in-from-bottom-2">
               <ManageSources />
+            </div>
+          )}
+          {/* COLORS TAB */}
+          {activeTab === 'colors' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2">
+              <ManageColors />
             </div>
           )}
         </div>

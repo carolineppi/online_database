@@ -11,6 +11,16 @@ const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", 
 const MANUFACTURERS = ["ASI", "Bobrick", "Bradley", "Excel", "Global", "Hadrian", "Hawa", "Metpar", "Partition Plus", "Scranton Products"];
 const PRESET_ITEMS = ["Toilet Stalls", "Urinal Screens", "Privacy Screens", "Shower Stalls"];
 
+// NEW: Dynamic color mapping by material
+const COLOR_MAPPINGS: Record<string, string[]> = {
+  "Powder Coated Steel (PCS)": ["TBD", "Black", "White", "Light Grey", "Almond"],
+  "High Pressure Laminate (HPL)": ["TBD", "Designer White", "Folkstone", "Black", "Navy Blue"],
+  "HDPE Solid Plastic": ["TBD", "Beige", "Ivory", "Charcoal", "Black"],
+  "Solid Phenolic": ["TBD", "Blue", "Black", "Almond"],
+  "Stainless Steel": ["TBD", "Brushed", "Leather Grain", "Textured"],
+  "Bathroom Accessories per Attached Submittal": ["TBD"]
+};
+
 interface AddOptionModalProps {
   quoteId: string;
   onClose: () => void;
@@ -196,7 +206,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Details</label>
                 <div className="relative">
-                  <input value={formData.details} placeholder="Details" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                  <input value={formData.details} placeholder="Details" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
                     onChange={e => setFormData({...formData, details: e.target.value})} />
                 </div>
               </div>
@@ -229,9 +239,20 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
             <div className="space-y-1">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
               <div className="relative">
-                  <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <input value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
-                  onChange={e => setFormData({...formData, color: e.target.value})} />
+                <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                <input 
+                  list="color-options"
+                  value={formData.color} 
+                  placeholder="Select or type color..." 
+                  className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                  onChange={e => setFormData({...formData, color: e.target.value})} 
+                />
+                <datalist id="color-options">
+                  {/* Pulls from the mapping, falls back to just TBD if custom material is typed */}
+                  {(COLOR_MAPPINGS[formData.material] || ["TBD"]).map(colorOption => (
+                    <option key={colorOption} value={colorOption} />
+                  ))}
+                </datalist>
               </div>
             </div>
 
