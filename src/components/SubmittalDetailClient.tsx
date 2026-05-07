@@ -179,7 +179,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
-  // NEW: Updated Winner Toggling Logic
+  // NEW: Updated Winner Toggling Logic (No Confirmation Popup)
   const handleSelectWinner = async (option: any) => {
     const isCurrentlyWinner = winningIds.includes(option.id);
     
@@ -196,11 +196,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       ?.filter((o: any) => newWinningIds.includes(o.id))
       .reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0) || 0;
 
-    const confirmMsg = isCurrentlyWinner
-      ? `Remove ${option.material} from winning bids? This updates the total to $${newSaleAmount.toLocaleString()}.`
-      : `Add ${option.material} as a winning bid? This updates the total to $${newSaleAmount.toLocaleString()}.`;
-
-    if (!confirm(confirmMsg)) return;
     setLoading(true);
 
     const { error: jobError } = await supabase
@@ -604,6 +599,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       {showEditFinancials && mergedJob && (
         <EditJobFinancials 
           job={mergedJob} 
+          options={options}
           onClose={() => setShowEditFinancials(false)} 
         />
       )}
