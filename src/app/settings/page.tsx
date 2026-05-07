@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone, Palette, Trash2, Loader2 } from 'lucide-react';
+import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone, Palette, Trash2, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import ManageCarriers from '@/components/ManageCarriers';
 import ManageSources from '@/components/ManageSources';
 import ManageColors from '@/components/ManageColors';
+import ManageReviews from '@/components/ManageReviews';
 
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security' | 'sources' | 'colors'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security' | 'sources' | 'colors' | 'reviews'>('team');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   
@@ -203,6 +204,14 @@ export default function SettingsPage() {
           >
             <Palette size={18} /> Material Colors
           </button>
+          <button 
+            onClick={() => setActiveTab('reviews')}
+            className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold border transition ${
+              activeTab === 'reviews' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'text-zinc-500 hover:bg-white hover:border-zinc-200 border-transparent'
+            }`}
+          >
+            <Star size={18} /> Automated Reviews
+          </button>
         </div>
 
         {/* Main Settings Content */}
@@ -394,6 +403,12 @@ export default function SettingsPage() {
           {activeTab === 'colors' && (
             <div className="animate-in fade-in slide-in-from-bottom-2">
               <ManageColors />
+            </div>
+          )}
+          {/* REVIEWS TAB */}
+          {activeTab === 'reviews' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2">
+              <ManageReviews />
             </div>
           )}
         </div>
