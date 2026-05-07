@@ -79,7 +79,7 @@ export default function IncomingCalls() {
 
       {selectedPhone && (
         <CreateSubmittalForm 
-          initialPhone={selectedPhone} 
+          initialCustomer={{ phone: selectedPhone }} 
           onClose={() => setSelectedPhone(null)} 
         />
       )}
