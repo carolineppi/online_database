@@ -173,13 +173,17 @@ export default function CustomersPage() {
                           Added {new Date(customer.created_at).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      {/* Added max-w-[200px] to strictly contain the width */}
+                      <td className="px-6 py-4 max-w-[200px]">
                         <div className="flex flex-col gap-1.5">
                           <a href={`mailto:${customer.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-2 text-zinc-600 hover:text-blue-600 transition font-medium">
-                            <Mail size={14} className="text-zinc-400" /> {customer.email || 'No Email'}
+                            {/* Added shrink-0 to icon, and truncate to the text */}
+                            <Mail size={14} className="text-zinc-400 shrink-0" /> 
+                            <span className="truncate" title={customer.email}>{customer.email || 'No Email'}</span>
                           </a>
                           <a href={`tel:${customer.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-2 text-zinc-600 hover:text-blue-600 transition font-medium">
-                            <Phone size={14} className="text-zinc-400" /> {formatPhone(customer.phone)}
+                            <Phone size={14} className="text-zinc-400 shrink-0" /> 
+                            <span className="truncate">{formatPhone(customer.phone)}</span>
                           </a>
                         </div>
                       </td>
