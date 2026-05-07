@@ -57,6 +57,7 @@ export default function FinancialDashboard() {
     const campaignMap = new Map(campaignsData?.map(c => [c.campaign_id, c.campaign_name]) || []);
 
     // 2. Fetch all active submittals in the date range INCLUDING their options and addons
+    // ADDED !quote_id hints to force Supabase to use the correct relational links
     const { data: allQuotesData, error: quotesError } = await supabase
         .from('quote_submittals')
         .select(`
@@ -67,8 +68,8 @@ export default function FinancialDashboard() {
           campaign_source,
           status,
           created_at,
-          individual_quotes ( id, price, deleted_at ),
-          add_ons ( price, deleted_at )
+          individual_quotes!quote_id ( id, price, deleted_at ),
+          add_ons!quote_id ( price, deleted_at )
         `)
         .is('deleted_at', null) 
         .gte('created_at', `${dateRange.start}T00:00:00`)
@@ -123,7 +124,8 @@ export default function FinancialDashboard() {
     )) as string[];
     setAvailableCampaigns(uniqueCampaigns);
 
-    // 4. Fetch Jobs for the Jobs Ledger (Removed the strict FK hint here!)
+    // 4. Fetch Jobs for the Jobs Ledger
+    // ADDED !quote_id hints here as well for safety
     const { data: jobsData, error: jobsError } = await supabase
       .from('jobs')
       .select(`
@@ -132,13 +134,13 @@ export default function FinancialDashboard() {
         sale_amount,
         estimated_cost,
         quote_id,
-        quote_submittals (
+        quote_submittals!quote_id (
           job_name,
           quote_number,
           quote_source,
           campaign_source,
           deleted_at,
-          add_ons ( price, deleted_at )
+          add_ons!quote_id ( price, deleted_at )
         )
       `)
       .is('deleted_at', null)
