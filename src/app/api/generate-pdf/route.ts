@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
       
       doc.setFont("helvetica", "normal");
-      doc.text(opt.shipping_area || "** includes shipping **", 515, yPos, { align: 'center' });
+      doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
 
       // Color
       yPos += 16;
