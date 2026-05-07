@@ -115,11 +115,15 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(12);
     doc.text(submittal.job_name || "PROPOSAL", 50, 160);
 
+    // Replace the quote number logic around line 88
     doc.setFontSize(12);
     doc.text("Quote #: ", 420, 142);
     doc.setFontSize(14);
     doc.setTextColor(...redColor);
-    doc.text(submittal.quote_number, 475, 142);
+    
+    // Check for the mask, fallback to the original
+    const displayQuoteNumber = submittal.quote_number_mask || submittal.quote_number;
+    doc.text(displayQuoteNumber, 475, 142);
 
     // 3. Quote Details & Address
     let yPos = 200;
@@ -168,7 +172,7 @@ export async function POST(req: NextRequest) {
       doc.setFont("helvetica", "normal");
       doc.text("Mounting: ", 40, yPos);
       doc.setFont("helvetica", "bold");
-      doc.text(`${opt.mounting_style}  ${opt.details}` || '' , 90, yPos);
+      doc.text(`${opt.mounting_style}  ${opt.details}` || '' , 88, yPos);
             
       doc.setFont("helvetica", "normal");
       doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
@@ -292,7 +296,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse(Buffer.from(pdfOutput), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=Proposal_${submittal.quote_number}.pdf`,
+        'Content-Disposition': `attachment; filename=Proposal_${displayQuoteNumber}.pdf`,
       },
     });
 

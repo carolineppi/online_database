@@ -7,32 +7,37 @@ export async function POST(req: NextRequest) {
     const { 
       customer_email, 
       po_number, 
+      display_job_number, // <-- Capture the new mask
       tracking_number, 
       freight_website, 
       freight_phone 
     } = await req.json();
 
-    if (!customer_email || !po_number || !tracking_number) {
+    if (!customer_email || (!po_number && !display_job_number) || !tracking_number) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 2. Configure the SMTP Transporter (Using your Gmail settings)
+    // Determine which number to show the customer
+    const activeOrderNumber = display_job_number || po_number;
+
+    // 2. Configure the SMTP Transporter
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
-      secure: false, // true for 465, false for other ports like 587
+      secure: false, 
       auth: {
         user: 'tracking@partitionplus.com',
-        pass: process.env.EMAIL_PASSWORD, // Use .env for security!
+        pass: process.env.EMAIL_PASSWORD, 
       },
     });
 
-    // 3. Build the HTML Email Body (Matches your legacy PHP template)
+    // 3. Build the HTML Email Body
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px;">
         <p>Your recent order with Partition Plus has shipped! Find additional details on the freight carrier's website using the following information:</p>
         
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <strong>Order #:</strong> ${activeOrderNumber}<br>
           <strong>Carrier's Website:</strong> <a href="${freight_website}" target="_blank">${freight_website}</a><br>
           <strong>PRO# / Tracking#:</strong> ${tracking_number}<br>
           <strong>Carrier's Phone:</strong> ${freight_phone}
@@ -67,14 +72,13 @@ export async function POST(req: NextRequest) {
         'bill@partitionplus.com', 
         'tim@partitionplus.com'
       ],
-      subject: `Your Partition Plus order has shipped - ${po_number}`,
-      text: `Your Partition Plus order has shipped. Carrier website: ${freight_website} PRO/Tracking: ${tracking_number} Carrier phone: ${freight_phone}`,
+      subject: `Your Partition Plus order has shipped - ${activeOrderNumber}`,
+      text: `Your Partition Plus order has shipped. Order #: ${activeOrderNumber}. Carrier website: ${freight_website} PRO/Tracking: ${tracking_number} Carrier phone: ${freight_phone}`,
       html: htmlBody,
     });
 
     console.log("Message sent: %s", info.messageId);
 
-    // 5. Return Success
     return NextResponse.json({ success: true, messageId: info.messageId });
 
   } catch (error: any) {

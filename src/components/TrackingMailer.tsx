@@ -65,7 +65,7 @@ export default function TrackingMailer({ job, onClose }: { job: any, onClose: ()
     setFreightPhone(phone);
   };
 
-const handleSendTracking = async (e: React.FormEvent) => {
+  const handleSendTracking = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -77,6 +77,7 @@ const handleSendTracking = async (e: React.FormEvent) => {
         body: JSON.stringify({
           customer_email: customerEmail,
           po_number: poNumber,
+          display_job_number: job.quote_submittals?.quote_number_mask || '', // NEW: Passing the mask here!
           tracking_number: trackingNumber,
           freight_website: freightWebsite,
           freight_phone: freightPhone
@@ -153,13 +154,12 @@ const handleSendTracking = async (e: React.FormEvent) => {
             <div className="flex flex-col gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Customer Email</label>
-                {/* Disabled because it's derived from the job relation */}
                 <input disabled type="email" value={customerEmail} className="w-full p-4 bg-zinc-100 rounded-2xl border-none text-zinc-500 font-bold cursor-not-allowed" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">PO Number</label>
-                {/* Disabled because it's derived from the job relation */}
-                <input disabled type="text" value={poNumber} className="w-full p-4 bg-zinc-100 rounded-2xl border-none text-zinc-500 font-bold cursor-not-allowed" />
+                {/* NEW: Updated to show the mask in the UI if it exists, so the user knows what the customer will see */}
+                <input disabled type="text" value={job.quote_submittals?.quote_number_mask || poNumber} title={`Original PO: ${poNumber}`} className="w-full p-4 bg-zinc-100 rounded-2xl border-none text-zinc-500 font-bold cursor-not-allowed" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">PRO / Tracking #</label>

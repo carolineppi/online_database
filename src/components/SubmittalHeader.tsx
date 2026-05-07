@@ -25,6 +25,7 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
 
   const [formData, setFormData] = useState({
     job_name: submittal.job_name || '',
+    quote_number_mask: submittal.quote_number_mask || '', // NEW: Mask state
     first_name: customer.first_name || '',
     last_name: customer.last_name || '',
     phone: customer.phone || '',
@@ -34,10 +35,13 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
   const handleSave = async () => {
     setLoading(true);
     try {
-      // 1. Update the Job Name in quote_submittals
+      // 1. Update the Job Name and Mask in quote_submittals
       const { error: subError } = await supabase
         .from('quote_submittals')
-        .update({ job_name: formData.job_name })
+        .update({ 
+          job_name: formData.job_name,
+          quote_number_mask: formData.quote_number_mask // NEW: Save mask to DB
+        })
         .eq('id', submittal.id);
       if (subError) throw subError;
 
@@ -99,11 +103,20 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Job / Project Name</label>
               <input 
                 value={formData.job_name}
                 onChange={(e) => setFormData({...formData, job_name: e.target.value})}
+                className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl font-bold text-zinc-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Display Job # (Mask)</label>
+              <input 
+                value={formData.quote_number_mask}
+                onChange={(e) => setFormData({...formData, quote_number_mask: e.target.value})}
+                placeholder={submittal.quote_number}
                 className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl font-bold text-zinc-900 outline-none"
               />
             </div>
@@ -146,8 +159,9 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-2xl font-black text-zinc-900">{submittal.job_name}</h1>
-              <span className="bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded text-sm font-mono font-bold">
-                #{submittal.quote_number}
+              {/* NEW: Displays the mask if it exists, otherwise falls back to the original */}
+              <span className="bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded text-sm font-mono font-bold" title={`Original DB ID: ${submittal.quote_number}`}>
+                #{submittal.quote_number_mask || submittal.quote_number}
               </span>
             </div>
             <p className="text-zinc-500 text-sm">
