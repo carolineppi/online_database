@@ -57,6 +57,21 @@ export async function POST(req: NextRequest) {
       return currentY;
     };
 
+    const formatPhoneNumber = (phone?: string) => {
+      if (!phone) return '';
+      // Strip all non-digit characters just in case
+      const cleaned = ('' + phone).replace(/\D/g, '');
+      // Match 10 digits, optionally ignoring a leading '1' (US country code)
+      const match = cleaned.match(/^(?:1)?(\d{3})(\d{3})(\d{4})$/);
+      
+      if (match) {
+        // Returns with a leading space so you don't have to manually add it later
+        return ` (${match[1]}) ${match[2]}-${match[3]}`;
+      }
+      // Fallback in case the number isn't 10 digits
+      return ` ${phone}`; 
+    };
+
     // --- RENDER PAGE 1 ---
     applyWatermark(doc);
     
@@ -90,7 +105,12 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.text(`Attention: ${submittal.linked_customer?.first_name || ''} ${submittal.linked_customer?.last_name || ''}`, 50, 142);
+
+    const firstName = submittal.linked_customer?.first_name || '';
+    const lastName = submittal.linked_customer?.last_name || '';
+    const phoneStr = formatPhoneNumber(submittal.linked_customer?.phone);
+
+    doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 142);
     
     doc.setFontSize(12);
     doc.text(submittal.job_name || "PROPOSAL", 50, 160);
