@@ -162,16 +162,16 @@ export async function POST(req: NextRequest) {
       doc.text(priceFmt, 515, yPos, { align: 'center' });
 
       // Mounting Style
-      yPos += 16;
+      yPos += 18;
+      doc.setTextColor(0);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("Color: ", 40, yPos);
+      doc.text("Mounting: ", 40, yPos);
       doc.setFont("helvetica", "bold");
       doc.text(opt.mounting_style || '' + ' ' + opt.details || '' , 70, yPos);
       
       // Manufacturer & Shipping Subtext
-      yPos += 18;
-      doc.setTextColor(0);
-      doc.setFontSize(10);
+      yPos += 16;
       doc.setFont("helvetica", "normal");
       doc.text("Manufacturer: ", 40, yPos);
       doc.setFont("helvetica", "bold");
