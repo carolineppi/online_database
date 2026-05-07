@@ -81,7 +81,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
-  const handleGeneratePDF = async () => {
+const handleGeneratePDF = async () => {
     if (selectedIds.length === 0) return toast.error("Select at least one option.");
     setGenerating(true);
     
@@ -95,10 +95,12 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Proposal_${submittal.quote_number}.pdf`;
-        link.click();
+        
+        // Open the PDF in a new tab instead of downloading
+        window.open(url, '_blank');
+        
+        // Optional: Clean up the URL object after a short delay to free memory
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       }
     } catch (err) {
       console.error("PDF Error:", err);
