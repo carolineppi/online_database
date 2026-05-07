@@ -82,12 +82,9 @@ export default function SubmittalsPage() {
     
     try {
       // 1. Get employee name_code
-      const { data: { user } } = await supabase.auth.getUser();
-      let nameCode = 'XX';
-      if (user?.email) {
-        const { data: emp } = await supabase.from('employees').select('name_code').eq('email', user.email).single();
-        if (emp?.name_code) nameCode = emp.name_code.toUpperCase();
-      }
+      const savedEmployee = localStorage.getItem('employee');
+      const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
+      const nameCode = employee?.name_code || 'XX';
 
       // 2. Generate secure quote number
       const { data: newQuoteNumber, error: rpcError } = await supabase.rpc('generate_quote_number', { name_code: nameCode });
