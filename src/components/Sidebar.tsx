@@ -5,8 +5,8 @@ import { LayoutDashboard, FileText, ClipboardList, CheckCircle2, Users, DollarSi
 import UserProfile from './UserProfile';
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Inbound Submittals', href: '/submittals', icon: FileText },
+  { name: 'New Quotes', href: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/submittals', icon: FileText },
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
   { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Customers', href: '/customers', icon: Users },

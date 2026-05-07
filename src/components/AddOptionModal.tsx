@@ -7,9 +7,9 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 // Extracted from legacy SQL data
-const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", "HDPE Solid Plastic", "Solid Phenolic", "Stainless Steel", "Accessories Only" ];
+const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", "HDPE Solid Plastic", "Solid Phenolic", "Stainless Steel", "Bathroom Accessories per Attached Submittal" ];
 const MANUFACTURERS = ["ASI", "Bobrick", "Bradley", "Excel", "Global", "Hadrian", "Hawa", "Metpar", "Partition Plus", "Scranton Products"];
-const PRESET_ITEMS = ["Toilet Partitions", "Urinal Screens", "Privacy Screens", "Alcove Stalls", "In-Corner Stalls", "Shower Units"];
+const PRESET_ITEMS = ["Toilet Stalls", "Urinal Screens", "Privacy Screens", "Shower Stalls"];
 
 interface AddOptionModalProps {
   quoteId: string;
@@ -25,14 +25,14 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   const [loading, setLoading] = useState(false);
   
   const [items, setItems] = useState<QuoteItem[]>(
-    initialData?.itemized_breakdown || [{ item: "Toilet Partitions", qty: 0 }]
+    initialData?.itemized_breakdown || [{ item: "", qty: 0 }]
   );
   
   const [formData, setFormData] = useState({
     material: initialData?.material || MATERIALS[0],
     manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
     price: initialData?.price || '', // Fixed: pre-populates price when editing
-    color: initialData?.color || '',
+    color: initialData?.color || 'TBD',
     mounting_style: initialData?.mounting_style || 'Floor Mounted / Overhead Braced',
     shipping_included: initialData?.shipping_included || 'Includes Shipping',
     hardware_included: initialData?.hardware_included || 'All Hardware Needed for Installation is Included'
