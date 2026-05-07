@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
       doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
       
       doc.setFont("helvetica", "normal");
-      doc.text("** includes shipping **", 515, yPos, { align: 'center' });
+      doc.text(opt.shipping_area || "** includes shipping **", 515, yPos, { align: 'center' });
 
       // Color
       yPos += 16;
@@ -200,25 +200,25 @@ export async function POST(req: NextRequest) {
     });
 
     // Add-ons
-    if (addons && addons.length > 0) {
-      yPos = checkPageBreak(yPos, 40 + (addons.length * 15));
-      doc.setTextColor(0);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("ADDITIONAL ACCESSORIES / HARDWARE", 40, yPos);
+    // if (addons && addons.length > 0) {
+    //   yPos = checkPageBreak(yPos, 40 + (addons.length * 15));
+    //   doc.setTextColor(0);
+    //   doc.setFontSize(12);
+    //   doc.setFont("helvetica", "bold");
+    //   doc.text("ADDITIONAL ACCESSORIES / HARDWARE", 40, yPos);
       
-      yPos += 15;
-      doc.setTextColor(0);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      addons.forEach((addon: any) => {
-        doc.text(`${addon.quantity || 1}x ${addon.material}`, 40, yPos);
-        const addonPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(addon.price);
-        doc.text(addonPrice, 570, yPos, { align: 'right' });
-        yPos += 15;
-      });
-      yPos += 15;
-    }
+    //   yPos += 15;
+    //   doc.setTextColor(0);
+    //   doc.setFontSize(10);
+    //   doc.setFont("helvetica", "normal");
+    //   addons.forEach((addon: any) => {
+    //     doc.text(`${addon.quantity || 1}x ${addon.material}`, 40, yPos);
+    //     const addonPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(addon.price);
+    //     doc.text(addonPrice, 570, yPos, { align: 'right' });
+    //     yPos += 15;
+    //   });
+    //   yPos += 15;
+    // }
 
     // 5. Hardware Banner (Red Background, White Text)
     yPos = checkPageBreak(yPos, 40);
