@@ -3,202 +3,196 @@
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Save, X, Phone, Mail, Briefcase, UserCheck } from 'lucide-react';
+import { X, Loader2, User, Phone, Mail, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Added initialPhone to the props interface
-interface CreateSubmittalFormProps {
-  onClose: () => void;
-  initialPhone?: string; 
-}
-
-export default function CreateSubmittalForm({ onClose, initialPhone = '' }: CreateSubmittalFormProps) {
-  
-  // Visual Formatter: (XXX) XXX-XXXX
-  const formatPhoneNumber = (value: string) => {
-    if (!value) return value;
-    const phoneNumber = value.replace(/[^\d]/g, '');
-    const phoneNumberLength = phoneNumber.length;
-    if (phoneNumberLength < 4) return phoneNumber;
-    if (phoneNumberLength < 7) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-    }
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
-  };
-
-  // Correctly initialize state with the formatted version of initialPhone
-  const [phoneDisplay, setPhoneDisplay] = useState(formatPhoneNumber(initialPhone));
+// Accepts an optional initialCustomer to pre-populate the form
+export default function CreateSubmittalForm({ onClose, initialCustomer }: { onClose: () => void, initialCustomer?: any }) {
   const [loading, setLoading] = useState(false);
-  const [matchingCustomer, setMatchingCustomer] = useState<any>(null);
-  const [pendingData, setPendingData] = useState<any>(null);
-  
-  const supabase = createClient();
   const router = useRouter();
+  const supabase = createClient();
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formattedValue = formatPhoneNumber(e.target.value);
-    setPhoneDisplay(formattedValue);
-  };
+  const [formData, setFormData] = useState({
+    job_name: '',
+    first_name: initialCustomer?.first_name || '',
+    last_name: initialCustomer?.last_name || '',
+    email: initialCustomer?.email || '',
+    phone: initialCustomer?.phone || '',
+  });
 
-  const handleInitialSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    
-    // SANITIZATION: Strip all formatting
-    const rawPhone = phoneDisplay.replace(/\D/g, ''); 
-    
-    if (rawPhone.length < 10) {
-      toast.error("Please enter a valid 10-digit phone number.");
-      setLoading(false);
-      return;
-    }
-
-    const phoneNumeric = parseInt(rawPhone, 10);
-
-    const submittalData = {
-      job_name: formData.get('job_name'),
-      first_name: formData.get('first_name'),
-      last_name: formData.get('last_name'),
-      email: email,
-      phone: phoneNumeric, 
-    };
-
-    const { data: existing } = await supabase
-      .from('customers')
-      .select('*')
-      .or(`email.eq.${email},phone.eq.${phoneNumeric}`)
-      .maybeSingle();
-
-    if (existing) {
-      setMatchingCustomer(existing);
-      setPendingData(submittalData);
-      setLoading(false);
-    } else {
-      await finalizeCreation(submittalData, null);
-    }
-  };
-
-  const finalizeCreation = async (data: any, existingCustomerId: number | null) => {
-    setLoading(true);
-    let finalCustomerId = existingCustomerId;
-
     try {
-      // Logic for employee name code
-      const savedEmployee = localStorage.getItem('employee');
-      const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
-      const nameCode = employee?.name_code || 'XX';
+      // 1. Get the current user's email to find their Name Code
+      const { data: { user } } = await supabase.auth.getUser();
+      let nameCode = 'XX'; // Fallback
+      
+      if (user?.email) {
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('name_code')
+          .eq('email', user.email)
+          .single();
+        if (employee?.name_code) nameCode = employee.name_code.toUpperCase();
+      }
 
-      // 1. Get the 2-digit year (e.g., 2026 -> "26")
-      const yy = String(new Date().getFullYear()).slice(-2);
+      // 2. Generate the Secure Quote Number via the new Database RPC!
+      const { data: finalQuoteNumber, error: rpcError } = await supabase.rpc('generate_quote_number', {
+        name_code: nameCode
+      });
 
-      // 2. Fetch the most recent quote number for this year to increment the counter
-      const { data: latestQuotes } = await supabase
-        .from('quote_submittals')
-        .select('quote_number')
-        .like('quote_number', `${yy}-%`)
-        .order('quote_number', { ascending: false })
-        .limit(1);
+      if (rpcError || !finalQuoteNumber) {
+        throw new Error("Failed to generate a secure quote number.");
+      }
 
-      let nextCounter = 1;
-      if (latestQuotes && latestQuotes.length > 0 && latestQuotes[0].quote_number) {
-        // 3. Extract the 4-digit number between the hyphen and the letters (e.g., "26-1234CG" -> "1234")
-        const match = latestQuotes[0].quote_number.match(new RegExp(`^${yy}-(\\d{4})`));
-        if (match && match[1]) {
-          nextCounter = parseInt(match[1], 10) + 1;
+      // 3. Handle Customer Association
+      let customerId = initialCustomer?.id; // Use existing ID if launched from the Customer Directory
+
+      if (!customerId) {
+        // If not launched from directory, look up by email, or create new
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', formData.email)
+          .maybeSingle();
+
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+        } else {
+          const { data: newCustomer, error: custError } = await supabase
+            .from('customers')
+            .insert({
+              first_name: formData.first_name,
+              last_name: formData.last_name,
+              email: formData.email,
+              phone: formData.phone
+            })
+            .select()
+            .single();
+
+          if (custError) throw custError;
+          customerId = newCustomer.id;
         }
       }
 
-      // 4. Pad the counter with zeros and assemble the final Quote Number
-      const paddedCounter = String(nextCounter).padStart(4, '0');
-      const finalQuoteNumber = `${yy}-${paddedCounter}${nameCode}`;
-
-      if (!finalCustomerId) {
-        const { data: newCust, error: custError } = await supabase
-          .from('customers')
-          .insert([{
-            first_name: data.first_name,
-            last_name: data.last_name,
-            email: data.email,
-            phone: data.phone
-          }])
-          .select().single();
-
-        if (custError) throw custError;
-        finalCustomerId = newCust.id;
-      }
-
+      // 4. Create the Submittal using the generated number
       const { data: submittal, error: subError } = await supabase
         .from('quote_submittals')
-        .insert([{
-          job_name: data.job_name,
+        .insert({
+          job_name: formData.job_name,
           quote_number: finalQuoteNumber,
-          status: 'Pending',
-          customer: finalCustomerId,
-          quote_source: 'PM Input', // ADD THIS LINE
-        }])
-        .select().single();
+          customer: customerId,
+          quote_source: 'PM Input', // Flags as a manual entry for financials
+          status: 'PENDING'
+        })
+        .select()
+        .single();
 
       if (subError) throw subError;
 
-      toast.success(`Submittal ${finalQuoteNumber} Created!`);
-      router.push(`/submittals/${submittal.id}`);
+      toast.success("Submittal created!");
+      router.push(`/submittals/${submittal.id}`); // Route immediately to the new submittal
       onClose();
+
     } catch (err: any) {
-      toast.error(err.message);
-    } finally {
+      toast.error(err.message || "Failed to create submittal");
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden relative">
-        {matchingCustomer && (
-          <div className="absolute inset-0 bg-white z-10 p-8 flex flex-col items-center justify-center text-center">
-             <h3 className="text-xl font-bold mb-2">Existing Customer Found</h3>
-             <p className="mb-6 text-zinc-500">
-                Link this submittal to <strong>{matchingCustomer.first_name} {matchingCustomer.last_name}</strong>?
-             </p>
-             <div className="flex gap-4 w-full">
-                <button onClick={() => finalizeCreation(pendingData, matchingCustomer.id)} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700">Yes, Link</button>
-                <button onClick={() => finalizeCreation(pendingData, null)} className="flex-1 bg-zinc-100 py-3 rounded-xl font-bold hover:bg-zinc-200">No, Create New</button>
-             </div>
-          </div>
-        )}
-
-        <div className="p-6 border-b flex justify-between items-center bg-zinc-50">
-          <h3 className="font-bold text-xl text-zinc-900">New Submittal</h3>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-200 rounded-full transition"><X size={20}/></button>
-        </div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-[2rem] w-full max-w-xl overflow-hidden shadow-2xl animate-in zoom-in-95">
         
-        <form onSubmit={handleInitialSubmit} className="p-8 space-y-6">
+        <div className="flex justify-between items-center p-6 border-b border-zinc-100 bg-zinc-50/50">
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Project Name</label>
-            <input name="job_name" placeholder="e.g., Office Renovation" className="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500" required />
+            <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tight">Manual Submittal</h2>
+            {initialCustomer && (
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
+                Creating for: {initialCustomer.first_name} {initialCustomer.last_name}
+              </p>
+            )}
           </div>
+          <button type="button" onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 rounded-full transition">
+            <X size={20} />
+          </button>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <input name="first_name" placeholder="First Name" className="p-3 border rounded-xl" required />
-            <input name="last_name" placeholder="Last Name" className="p-3 border rounded-xl" required />
-            <input name="email" type="email" placeholder="Email" className="p-3 border rounded-xl" required />
-            
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          
+          <div>
+            <label className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">
+              <Briefcase size={14} /> Job / Project Name
+            </label>
             <input 
-              value={phoneDisplay}
-              onChange={handlePhoneChange}
-              placeholder="(555) 000-0000"
-              maxLength={14}
-              className="p-3 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-              required 
+              required
+              autoFocus
+              value={formData.job_name}
+              onChange={(e) => setFormData({...formData, job_name: e.target.value})}
+              placeholder="e.g. Target Remodel - Dallas"
+              className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-bold text-zinc-900"
             />
           </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-black transition disabled:opacity-50">
-            {loading ? 'Processing...' : 'Create Submittal'}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">
+                <User size={14} /> First Name
+              </label>
+              <input 
+                required
+                value={formData.first_name}
+                onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest block">
+                Last Name
+              </label>
+              <input 
+                required
+                value={formData.last_name}
+                onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">
+              <Mail size={14} /> Email Address
+            </label>
+            <input 
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">
+              <Phone size={14} /> Phone Number
+            </label>
+            <input 
+              required
+              value={formData.phone}
+              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              className="w-full p-4 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium"
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-zinc-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-600 transition shadow-xl shadow-zinc-200 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="animate-spin" size={16} /> : null}
+            {loading ? 'Creating Project...' : 'Create Project'}
           </button>
         </form>
       </div>

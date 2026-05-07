@@ -3,17 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { 
-  Users, 
-  Search, 
-  Mail, 
-  Phone, 
-  ChevronDown, 
-  ChevronUp, 
-  DollarSign, 
-  Briefcase, 
-  FileText,
-  Loader2
+  Users, Search, Mail, Phone, ChevronDown, ChevronUp, 
+  DollarSign, Briefcase, FileText, Loader2, Plus // <--- Add Plus here
 } from 'lucide-react';
+import CreateSubmittalForm from '@/components/CreateSubmittalForm';
 import { toast } from 'sonner';
 
 // Helper to format phone numbers safely (Handles if phone is a number type)
@@ -32,6 +25,7 @@ export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState<any[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedCustomerForSubmittal, setSelectedCustomerForSubmittal] = useState<any>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -204,7 +198,20 @@ export default function CustomersPage() {
                           ${customer.totalSpent.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                        {/* NEW: Quick Create Button */}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCustomerForSubmittal(customer);
+                          }}
+                          className="p-2 text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition"
+                          title="Start New Quote for Customer"
+                        >
+                          <Plus size={20} />
+                        </button>
+                        
+                        {/* Existing Expand Button */}
                         <button className="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
                           {expandedId === customer.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                         </button>
@@ -296,6 +303,14 @@ export default function CustomersPage() {
             </table>
           </div>
         </div>
+      )}
+      
+{/* RENDER THE MODAL IF A CUSTOMER IS SELECTED */}
+      {selectedCustomerForSubmittal && (
+        <CreateSubmittalForm 
+          initialCustomer={selectedCustomerForSubmittal} 
+          onClose={() => setSelectedCustomerForSubmittal(null)} 
+        />
       )}
     </div>
   );
