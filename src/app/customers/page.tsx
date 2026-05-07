@@ -1,173 +1,297 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Search, Briefcase, FileText, User, X, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import { 
+  Users, 
+  Search, 
+  Mail, 
+  Phone, 
+  ChevronDown, 
+  ChevronUp, 
+  DollarSign, 
+  Briefcase, 
+  FileText,
+  Loader2
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+// Helper to format phone numbers nicely
+function formatPhone(phone: string) {
+  if (!phone) return 'N/A';
+  const cleaned = phone.replace(/\D/g, '');
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+  if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
+  return phone;
+}
 
 export default function CustomersPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
   const supabase = createClient();
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanSearch = searchTerm.trim();
-    if (!cleanSearch) return;
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
+  const fetchCustomers = async () => {
     setLoading(true);
+    try {
+      // Fetch customers and their relational data (Quotes -> Jobs)
+      const { data, error } = await supabase
+        .from('customers')
+        .select(`
+          id, 
+          first_name, 
+          last_name, 
+          email, 
+          phone, 
+          created_at,
+          quote_submittals (
+            id, 
+            job_name, 
+            quote_number, 
+            status, 
+            created_at,
+            jobs (
+              id, 
+              sale_amount
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-  // Inside handleSearch in src/app/customers/page.tsx
-  const { data, error } = await supabase
-    .from('customers')
-      .select(`
-        *,
-        quote_submittals (
-          *,
-          jobs:jobs!fk_jobs_to_submittals (*) 
-        )
-      `)
-    .or(`first_name.ilike.%${cleanSearch}%,last_name.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`)
-    .limit(10);
+      if (error) throw error;
 
-    if (error) {
-      console.error("Search Error:", error.message);
-    } else {
-      console.log("SEARCH DATA:", data);
-      setResults(data || []);
-      setSelectedCustomer(null); // Clear active customer when performing a new search
+      // Map over the data to calculate aggregates (Total Spend, Job Counts)
+      const formattedCustomers = (data || []).map(customer => {
+        const quotes = customer.quote_submittals || [];
+        let totalSpent = 0;
+        let wonJobsCount = 0;
+
+        // Ensure quotes is an array and sort them by newest first
+        const sortedQuotes = Array.isArray(quotes) 
+          ? quotes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          : [];
+
+        sortedQuotes.forEach((q: any) => {
+          // Handle Supabase returning jobs as an array or a single object
+          const jobs = Array.isArray(q.jobs) ? q.jobs : (q.jobs ? [q.jobs] : []);
+          
+          jobs.forEach((j: any) => {
+            totalSpent += Number(j.sale_amount) || 0;
+            wonJobsCount++;
+          });
+        });
+
+        return {
+          ...customer,
+          fullName: `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown Customer',
+          quotesCount: sortedQuotes.length,
+          wonJobsCount,
+          totalSpent,
+          quotes: sortedQuotes
+        };
+      });
+
+      setCustomers(formattedCustomers);
+    } catch (err: any) {
+      console.error("Error fetching customers:", err);
+      toast.error("Failed to load customer directory.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedId(prev => prev === id ? null : id);
+  };
+
+  // Filter customers based on the search query
+  const filteredCustomers = customers.filter(c => {
+    if (!searchQuery) return true;
+    const term = searchQuery.toLowerCase();
+    return (
+      c.fullName.toLowerCase().includes(term) ||
+      (c.email && c.email.toLowerCase().includes(term)) ||
+      (c.phone && c.phone.includes(term)) ||
+      c.quotes.some((q: any) => q.job_name?.toLowerCase().includes(term) || q.quote_number?.toLowerCase().includes(term))
+    );
+  });
+
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-zinc-900 mb-4">Customer Directory</h1>
-        <p className="text-zinc-500">Search and manage customer job histories.</p>
+    <div className="p-8 max-w-7xl mx-auto bg-zinc-50 min-h-screen">
+      
+      {/* HEADER & SEARCH */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-900 flex items-center gap-3">
+            <Users className="text-blue-600" size={32} /> Customer Directory
+          </h1>
+          <p className="text-zinc-500 text-sm mt-1">Track lifetime value, contact info, and project history.</p>
+        </div>
+
+        <div className="w-full md:w-96 relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search by name, email, phone, or job name..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 bg-white border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition shadow-sm font-medium"
+          />
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto mb-12">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
-        <input 
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by name or email..."
-          className="w-full pl-12 pr-24 py-4 text-lg border-2 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm"
-        />
-        <button type="submit" disabled={loading} className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 text-white px-5 py-2 rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50">
-          {loading ? 'Searching...' : 'Search'}
-        </button>
-      </form>
-
-      {/* No Results Flicker Fix */}
-      {!loading && searchTerm && results.length === 0 && (
-        <div className="text-center p-12 bg-zinc-50 rounded-2xl border-2 border-dashed border-zinc-200">
-          <p className="text-zinc-500 font-medium">No customers found matching "{searchTerm}"</p>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-zinc-400 gap-3">
+          <Loader2 className="animate-spin" size={32} />
+          <p className="font-bold uppercase tracking-widest text-xs">Loading Directory...</p>
         </div>
-      )}
+      ) : (
+        <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left whitespace-nowrap">
+              <thead className="bg-zinc-50 text-zinc-500 text-[10px] uppercase font-bold tracking-wider">
+                <tr>
+                  <th className="px-6 py-4">Customer Details</th>
+                  <th className="px-6 py-4">Contact Info</th>
+                  <th className="px-6 py-4 text-center">Total Quotes</th>
+                  <th className="px-6 py-4 text-center">Won Jobs</th>
+                  <th className="px-6 py-4 text-right">Lifetime Spend</th>
+                  <th className="px-6 py-4"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 text-sm">
+                {filteredCustomers.map((customer) => (
+                  <React.Fragment key={customer.id}>
+                    {/* MAIN CUSTOMER ROW */}
+                    <tr 
+                      onClick={() => toggleExpand(customer.id)}
+                      className={`transition cursor-pointer ${expandedId === customer.id ? 'bg-blue-50/30' : 'hover:bg-zinc-50'}`}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="font-black text-zinc-900 text-base">{customer.fullName}</div>
+                        <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">
+                          Added {new Date(customer.created_at).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1.5">
+                          <a href={`mailto:${customer.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-2 text-zinc-600 hover:text-blue-600 transition font-medium">
+                            <Mail size={14} className="text-zinc-400" /> {customer.email || 'No Email'}
+                          </a>
+                          <a href={`tel:${customer.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-2 text-zinc-600 hover:text-blue-600 transition font-medium">
+                            <Phone size={14} className="text-zinc-400" /> {formatPhone(customer.phone)}
+                          </a>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center bg-zinc-100 text-zinc-700 font-bold rounded-lg px-3 py-1">
+                          {customer.quotesCount}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center bg-emerald-50 border border-emerald-100 text-emerald-700 font-bold rounded-lg px-3 py-1">
+                          {customer.wonJobsCount}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="font-mono font-black text-emerald-600 text-lg">
+                          ${customer.totalSpent.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
+                          {expandedId === customer.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </button>
+                      </td>
+                    </tr>
 
-      {/* STEP 2: SEARCH RESULTS LISTING */}
-      {!selectedCustomer && results.length > 0 && (
-        <div className="grid gap-3 mb-12 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-2">Found Matches</p>
-          {results.map(customer => (
-            <button 
-              key={customer.id}
-              onClick={() => setSelectedCustomer(customer)}
-              className="flex items-center justify-between p-5 bg-white border border-zinc-200 rounded-2xl hover:border-blue-500 hover:shadow-lg transition-all text-left group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition">
-                  <User size={24} />
-                </div>
-                <div>
-                  <p className="font-bold text-zinc-900 text-lg">{customer.first_name} {customer.last_name}</p>
-                  <p className="text-sm text-zinc-500">{customer.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wider">
-                View History <ChevronRight size={16} />
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+                    {/* EXPANDED PROJECT HISTORY */}
+                    {expandedId === customer.id && (
+                      <tr>
+                        <td colSpan={6} className="px-0 py-0 bg-zinc-50 border-b border-zinc-200">
+                          <div className="px-8 py-6 shadow-inner">
+                            <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                              <Briefcase size={14} /> Project History
+                            </h4>
+                            
+                            {customer.quotes.length === 0 ? (
+                              <p className="text-sm text-zinc-500 italic">No quotes found for this customer.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {customer.quotes.map((quote: any) => {
+                                  const isWon = quote.status === 'WON';
+                                  const jobAmount = Array.isArray(quote.jobs) && quote.jobs.length > 0 
+                                    ? Number(quote.jobs[0].sale_amount) 
+                                    : 0;
 
-      {/* Detailed View */}
-      {selectedCustomer && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex justify-between items-end mb-8 border-b pb-6">
-            <div>
-              <button 
-                onClick={() => setSelectedCustomer(null)}
-                className="text-xs font-bold text-zinc-400 hover:text-zinc-800 uppercase tracking-widest flex items-center gap-1 mb-4 transition"
-              >
-                <X size={14} /> Back to Search Results
-              </button>
-              <h2 className="text-3xl font-black text-zinc-900">
-                {selectedCustomer.first_name} {selectedCustomer.last_name}
-              </h2>
-              <p className="text-zinc-500 font-medium">{selectedCustomer.email} • {selectedCustomer.phone}</p>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* ACTIVE SUBMITTALS (No job record) */}
-            <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm">
-              <div className="p-5 border-b bg-blue-50/30">
-                <h3 className="text-xs font-black text-blue-900 uppercase tracking-widest flex items-center gap-2">
-                  <FileText size={16} /> Active Submittals
-                </h3>
-              </div>
-              <div className="p-5 space-y-3">
-                {selectedCustomer.quote_submittals?.filter((s: any) => !s.jobs || s.jobs.length === 0).map((s: any) => (
-                  <div key={s.id} className="p-4 border border-zinc-100 rounded-2xl flex justify-between items-center hover:bg-zinc-50 transition group">
-                    <div>
-                      <p className="text-sm font-bold text-zinc-800">{s.job_name}</p>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">#{s.quote_number} • {s.status}</p>
-                    </div>
-                    <Link href={`/submittals/${s.id}`} className="px-3 py-1 bg-zinc-100 text-zinc-600 rounded-lg text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white transition">
-                      Details
-                    </Link>
-                  </div>
+                                  return (
+                                    <a 
+                                      key={quote.id} 
+                                      href={`/submittals/${quote.id}`}
+                                      target="_blank"
+                                      className="block bg-white p-4 rounded-2xl border border-zinc-200 hover:border-blue-300 hover:shadow-md transition group relative overflow-hidden"
+                                    >
+                                      {/* Status Indicator Bar */}
+                                      <div className={`absolute top-0 left-0 w-1 h-full ${isWon ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                                      
+                                      <div className="pl-2">
+                                        <div className="flex justify-between items-start mb-2">
+                                          <h5 className="font-bold text-zinc-900 truncate pr-2 group-hover:text-blue-600 transition" title={quote.job_name}>
+                                            {quote.job_name || 'Untitled Project'}
+                                          </h5>
+                                          <span className="text-[10px] font-mono font-bold text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded">
+                                            #{quote.quote_number}
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="flex items-end justify-between mt-4">
+                                          <div>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
+                                              isWon ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                            }`}>
+                                              {quote.status}
+                                            </span>
+                                            <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-2">
+                                              {new Date(quote.created_at).toLocaleDateString()}
+                                            </div>
+                                          </div>
+                                          
+                                          {isWon && jobAmount > 0 && (
+                                            <div className="text-right">
+                                              <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">Sold For</p>
+                                              <p className="font-mono font-black text-emerald-600">
+                                                ${jobAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
-                {selectedCustomer.quote_submittals?.filter((s: any) => !s.jobs || s.jobs.length === 0).length === 0 && (
-                  <p className="text-sm text-zinc-400 italic text-center py-4">No active submittals found.</p>
-                )}
-              </div>
-            </div>
 
-            {/* COMPLETED JOBS (Has job record) */}
-            <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-sm">
-              <div className="p-5 border-b bg-emerald-50/30">
-                <h3 className="text-xs font-black text-emerald-900 uppercase tracking-widest flex items-center gap-2">
-                  <Briefcase size={16} /> Completed Jobs
-                </h3>
-              </div>
-              <div className="p-5 space-y-3">
-                {selectedCustomer.quote_submittals?.filter((s: any) => s.jobs && s.jobs.length > 0).map((s: any) => (
-                  <div key={s.id} className="p-4 border border-emerald-100 bg-emerald-50/10 rounded-2xl flex justify-between items-center group">
-                    <div>
-                      <p className="text-sm font-bold text-zinc-900">{s.job_name}</p>
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tighter">
-                        Sold for ${Number(s.jobs[0].sale_amount).toLocaleString()}
-                      </p>
-                    </div>
-                    <Link href={`/submittals/${s.id}`} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-emerald-700 transition">
-                      View
-                    </Link>
-                  </div>
-                ))}
-                {selectedCustomer.quote_submittals?.filter((s: any) => s.jobs && s.jobs.length > 0).length === 0 && (
-                  <p className="text-sm text-zinc-400 italic text-center py-4">No completed jobs found.</p>
+                {filteredCustomers.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-zinc-400 font-medium">
+                      No customers found matching your search.
+                    </td>
+                  </tr>
                 )}
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
