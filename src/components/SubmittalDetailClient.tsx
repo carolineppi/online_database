@@ -31,7 +31,7 @@ import TrackingMailer from '@/components/TrackingMailer';
 import EditJobFinancials from '@/components/EditJobFinancials';
 import { toast } from 'sonner';
 
-export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob }: any) {
+export default function SubmittalDetailClient({ submittal, options, addons, id, activeJob, initialDocuments }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
