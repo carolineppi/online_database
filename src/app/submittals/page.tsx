@@ -243,7 +243,6 @@ export default function SubmittalsPage() {
                 <th className="px-6 py-4">Job Info</th>
                 <th className="px-6 py-4">Customer</th>
                 <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-center">Hardware</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -282,11 +281,6 @@ export default function SubmittalsPage() {
                       <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getStatusBadge(submittal.status)}`}>
                         {getStatusIcon(submittal.status)} {submittal.status}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${submittal.is_hardware_included ? 'bg-zinc-100 text-zinc-600' : 'bg-red-50 text-red-500'}`}>
-                        {submittal.is_hardware_included ? 'Included' : 'No Hardware'}
-                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
