@@ -148,11 +148,16 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Material</label>
                 <div className="relative">
-                  <select value={formData.material} className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
-                    onChange={e => setFormData({...formData, material: e.target.value})}>
-                    {MATERIALS.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+                  <input 
+                    list="material-options"
+                    value={formData.material} 
+                    placeholder="Select or type material..."
+                    className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold text-zinc-900"
+                    onChange={e => setFormData({...formData, material: e.target.value})} 
+                  />
+                  <datalist id="material-options">
+                    {MATERIALS.map(m => <option key={m} value={m} />)}
+                  </datalist>
                 </div>
               </div>
               <div className="space-y-1">
@@ -167,27 +172,30 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               </div>
             </div>
 
-            {/* 2. Mounting Style & Color */}
+            {/* 2. Mounting Style & Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Mounting Style</label>
                 <div className="relative">
-                  <select className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <input 
+                    list="mounting-style-options"
+                    className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold text-zinc-900"
                     value={formData.mounting_style}
-                    onChange={e => setFormData({...formData, mounting_style: e.target.value})}>
-                    <option>Floor Mounted / Overhead Braced</option>
-                    <option>Floor Mounted Only</option>
-                    <option>Ceiling Hung</option>
-                    <option>Floor to Ceiling Mounted</option>
-                    <option>Accessories Only</option>
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={16} />
+                    placeholder="Select or type mounting style..."
+                    onChange={e => setFormData({...formData, mounting_style: e.target.value})} 
+                  />
+                  <datalist id="mounting-style-options">
+                    <option value="Floor Mounted / Overhead Braced" />
+                    <option value="Floor Mounted Only" />
+                    <option value="Ceiling Hung" />
+                    <option value="Floor to Ceiling Mounted" />
+                    <option value="Accessories Only" />
+                  </datalist>
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Details</label>
                 <div className="relative">
-                  <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                   <input value={formData.details} placeholder="Details" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
                     onChange={e => setFormData({...formData, details: e.target.value})} />
                 </div>
@@ -221,7 +229,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
             <div className="space-y-1">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
               <div className="relative">
-                <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                  <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                 <input value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
                   onChange={e => setFormData({...formData, color: e.target.value})} />
               </div>
