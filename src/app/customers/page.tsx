@@ -173,8 +173,8 @@ export default function CustomersPage() {
                           Added {new Date(customer.created_at).toLocaleDateString()}
                         </div>
                       </td>
-                      {/* Added max-w-[200px] to strictly contain the width */}
-                      <td className="px-6 py-4 max-w-[200px]">
+                      {/* Added max-w-[220px] to strictly contain the width */}
+                      <td className="px-6 py-4 max-w-[220px]">
                         <div className="flex flex-col gap-1.5">
                           <a href={`mailto:${customer.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-2 text-zinc-600 hover:text-blue-600 transition font-medium">
                             {/* Added shrink-0 to icon, and truncate to the text */}

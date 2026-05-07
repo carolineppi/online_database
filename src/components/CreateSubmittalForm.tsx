@@ -26,17 +26,10 @@ export default function CreateSubmittalForm({ onClose, initialCustomer }: { onCl
 
     try {
       // 1. Get the current user's email to find their Name Code
-      const { data: { user } } = await supabase.auth.getUser();
-      let nameCode = 'XX'; // Fallback
-      
-      if (user?.email) {
-        const { data: employee } = await supabase
-          .from('employees')
-          .select('name_code')
-          .eq('email', user.email)
-          .single();
-        if (employee?.name_code) nameCode = employee.name_code.toUpperCase();
-      }
+      // Logic for employee name code
+      const savedEmployee = localStorage.getItem('employee');
+      const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
+      const nameCode = employee?.name_code || 'XX';
 
       // 2. Generate the Secure Quote Number via the new Database RPC!
       const { data: finalQuoteNumber, error: rpcError } = await supabase.rpc('generate_quote_number', {
