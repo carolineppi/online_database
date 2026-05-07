@@ -170,7 +170,8 @@ export default function CallLogPage() {
 
       {selectedPhone && (
         <CreateSubmittalForm 
-          initialPhone={selectedPhone} 
+          // Wrap the phone number in the expected initialCustomer object
+          initialCustomer={{ phone: selectedPhone }} 
           onClose={() => setSelectedPhone(null)} 
         />
       )}
