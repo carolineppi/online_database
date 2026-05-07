@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Palette, Trash2, Plus, Loader2 } from 'lucide-react';
+import { Palette, Trash2, Plus, Loader2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 
 const MATERIALS = [
@@ -23,6 +23,10 @@ export default function ManageColors() {
   
   const supabase = createClient();
 
+  // Refs for Drag and Drop
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
+
   useEffect(() => {
     fetchColors(selectedMaterial);
   }, [selectedMaterial]);
@@ -33,7 +37,7 @@ export default function ManageColors() {
       .from('material_colors')
       .select('*')
       .eq('material', material)
-      .order('color');
+      .order('order_index', { ascending: true }); // Pull in our saved order
       
     if (error) {
       toast.error("Failed to load colors");
@@ -48,9 +52,10 @@ export default function ManageColors() {
     if (!newColor.trim()) return;
     
     setLoading(true);
+    const nextIndex = colors.length; // Put it at the bottom of the list
     const { error } = await supabase
       .from('material_colors')
-      .insert([{ material: selectedMaterial, color: newColor.trim() }]);
+      .insert([{ material: selectedMaterial, color: newColor.trim(), order_index: nextIndex }]);
 
     if (error) {
       toast.error(error.message);
@@ -75,6 +80,41 @@ export default function ManageColors() {
     } else {
       toast.success("Color removed!");
       fetchColors(selectedMaterial);
+    }
+  };
+
+  // --- DRAG AND DROP LOGIC ---
+  const handleSort = async () => {
+    if (dragItem.current === null || dragOverItem.current === null) return;
+
+    // 1. Duplicate the current array
+    let _colors = [...colors];
+    
+    // 2. Remove and save the dragged item
+    const draggedItemContent = _colors.splice(dragItem.current, 1)[0];
+    
+    // 3. Insert the dragged item at the new hovered position
+    _colors.splice(dragOverItem.current, 0, draggedItemContent);
+    
+    // 4. Reset the refs
+    dragItem.current = null;
+    dragOverItem.current = null;
+    
+    // 5. Update UI instantly
+    setColors(_colors);
+
+    // 6. Map the new array to update the order_index in Supabase
+    const updates = _colors.map((c, index) => ({
+      id: c.id,
+      material: c.material,
+      color: c.color,
+      order_index: index,
+    }));
+
+    const { error } = await supabase.from('material_colors').upsert(updates);
+    if (error) {
+      toast.error("Failed to save the new order.");
+      fetchColors(selectedMaterial); // Revert to database state on failure
     }
   };
 
@@ -123,10 +163,10 @@ export default function ManageColors() {
           </button>
         </form>
 
-        {/* Colors List */}
+        {/* Colors List - Now in a single column for drag/drop */}
         <div>
           <label className="block text-xs font-bold text-zinc-400 uppercase mb-4 tracking-widest border-b pb-2">
-            Current Colors for {selectedMaterial}
+            Current Colors for {selectedMaterial} (Drag to Reorder)
           </label>
           
           {fetching ? (
@@ -136,15 +176,26 @@ export default function ManageColors() {
           ) : colors.length === 0 ? (
             <p className="text-zinc-500 font-medium text-sm italic">No colors added for this material yet.</p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {colors.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-zinc-100 group hover:border-pink-200 transition">
-                  <span className="font-bold text-sm text-zinc-700">{c.color}</span>
+            <div className="flex flex-col gap-2 max-w-xl">
+              {colors.map((c, index) => (
+                <div 
+                  key={c.id} 
+                  draggable
+                  onDragStart={(e) => (dragItem.current = index)}
+                  onDragEnter={(e) => (dragOverItem.current = index)}
+                  onDragEnd={handleSort}
+                  onDragOver={(e) => e.preventDefault()}
+                  className="flex items-center justify-between p-4 bg-white rounded-xl border border-zinc-200 group hover:border-pink-300 hover:shadow-md transition cursor-move"
+                >
+                  <div className="flex items-center gap-4">
+                    <GripVertical size={18} className="text-zinc-300 group-hover:text-pink-400 transition" />
+                    <span className="font-bold text-sm text-zinc-700">{c.color}</span>
+                  </div>
                   <button 
                     onClick={() => handleDeleteColor(c.id)}
-                    className="text-zinc-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                    className="text-zinc-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-2"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
                 </div>
               ))}
