@@ -32,6 +32,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
     material: initialData?.material || MATERIALS[0],
     manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
     price: initialData?.price || '', // Fixed: pre-populates price when editing
+    details: initialData?.details || '',
     color: initialData?.color || 'TBD',
     mounting_style: initialData?.mounting_style || 'Floor Mounted / Overhead Braced',
     shipping_included: initialData?.shipping_included || 'Includes Shipping',
@@ -184,11 +185,11 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
+                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Details</label>
                 <div className="relative">
                   <Palette className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                  <input value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
-                    onChange={e => setFormData({...formData, color: e.target.value})} />
+                  <input value={formData.details} placeholder="Details" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                    onChange={e => setFormData({...formData, details: e.target.value})} />
                 </div>
               </div>
             </div>
@@ -216,13 +217,13 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
               </div>
             </div>
 
-            {/* 4. Hardware Details */}
+            {/* 4. Color */}
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Hardware Details</label>
+              <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Color</label>
               <div className="relative">
                 <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <input value={formData.hardware_included} className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
-                  onChange={e => setFormData({...formData, hardware_included: e.target.value})} />
+                <input value={formData.color} placeholder="Color Name/Code" className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
+                  onChange={e => setFormData({...formData, color: e.target.value})} />
               </div>
             </div>
 
