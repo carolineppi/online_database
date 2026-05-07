@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, Package, Truck, ShieldCheck, Palette, ChevronDown } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -11,21 +11,12 @@ const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", 
 const MANUFACTURERS = ["ASI", "Bobrick", "Bradley", "Excel", "Global", "Hadrian", "Hawa", "Metpar", "Partition Plus", "Scranton Products"];
 const PRESET_ITEMS = ["Toilet Stalls", "Urinal Screens", "Privacy Screens", "Shower Stalls"];
 
-// NEW: Dynamic color mapping by material
-const COLOR_MAPPINGS: Record<string, string[]> = {
-  "Powder Coated Steel (PCS)": ["TBD", "Black", "White", "Light Grey", "Almond"],
-  "High Pressure Laminate (HPL)": ["TBD", "Designer White", "Folkstone", "Black", "Navy Blue"],
-  "HDPE Solid Plastic": ["TBD", "Beige", "Ivory", "Charcoal", "Black"],
-  "Solid Phenolic": ["TBD", "Blue", "Black", "Almond"],
-  "Stainless Steel": ["TBD", "Brushed", "Leather Grain", "Textured"],
-  "Bathroom Accessories per Attached Submittal": ["TBD"]
-};
-
 interface AddOptionModalProps {
   quoteId: string;
   onClose: () => void;
   initialData?: any;
 }
+
 interface QuoteItem {
   item: string;
   qty: number;
@@ -33,6 +24,7 @@ interface QuoteItem {
 
 export default function AddOptionModal({ quoteId, onClose, initialData }: AddOptionModalProps) {
   const [loading, setLoading] = useState(false);
+  const [dynamicColors, setDynamicColors] = useState<string[]>(["TBD"]);
   
   const [items, setItems] = useState<QuoteItem[]>(
     initialData?.itemized_breakdown || [{ item: "", qty: 0 }]
@@ -41,7 +33,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   const [formData, setFormData] = useState({
     material: initialData?.material || '',
     manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
-    price: initialData?.price || '', // Fixed: pre-populates price when editing
+    price: initialData?.price || '', 
     details: initialData?.details || '',
     color: initialData?.color || '',
     mounting_style: initialData?.mounting_style || '',
@@ -51,6 +43,32 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
   
   const supabase = createClient();
   const router = useRouter();
+
+  // Fetch colors when the selected material changes
+  useEffect(() => {
+    const fetchDynamicColors = async () => {
+      if (!formData.material) {
+        setDynamicColors(["TBD"]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('material_colors')
+        .select('color')
+        .eq('material', formData.material)
+        .order('order_index', { ascending: true }); // Respect the drag-and-drop order!
+
+      if (!error && data) {
+        // Ensure "TBD" is always the very first option, then append the database colors
+        const fetchedColors = data.map(d => d.color).filter(c => c !== "TBD");
+        setDynamicColors(["TBD", ...fetchedColors]);
+      } else {
+        setDynamicColors(["TBD"]);
+      }
+    };
+
+    fetchDynamicColors();
+  }, [formData.material, supabase]);
 
   const addItemRow = () => setItems([...items, { item: "", qty: 1 }]);
   const removeItemRow = (index: number) => 
@@ -248,8 +266,8 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                   onChange={e => setFormData({...formData, color: e.target.value})} 
                 />
                 <datalist id="color-options">
-                  {/* Pulls from the mapping, falls back to just TBD if custom material is typed */}
-                  {(COLOR_MAPPINGS[formData.material] || ["TBD"]).map(colorOption => (
+                  {/* Pulls from the dynamic database array, preserving drag/drop sort order */}
+                  {dynamicColors.map(colorOption => (
                     <option key={colorOption} value={colorOption} />
                   ))}
                 </datalist>
