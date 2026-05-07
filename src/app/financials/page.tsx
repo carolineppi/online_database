@@ -12,7 +12,8 @@ import {
   Target,
   Filter,
   CreditCard,
-  Percent
+  Percent,
+  Download
 } from 'lucide-react';
 
 export default function FinancialDashboard() {
@@ -174,6 +175,56 @@ export default function FinancialDashboard() {
     fetchFinancialData();
   }, [dateRange, campaignFilter]);
 
+  // NEW: Native CSV Export Function
+  const handleExportCSV = () => {
+    if (stats.jobList.length === 0) return;
+
+    // 1. Setup headers
+    const headers = [
+      'Job / Project Name', 
+      'Quote #', 
+      'Marketing Category', 
+      'Specific Campaign', 
+      'Contract Amount', 
+      'Estimated Cost', 
+      'Gross Profit', 
+      'Gross Margin (%)'
+    ];
+
+    // 2. Map data to rows
+    const rows = stats.jobList.map(job => {
+      const sourceCategory = job.quote_submittals.is_paid 
+        ? 'Paid Ad' 
+        : job.quote_submittals.is_manual 
+          ? 'PM Input' 
+          : (job.quote_submittals.quote_source || 'Unknown');
+          
+      return [
+        `"${(job.quote_submittals?.job_name || 'Untitled Project').replace(/"/g, '""')}"`, // Encapsulate in quotes in case of commas in name
+        `"${job.quote_submittals?.quote_number || 'N/A'}"`,
+        `"${sourceCategory}"`,
+        `"${job.quote_submittals.display_campaign_name || ''}"`,
+        job.contractAmount.toFixed(2),
+        job.costAmount.toFixed(2),
+        job.profit.toFixed(2),
+        job.margin.toFixed(1)
+      ];
+    });
+
+    // 3. Combine into a CSV string
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    
+    // 4. Create a Blob and trigger a download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Financial_Report_${dateRange.start}_to_${dateRange.end}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const avgDealSize = stats.wonJobs > 0 ? stats.totalRevenue / stats.wonJobs : 0;
 
   return (
@@ -243,16 +294,28 @@ export default function FinancialDashboard() {
       </div>
 
       <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
-        <div className="p-6 border-b bg-white flex justify-between items-center">
+        <div className="p-6 border-b bg-white flex justify-between items-center flex-wrap gap-4">
           <div>
             <h2 className="font-bold text-lg text-zinc-900">Revenue Ledger</h2>
             <p className="text-xs text-zinc-400">Attributed by campaign source with detailed costing.</p>
           </div>
-          {campaignFilter !== 'all' && (
-            <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
-              <Target size={12} /> {campaignFilter === 'organic' ? 'Organic' : campaignFilter === 'manual' ? 'Manual' : campaignFilter} Filter Active
-            </span>
-          )}
+          
+          <div className="flex items-center gap-3">
+            {campaignFilter !== 'all' && (
+              <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+                <Target size={12} /> {campaignFilter === 'organic' ? 'Organic' : campaignFilter === 'manual' ? 'Manual' : campaignFilter} Filter Active
+              </span>
+            )}
+            
+            {/* EXPORT BUTTON */}
+            <button 
+              onClick={handleExportCSV}
+              disabled={stats.jobList.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition disabled:opacity-50 shadow-sm"
+            >
+              <Download size={14} /> Export CSV
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left whitespace-nowrap">
