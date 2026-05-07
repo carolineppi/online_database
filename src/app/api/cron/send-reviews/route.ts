@@ -47,8 +47,10 @@ export async function GET(req: NextRequest) {
     let sentCount = 0;
     
     for (const review of pendingReviews) {
-      // Extract the job name safely through the relations
-      const jobName = review.jobs?.quote_submittals?.job_name || 'your recent project';
+      // Safely extract the job name, accounting for Supabase returning arrays on joins
+      const jobData: any = Array.isArray(review.jobs) ? review.jobs[0] : review.jobs;
+      const submittalData: any = jobData ? (Array.isArray(jobData.quote_submittals) ? jobData.quote_submittals[0] : jobData.quote_submittals) : null;
+      const jobName = submittalData?.job_name || 'your recent project';
 
       // Build the email body (Make sure to swap YOUR_GOOGLE_REVIEW_LINK_HERE)
       const htmlBody = `
