@@ -570,10 +570,11 @@ const handleGeneratePDF = async () => {
                 </p>
 
                 {/* Live PDF Preview via scaled iframe */}
-                <div className="relative aspect-[3/4] w-full bg-zinc-100 rounded-2xl overflow-hidden pointer-events-none ring-1 ring-inset ring-zinc-200/50">
+                <div className="relative aspect-[3/4] w-full bg-white rounded-2xl overflow-hidden pointer-events-none ring-1 ring-inset ring-zinc-200/50">
                   <iframe 
-                    src={`${doc.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
-                    className="absolute top-0 left-0 w-full h-[150%] origin-top-left scale-[0.7]" 
+                    src={`${doc.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} 
+                    className="absolute top-0 left-0 w-[200%] h-[200%] origin-top-left scale-50 border-none" 
+                    scrolling="no"
                     tabIndex={-1} 
                   />
                 </div>
