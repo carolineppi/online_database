@@ -13,6 +13,7 @@ interface CreateSubmittalFormProps {
 }
 
 export default function CreateSubmittalForm({ onClose, initialPhone = '' }: CreateSubmittalFormProps) {
+  
   // Visual Formatter: (XXX) XXX-XXXX
   const formatPhoneNumber = (value: string) => {
     if (!value) return value;
@@ -42,6 +43,8 @@ export default function CreateSubmittalForm({ onClose, initialPhone = '' }: Crea
   const handleInitialSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+
+    
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
@@ -90,8 +93,29 @@ export default function CreateSubmittalForm({ onClose, initialPhone = '' }: Crea
       const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
       const nameCode = employee?.name_code || 'XX';
 
-      const { data: nextSeq } = await supabase.rpc('get_next_quote_number');
-      const finalQuoteNumber = `${nextSeq}${nameCode}`;
+      // 1. Get the 2-digit year (e.g., 2026 -> "26")
+      const yy = String(new Date().getFullYear()).slice(-2);
+
+      // 2. Fetch the most recent quote number for this year to increment the counter
+      const { data: latestQuotes } = await supabase
+        .from('quote_submittals')
+        .select('quote_number')
+        .like('quote_number', `${yy}-%`)
+        .order('quote_number', { ascending: false })
+        .limit(1);
+
+      let nextCounter = 1;
+      if (latestQuotes && latestQuotes.length > 0 && latestQuotes[0].quote_number) {
+        // 3. Extract the 4-digit number between the hyphen and the letters (e.g., "26-1234CG" -> "1234")
+        const match = latestQuotes[0].quote_number.match(new RegExp(`^${yy}-(\\d{4})`));
+        if (match && match[1]) {
+          nextCounter = parseInt(match[1], 10) + 1;
+        }
+      }
+
+      // 4. Pad the counter with zeros and assemble the final Quote Number
+      const paddedCounter = String(nextCounter).padStart(4, '0');
+      const finalQuoteNumber = `${yy}-${paddedCounter}${nameCode}`;
 
       if (!finalCustomerId) {
         const { data: newCust, error: custError } = await supabase
