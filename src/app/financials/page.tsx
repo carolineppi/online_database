@@ -15,7 +15,8 @@ import {
   Percent,
   Download,
   Briefcase,
-  Layers
+  Layers,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -52,132 +53,105 @@ export default function FinancialDashboard() {
   const fetchFinancialData = async () => {
     setLoading(true);
     
-    // 1. Fetch Mapping Table
-    const { data: campaignsData } = await supabase.from('campaign_sources').select('*');
-    const campaignMap = new Map(campaignsData?.map(c => [c.campaign_id, c.campaign_name]) || []);
+    try {
+      // 1. Fetch Mapping Table
+      const { data: campaignsData } = await supabase.from('campaign_sources').select('*');
+      const campaignMap = new Map(campaignsData?.map(c => [c.campaign_id, c.campaign_name]) || []);
 
-    // 2. Fetch all active submittals in the date range INCLUDING their options and addons
-    // ADDED !quote_id hints to force Supabase to use the correct relational links
-    const { data: allQuotesData, error: quotesError } = await supabase
-        .from('quote_submittals')
-        .select(`
-          id, 
-          quote_number,
-          job_name,
-          quote_source, 
-          campaign_source,
-          status,
-          created_at,
-          individual_quotes!quote_id ( id, price, deleted_at ),
-          add_ons!quote_id ( price, deleted_at )
-        `)
-        .is('deleted_at', null) 
-        .gte('created_at', `${dateRange.start}T00:00:00`)
-        .lte('created_at', `${dateRange.end}T23:59:59`)
-        .order('created_at', { ascending: false });
-
-    if (quotesError) {
-      console.error("Quotes Query Error:", quotesError);
-      toast.error(`Failed to load quotes: ${quotesError.message}`);
-    }
-
-    // Helper function to map a quote's source
-    const mapQuoteSource = (quote: any) => {
-      const rawSource = quote.quote_source;
-      const mappedName = campaignMap.get(rawSource) || quote.campaign_source || rawSource;
-      const isManual = rawSource === 'PM Input';
-      const isPaid = campaignMap.has(rawSource) || (!isManual && rawSource !== 'Organic / Direct' && rawSource !== 'Unknown' && !isNaN(Number(rawSource)));
-      return { ...quote, display_campaign_name: mappedName, is_paid: isPaid, is_manual: isManual };
-    };
-
-    // 3. Map all quotes and filter them based on the current dropdown selection
-    const mappedQuotes = (allQuotesData || []).map(q => {
-      const mapData = mapQuoteSource(q);
-      
-      // Safely ensure these are arrays before filtering
-      const rawOptions = Array.isArray(q.individual_quotes) ? q.individual_quotes : [];
-      const rawAddons = Array.isArray(q.add_ons) ? q.add_ons : [];
-
-      const activeOptions = rawOptions.filter((o: any) => !o.deleted_at);
-      const activeAddons = rawAddons.filter((a: any) => !a.deleted_at);
-      const addonsTotal = activeAddons.reduce((sum: number, a: any) => sum + (Number(a.price) || 0), 0);
-
-      return {
-        ...mapData,
-        activeOptions,
-        addonsTotal,
-        isConverted: q.status === 'WON'
-      };
-    });
-
-    const filteredQuotes = mappedQuotes.filter(q => {
-      if (campaignFilter === 'all') return true;
-      if (campaignFilter === 'paid') return q.is_paid;
-      if (campaignFilter === 'organic') return !q.is_paid && !q.is_manual;
-      if (campaignFilter === 'manual') return q.is_manual;
-      return q.display_campaign_name === campaignFilter;
-    });
-
-    // Extract unique campaign names for the dropdown filter
-    const uniqueCampaigns = Array.from(new Set(
-      mappedQuotes.filter(q => q.is_paid).map(q => q.display_campaign_name)
-    )) as string[];
-    setAvailableCampaigns(uniqueCampaigns);
-
-    // 4. Fetch Jobs for the Jobs Ledger
-    // ADDED !quote_id hints here as well for safety
-    const { data: jobsData, error: jobsError } = await supabase
-      .from('jobs')
-      .select(`
-        id,
-        created_at,
-        sale_amount,
-        estimated_cost,
-        quote_id,
-        quote_submittals!quote_id (
-          job_name,
-          quote_number,
-          quote_source,
-          campaign_source,
-          deleted_at,
-          add_ons!quote_id ( price, deleted_at )
-        )
-      `)
-      .is('deleted_at', null)
-      .gte('created_at', `${dateRange.start}T00:00:00`)
-      .lte('created_at', `${dateRange.end}T23:59:59`);
-
-    if (jobsError) {
-      console.error("Jobs Query Error:", jobsError);
-      toast.error(`Failed to load jobs: ${jobsError.message}`);
-    }
-
-    // 5. Transform and Filter Jobs Data
-    const formattedJobs = (jobsData || [])
-      .map(job => {
-        const submittalData = Array.isArray(job.quote_submittals) ? job.quote_submittals[0] : job.quote_submittals;
-        if (!submittalData || submittalData.deleted_at) return null;
-
-        const rawAddons = Array.isArray(submittalData.add_ons) ? submittalData.add_ons : [];
-        const activeAddons = rawAddons.filter((a: any) => !a.deleted_at);
-        const addonsTotal = activeAddons.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
+      // 2. Fetch Base Queries in Parallel (AVOIDS FOREIGN KEY AMBIGUITY CRASHES)
+      const [quotesRes, jobsRes] = await Promise.all([
+        supabase.from('quote_submittals').select('id, quote_number, job_name, quote_source, campaign_source, status, created_at')
+          .is('deleted_at', null)
+          .gte('created_at', `${dateRange.start}T00:00:00`)
+          .lte('created_at', `${dateRange.end}T23:59:59`)
+          .order('created_at', { ascending: false }),
         
-        const contractAmount = (Number(job.sale_amount) || 0) + addonsTotal;
+        supabase.from('jobs').select('id, created_at, sale_amount, estimated_cost, quote_id, winning_quote_ids, accepted_individual_quote')
+          .is('deleted_at', null)
+          .gte('created_at', `${dateRange.start}T00:00:00`)
+          .lte('created_at', `${dateRange.end}T23:59:59`)
+      ]);
+
+      const quotesInDateRange = quotesRes.data || [];
+      const jobsInDateRange = jobsRes.data || [];
+
+      // 3. Collect ALL related IDs to fetch the full picture
+      const dateQuoteIds = quotesInDateRange.map(q => q.id);
+      const dateJobQuoteIds = jobsInDateRange.map(j => j.quote_id);
+      const allRequiredQuoteIds = Array.from(new Set([...dateQuoteIds, ...dateJobQuoteIds])).filter(Boolean);
+
+      // 4. Fetch missing links (Jobs for the Quotes, Quotes for the Jobs) to ensure boundary consistency
+      let allSubmittals = [...quotesInDateRange];
+      let allJobs = [...jobsInDateRange];
+
+      if (allRequiredQuoteIds.length > 0) {
+        const missingQuoteIds = dateJobQuoteIds.filter(id => !dateQuoteIds.includes(id));
+        if (missingQuoteIds.length > 0) {
+          const { data: missingQuotes } = await supabase.from('quote_submittals')
+            .select('id, quote_number, job_name, quote_source, campaign_source, status, created_at')
+            .in('id', missingQuoteIds).is('deleted_at', null);
+          if (missingQuotes) allSubmittals = [...allSubmittals, ...missingQuotes];
+        }
+
+        const dateJobIds = jobsInDateRange.map(j => j.id);
+        const { data: extraJobs } = await supabase.from('jobs')
+          .select('id, created_at, sale_amount, estimated_cost, quote_id, winning_quote_ids, accepted_individual_quote')
+          .in('quote_id', allRequiredQuoteIds).is('deleted_at', null);
+        
+        if (extraJobs) {
+          const missingJobs = extraJobs.filter(j => !dateJobIds.includes(j.id));
+          allJobs = [...allJobs, ...missingJobs];
+        }
+      }
+
+      // 5. Fetch Options and Addons safely
+      let allOptions: any[] = [];
+      let allAddons: any[] = [];
+      if (allRequiredQuoteIds.length > 0) {
+        const [optsRes, addsRes] = await Promise.all([
+          supabase.from('individual_quotes').select('id, quote_id, price, deleted_at').in('quote_id', allRequiredQuoteIds).is('deleted_at', null),
+          supabase.from('add_ons').select('id, quote_id, price, deleted_at').in('quote_id', allRequiredQuoteIds).is('deleted_at', null)
+        ]);
+        if (optsRes.data) allOptions = optsRes.data;
+        if (addsRes.data) allAddons = addsRes.data;
+      }
+
+      // 6. Map and Format Data Together
+      const mapQuoteSource = (quote: any) => {
+        const rawSource = quote.quote_source;
+        const mappedName = campaignMap.get(rawSource) || quote.campaign_source || rawSource;
+        const isManual = rawSource === 'PM Input';
+        const isPaid = campaignMap.has(rawSource) || (!isManual && rawSource !== 'Organic / Direct' && rawSource !== 'Unknown' && !isNaN(Number(rawSource)));
+        return { ...quote, display_campaign_name: mappedName, is_paid: isPaid, is_manual: isManual };
+      };
+
+      const submittalsMap = new Map();
+      allSubmittals.forEach(q => {
+        const mapped = mapQuoteSource(q);
+        mapped.options = allOptions.filter(o => o.quote_id === q.id);
+        mapped.addons = allAddons.filter(a => a.quote_id === q.id);
+        mapped.addonsTotal = mapped.addons.reduce((sum: number, a: any) => sum + (Number(a.price) || 0), 0);
+        mapped.linkedJob = allJobs.find(j => j.quote_id === q.id); 
+        submittalsMap.set(q.id, mapped);
+      });
+
+      // Format Jobs List (Only those created IN the date range)
+      const formattedJobs = jobsInDateRange.map(job => {
+        const submittal = submittalsMap.get(job.quote_id);
+        if (!submittal) return null;
+
+        const contractAmount = (Number(job.sale_amount) || 0) + submittal.addonsTotal;
         const costAmount = Number(job.estimated_cost) || 0;
         const profit = contractAmount - costAmount;
         const margin = contractAmount > 0 ? (profit / contractAmount) * 100 : 0;
 
-        const mappedSubmittal = mapQuoteSource(submittalData);
-
         return { 
           ...job, 
-          quote_submittals: mappedSubmittal, 
+          quote_submittals: submittal, 
           contractAmount, costAmount, profit, margin,
-          addonCount: activeAddons.length 
+          addonCount: submittal.addons.length 
         };
-      })
-      .filter((job): job is any => job !== null)
-      .filter(job => {
+      }).filter(Boolean).filter((job: any) => {
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return job.quote_submittals.is_paid;
         if (campaignFilter === 'organic') return !job.quote_submittals.is_paid && !job.quote_submittals.is_manual;
@@ -185,24 +159,43 @@ export default function FinancialDashboard() {
         return job.quote_submittals.display_campaign_name === campaignFilter;
       });
 
-    // 6. Final Aggregate Calculations
-    const totalRevenue = formattedJobs.reduce((acc, job) => acc + job.contractAmount, 0);
-    const totalCost = formattedJobs.reduce((acc, job) => acc + job.costAmount, 0);
-    const totalProfit = totalRevenue - totalCost;
-    const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+      // Format Quotes List (Only those created IN the date range)
+      const formattedQuotes = quotesInDateRange.map(q => submittalsMap.get(q.id)).filter(q => {
+        if (campaignFilter === 'all') return true;
+        if (campaignFilter === 'paid') return q.is_paid;
+        if (campaignFilter === 'organic') return !q.is_paid && !q.is_manual;
+        if (campaignFilter === 'manual') return q.is_manual;
+        return q.display_campaign_name === campaignFilter;
+      });
 
-    setStats({
-      totalQuotes: filteredQuotes.length,
-      wonJobs: formattedJobs.length,
-      totalRevenue: totalRevenue,
-      totalCost: totalCost,
-      totalProfit: totalProfit,
-      totalMargin: totalMargin,
-      conversionRate: filteredQuotes.length > 0 ? (formattedJobs.length / filteredQuotes.length) * 100 : 0,
-      jobList: formattedJobs,
-      quoteList: filteredQuotes
-    });
-    
+      const uniqueCampaigns = Array.from(new Set(
+        allSubmittals.map(mapQuoteSource).filter(q => q.is_paid).map(q => q.display_campaign_name)
+      )) as string[];
+      setAvailableCampaigns(uniqueCampaigns);
+
+      // Aggregates
+      const totalRevenue = formattedJobs.reduce((acc, job) => acc + job.contractAmount, 0);
+      const totalCost = formattedJobs.reduce((acc, job) => acc + job.costAmount, 0);
+      const totalProfit = totalRevenue - totalCost;
+      const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+      setStats({
+        totalQuotes: formattedQuotes.length,
+        wonJobs: formattedJobs.length,
+        totalRevenue: totalRevenue,
+        totalCost: totalCost,
+        totalProfit: totalProfit,
+        totalMargin: totalMargin,
+        conversionRate: formattedQuotes.length > 0 ? (formattedJobs.length / formattedQuotes.length) * 100 : 0,
+        jobList: formattedJobs,
+        quoteList: formattedQuotes
+      });
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to load dashboard data.");
+    }
+
     setLoading(false);
   };
 
@@ -217,16 +210,27 @@ export default function FinancialDashboard() {
 
   const quotesViewData = stats.quoteList.map(q => {
     const mode = calcModes[q.id] || 'avg';
-    const optionsSum = q.activeOptions.reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0);
-    const optionsCount = q.activeOptions.length;
+    const isConverted = q.status === 'WON' || !!q.linkedJob;
+    const optionsCount = q.options.length;
     
     let baseValue = 0;
-    if (optionsCount > 0) {
-      baseValue = mode === 'avg' ? optionsSum / optionsCount : optionsSum;
+    
+    if (isConverted && q.linkedJob) {
+      // EXCEPTION: It's a Won Job! Sum only the selected winners
+      const winningIds = q.linkedJob.winning_quote_ids || (q.linkedJob.accepted_individual_quote ? [q.linkedJob.accepted_individual_quote] : []);
+      const winningOptions = q.options.filter((o: any) => winningIds.includes(o.id));
+      baseValue = winningOptions.reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0);
+    } else {
+      // Standard open quote pipeline calculation
+      const optionsSum = q.options.reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0);
+      if (optionsCount > 0) {
+        baseValue = mode === 'avg' ? optionsSum / optionsCount : optionsSum;
+      }
     }
+    
     const potentialValue = baseValue + q.addonsTotal;
 
-    return { ...q, mode, potentialValue, optionsCount };
+    return { ...q, mode, potentialValue, optionsCount, isConverted };
   });
 
   const totalPotentialRevenue = quotesViewData.reduce((sum, q) => sum + q.potentialValue, 0);
@@ -255,8 +259,8 @@ export default function FinancialDashboard() {
       const sourceCat = q.is_paid ? 'Paid Ad' : q.is_manual ? 'PM Input' : (q.quote_source || 'Unknown');
       return [
         `"${(q.job_name || 'Untitled Project').replace(/"/g, '""')}"`, `"${q.quote_number || 'N/A'}"`,
-        `"${q.status}"`, `"${sourceCat}"`, `"${q.display_campaign_name || ''}"`,
-        q.optionsCount, `"${q.mode.toUpperCase()}"`, q.potentialValue.toFixed(2)
+        `"${q.isConverted ? 'WON (Job Created)' : q.status}"`, `"${sourceCat}"`, `"${q.display_campaign_name || ''}"`,
+        q.optionsCount, `"${q.isConverted ? 'LOCKED (WON)' : q.mode.toUpperCase()}"`, q.potentialValue.toFixed(2)
       ];
     });
     triggerDownload(headers, rows, `Pipeline_Quotes_Report_${dateRange.start}_to_${dateRange.end}.csv`);
@@ -273,6 +277,15 @@ export default function FinancialDashboard() {
     link.click();
     document.body.removeChild(link);
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-zinc-400 gap-3">
+        <Loader2 className="animate-spin" size={32} />
+        <p className="font-bold uppercase tracking-widest text-xs">Crunching numbers...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto bg-zinc-50 min-h-screen">
@@ -489,22 +502,26 @@ export default function FinancialDashboard() {
                       </td>
                       <td className="px-6 py-4 text-center font-bold text-zinc-700">{q.optionsCount}</td>
                       <td className="px-6 py-4">
-                        <div className="flex justify-center">
-                          <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg w-fit border border-zinc-200 shadow-inner">
-                            <button 
-                              onClick={() => toggleCalcMode(q.id, 'avg')}
-                              className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${q.mode === 'avg' ? 'bg-white shadow-sm text-blue-600 border border-zinc-200' : 'text-zinc-400 hover:text-zinc-600'}`}
-                            >
-                              Avg
-                            </button>
-                            <button 
-                              onClick={() => toggleCalcMode(q.id, 'sum')}
-                              className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${q.mode === 'sum' ? 'bg-white shadow-sm text-blue-600 border border-zinc-200' : 'text-zinc-400 hover:text-zinc-600'}`}
-                            >
-                              Sum
-                            </button>
+                        {!q.isConverted ? (
+                          <div className="flex justify-center">
+                            <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg w-fit border border-zinc-200 shadow-inner">
+                              <button 
+                                onClick={() => toggleCalcMode(q.id, 'avg')}
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${q.mode === 'avg' ? 'bg-white shadow-sm text-blue-600 border border-zinc-200' : 'text-zinc-400 hover:text-zinc-600'}`}
+                              >
+                                Avg
+                              </button>
+                              <button 
+                                onClick={() => toggleCalcMode(q.id, 'sum')}
+                                className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-md transition-all ${q.mode === 'sum' ? 'bg-white shadow-sm text-blue-600 border border-zinc-200' : 'text-zinc-400 hover:text-zinc-600'}`}
+                              >
+                                Sum
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="text-center text-emerald-600 font-bold text-[10px] uppercase tracking-widest">Locked (Won)</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="font-mono font-black text-blue-600 text-lg">
