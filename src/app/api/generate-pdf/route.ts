@@ -168,7 +168,10 @@ export async function POST(req: NextRequest) {
       doc.setFont("helvetica", "normal");
       doc.text("Mounting: ", 40, yPos);
       doc.setFont("helvetica", "bold");
-      doc.text(opt.mounting_style || '' + ' ' + opt.details || '' , 70, yPos);
+      doc.text(`${opt.mounting_style}  ${opt.details}` || '' , 90, yPos);
+            
+      doc.setFont("helvetica", "normal");
+      doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
       
       // Manufacturer & Shipping Subtext
       yPos += 16;
@@ -176,9 +179,6 @@ export async function POST(req: NextRequest) {
       doc.text("Manufacturer: ", 40, yPos);
       doc.setFont("helvetica", "bold");
       doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
-      
-      doc.setFont("helvetica", "normal");
-      doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
 
       // Color
       yPos += 16;
