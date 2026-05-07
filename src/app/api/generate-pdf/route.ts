@@ -137,16 +137,16 @@ export async function POST(req: NextRequest) {
     yPos += (splitAddress.length * 14) + 10;
 
     // Description
-    doc.setFont("helvetica", "bold");
-    doc.text("Description:", 40, yPos);
-    doc.setLineWidth(0.75);
-    doc.line(40, yPos + 2, 106, yPos + 2); // Underline Description
-    doc.setFont("helvetica", "normal");
+    // doc.setFont("helvetica", "bold");
+    // doc.text("Description:", 40, yPos);
+    // doc.setLineWidth(0.75);
+    // doc.line(40, yPos + 2, 106, yPos + 2); // Underline Description
+    // doc.setFont("helvetica", "normal");
     
-    const descText = submittal.description || 'Toilet Compartments are: ';
-    const splitDesc = doc.splitTextToSize(descText, 440);
-    doc.text(splitDesc, 113, yPos);
-    yPos += (splitDesc.length * 14) + 20;
+    // const descText = submittal.description || 'Toilet Compartments are: ';
+    // const splitDesc = doc.splitTextToSize(descText, 440);
+    // doc.text(splitDesc, 113, yPos);
+    // yPos += (splitDesc.length * 14) + 20;
 
     // 4. Materials Loop (Now contains Quantity and Color)
     options.forEach((opt: any) => {
@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
     doc.setTextColor(255);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
+    doc.text(submittal.description || "** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
     yPos += 45;
 
     // 6. Terms Box

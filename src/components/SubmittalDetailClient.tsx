@@ -34,7 +34,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   
   // Project Details State
   const [shippingAddress, setShippingAddress] = useState(submittal.shipping_address || 'Toilet Partitions shipping to ');
-  const [description, setDescription] = useState(submittal.description || 'Toilet Compartments are: ');
+  const [description, setDescription] = useState(submittal.description || '** All hardware needed for installation is included **');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   // Modal States
@@ -217,7 +217,7 @@ const handleGeneratePDF = async () => {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Quote Description</label>
+              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Hardware Info</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
