@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone, Palette } from 'lucide-react';
+import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone, Palette, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ManageCarriers from '@/components/ManageCarriers';
 import ManageSources from '@/components/ManageSources';
@@ -13,6 +13,11 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security' | 'sources' | 'colors'>('team');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  
+  // New state for team list
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [fetchingEmployees, setFetchingEmployees] = useState(false);
+  
   const supabase = createClient();
 
   // Fetch the logged-in user on mount
@@ -22,6 +27,26 @@ export default function SettingsPage() {
       setCurrentUser(JSON.parse(saved));
     }
   }, []);
+
+  // Fetch employees when the Team tab is active
+  useEffect(() => {
+    if (activeTab === 'team') {
+      fetchEmployees();
+    }
+  }, [activeTab]);
+
+  const fetchEmployees = async () => {
+    setFetchingEmployees(true);
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .order('first_name', { ascending: true });
+    
+    if (!error && data) {
+      setEmployees(data);
+    }
+    setFetchingEmployees(false);
+  };
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -47,10 +72,27 @@ export default function SettingsPage() {
       if (error) throw error;
       toast.success(`${firstName} ${lastName} added as a new estimator!`);
       (e.target as HTMLFormElement).reset();
+      fetchEmployees(); // Refresh the list
     } catch (err: any) {
       toast.error(err.message || "Failed to create user.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to remove ${name}? This action cannot be undone.`)) return;
+    
+    const { error } = await supabase
+      .from('employees')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`${name} has been removed.`);
+      fetchEmployees(); // Refresh the list
     }
   };
 
@@ -168,52 +210,111 @@ export default function SettingsPage() {
           
           {/* TEAM TAB */}
           {activeTab === 'team' && (
-            <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-              <div className="p-6 border-b bg-zinc-50/50 flex items-center gap-3">
-                <div className="h-10 w-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
-                  <UserPlus size={20} />
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+              
+              {/* Add Estimator Form */}
+              <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b bg-zinc-50/50 flex items-center gap-3">
+                  <div className="h-10 w-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center">
+                    <UserPlus size={20} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-lg text-zinc-900">Add New Estimator</h2>
+                    <p className="text-xs text-zinc-500 uppercase font-black">Create a new team member account</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-bold text-lg text-zinc-900">Add New Estimator</h2>
-                  <p className="text-xs text-zinc-500 uppercase font-black">Create a new team member account</p>
+
+                <form onSubmit={handleCreateUser} className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">First Name</label>
+                      <input name="first_name" required placeholder="e.g. John" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Last Name</label>
+                      <input name="last_name" required placeholder="e.g. Doe" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Email Address</label>
+                      <input name="email" type="email" required placeholder="john@partitionplus.com" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Phone Number</label>
+                      <input name="phone" required placeholder="e.g. 5551234567" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Temporary Password</label>
+                    <input name="password" type="password" required placeholder="Set an initial password" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
+                    <p className="text-[10px] text-zinc-400 mt-2 font-bold uppercase">They can change this later. System will auto-generate their 2-letter Name Code (e.g., JD).</p>
+                  </div>
+
+                  <div className="pt-4">
+                    <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 bg-zinc-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-600 transition shadow-lg shadow-zinc-200 disabled:opacity-50">
+                      <Save size={16} /> {loading ? 'Creating User...' : 'Create Account'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Current Team List */}
+              <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b bg-zinc-50/50 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-zinc-100 text-zinc-600 rounded-xl flex items-center justify-center">
+                      <Users size={20} />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-lg text-zinc-900">Current Team</h2>
+                      <p className="text-xs text-zinc-500 uppercase font-black">Manage existing team members</p>
+                    </div>
+                  </div>
+                  {fetchingEmployees && <Loader2 className="animate-spin text-zinc-400" size={20} />}
+                </div>
+                
+                <div className="p-0">
+                  {employees.length === 0 && !fetchingEmployees ? (
+                    <div className="p-8 text-center text-zinc-500 font-medium">No team members found.</div>
+                  ) : (
+                    <ul className="divide-y divide-zinc-100">
+                      {employees.map(emp => (
+                        <li key={emp.id} className="flex items-center justify-between p-6 hover:bg-zinc-50 transition group">
+                          <div>
+                            <p className="font-bold text-zinc-900 flex items-center gap-2">
+                              {emp.first_name} {emp.last_name} 
+                              <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md tracking-widest uppercase">
+                                {emp.name_code}
+                              </span>
+                              {currentUser?.id === emp.id && (
+                                <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md tracking-widest uppercase">
+                                  You
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm text-zinc-500 font-medium mt-1">{emp.email}</p>
+                          </div>
+                          
+                          {/* Prevent user from deleting themselves */}
+                          {currentUser?.id !== emp.id && (
+                            <button 
+                              onClick={() => handleDeleteEmployee(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                              className="text-zinc-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-2 rounded-xl hover:bg-red-50"
+                              title="Remove Estimator"
+                            >
+                              <Trash2 size={20} />
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
 
-              <form onSubmit={handleCreateUser} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">First Name</label>
-                    <input name="first_name" required placeholder="e.g. John" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Last Name</label>
-                    <input name="last_name" required placeholder="e.g. Doe" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Email Address</label>
-                    <input name="email" type="email" required placeholder="john@partitionplus.com" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Phone Number</label>
-                    <input name="phone" required placeholder="e.g. 5551234567" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase mb-2 tracking-widest">Temporary Password</label>
-                  <input name="password" type="password" required placeholder="Set an initial password" className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl outline-none transition font-medium" />
-                  <p className="text-[10px] text-zinc-400 mt-2 font-bold uppercase">They can change this later. System will auto-generate their 2-letter Name Code (e.g., JD).</p>
-                </div>
-
-                <div className="pt-4">
-                  <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 bg-zinc-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-600 transition shadow-lg shadow-zinc-200 disabled:opacity-50">
-                    <Save size={16} /> {loading ? 'Creating User...' : 'Create Account'}
-                  </button>
-                </div>
-              </form>
             </div>
           )}
 
