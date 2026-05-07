@@ -16,13 +16,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Helper to format phone numbers nicely
-function formatPhone(phone: string) {
-  if (!phone) return 'N/A';
-  const cleaned = phone.replace(/\D/g, '');
+// Helper to format phone numbers safely (Handles if phone is a number type)
+function formatPhone(phoneRaw: any) {
+  if (!phoneRaw) return 'N/A';
+  const stringData = String(phoneRaw);
+  const cleaned = stringData.replace(/\D/g, '');
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
   if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
-  return phone;
+  return stringData;
 }
 
 export default function CustomersPage() {
@@ -71,9 +72,9 @@ export default function CustomersPage() {
         let totalSpent = 0;
         let wonJobsCount = 0;
 
-        // Ensure quotes is an array and sort them by newest first
+        // Spread into a new array [...quotes] before sorting to prevent read-only mutation crashes
         const sortedQuotes = Array.isArray(quotes) 
-          ? quotes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          ? [...quotes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           : [];
 
         sortedQuotes.forEach((q: any) => {
@@ -109,14 +110,14 @@ export default function CustomersPage() {
     setExpandedId(prev => prev === id ? null : id);
   };
 
-  // Filter customers based on the search query
+  // Filter customers based on the search query safely
   const filteredCustomers = customers.filter(c => {
     if (!searchQuery) return true;
     const term = searchQuery.toLowerCase();
     return (
       c.fullName.toLowerCase().includes(term) ||
-      (c.email && c.email.toLowerCase().includes(term)) ||
-      (c.phone && c.phone.includes(term)) ||
+      (c.email && String(c.email).toLowerCase().includes(term)) ||
+      (c.phone && String(c.phone).includes(term)) ||
       c.quotes.some((q: any) => q.job_name?.toLowerCase().includes(term) || q.quote_number?.toLowerCase().includes(term))
     );
   });
@@ -225,9 +226,10 @@ export default function CustomersPage() {
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {customer.quotes.map((quote: any) => {
                                   const isWon = quote.status === 'WON';
-                                  const jobAmount = Array.isArray(quote.jobs) && quote.jobs.length > 0 
-                                    ? Number(quote.jobs[0].sale_amount) 
-                                    : 0;
+                                  
+                                  // Safely extract the job amount whether it's an array or a flat object
+                                  const jobObj = Array.isArray(quote.jobs) ? quote.jobs[0] : quote.jobs;
+                                  const jobAmount = jobObj ? Number(jobObj.sale_amount) : 0;
 
                                   return (
                                     <a 
