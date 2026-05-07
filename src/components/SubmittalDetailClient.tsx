@@ -17,7 +17,11 @@ import {
   Truck, 
   Edit3,
   MapPin,
-  CheckCircle2
+  CheckCircle2,
+  UploadCloud, 
+  File,
+  Loader2,
+  ExternalLink
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -36,6 +40,8 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const [shippingAddress, setShippingAddress] = useState(submittal.shipping_address || 'Toilet Partitions shipping to ');
   const [description, setDescription] = useState(submittal.description || '** All hardware needed for installation is included **');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [docs, setDocs] = useState<any[]>(initialDocuments || []);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Modal States
   const [showAddOnForm, setShowAddOnForm] = useState(false);
@@ -78,6 +84,66 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000); 
       router.refresh();
+    }
+  };
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // 1. Upload to Supabase Storage bucket
+      const fileExt = file.name.split('.').pop();
+      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
+      const filePath = `${id}/${Date.now()}_${safeName}`; 
+
+      const { error: uploadError } = await supabase.storage
+        .from('job_documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('job_documents')
+        .getPublicUrl(filePath);
+
+      // 3. Save reference to the database
+      const { data: newDoc, error: dbError } = await supabase
+        .from('job_documents')
+        .insert({
+          quote_id: id,
+          file_name: file.name,
+          file_url: publicUrl
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Update UI immediately
+      setDocs(prev => [newDoc, ...prev]);
+      toast.success("Document uploaded!");
+    } catch (error: any) {
+      toast.error("Upload failed: " + error.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteDoc = async (docId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this document? This cannot be undone.")) return;
+    
+    // Note: To keep things fast, we delete the DB record. 
+    // You can also add supabase.storage.remove() here if you want to clean up the bucket!
+    const { error } = await supabase.from('job_documents').delete().eq('id', docId);
+    
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setDocs(docs.filter(d => d.id !== docId));
+      toast.success("Document removed");
     }
   };
 
@@ -454,7 +520,77 @@ const handleGeneratePDF = async () => {
           <AlertCircle size={12} /> Deleted items can be restored from the trash within 30 days
         </p>
       </section>
+    {/* SECTION 4: PROJECT DOCUMENTS */}
+      <section className="pt-12">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-black flex items-center gap-2 text-zinc-900 uppercase tracking-tight">
+            <File size={22} className="text-blue-600" /> Associated Files
+          </h2>
+          
+          <div>
+            <input 
+              type="file" 
+              id="doc-upload" 
+              accept="application/pdf" 
+              className="hidden" 
+              onChange={handleFileUpload} 
+            />
+            <label 
+              htmlFor="doc-upload"
+              className={`flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-100 cursor-pointer ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+            >
+              {isUploading ? <Loader2 className="animate-spin" size={14} /> : <UploadCloud size={14} />}
+              {isUploading ? 'Uploading...' : 'Upload PDF'}
+            </label>
+          </div>
+        </div>
 
+        {docs.length === 0 ? (
+          <div className="bg-white border border-zinc-200 border-dashed rounded-[2.5rem] p-12 text-center text-zinc-400 font-bold uppercase text-xs tracking-widest">
+            No documents uploaded yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {docs.map((doc: any) => (
+              <div 
+                key={doc.id} 
+                onClick={() => window.open(doc.file_url, '_blank')}
+                className="group cursor-pointer bg-white border border-zinc-200 rounded-3xl p-3 hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden"
+              >
+                {/* Hover Overlay with Icon */}
+                <div className="absolute inset-0 bg-blue-50/0 group-hover:bg-blue-50/80 transition-all z-10 flex items-center justify-center pointer-events-none">
+                  <div className="opacity-0 group-hover:opacity-100 bg-blue-600 text-white p-3 rounded-full shadow-xl transition-all scale-75 group-hover:scale-100">
+                    <ExternalLink size={20} />
+                  </div>
+                </div>
+
+                {/* File Name */}
+                <p className="text-xs font-black text-zinc-700 truncate mb-3 px-1 uppercase tracking-wider relative z-20" title={doc.file_name}>
+                  {doc.file_name}
+                </p>
+
+                {/* Live PDF Preview via scaled iframe */}
+                <div className="relative aspect-[3/4] w-full bg-zinc-100 rounded-2xl overflow-hidden pointer-events-none ring-1 ring-inset ring-zinc-200/50">
+                  <iframe 
+                    src={`${doc.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} 
+                    className="absolute top-0 left-0 w-full h-[150%] origin-top-left scale-[0.7]" 
+                    tabIndex={-1} 
+                  />
+                </div>
+
+                {/* Delete Button */}
+                <button 
+                  onClick={(e) => handleDeleteDoc(doc.id, e)}
+                  className="absolute top-2 right-2 p-1.5 bg-white text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition z-20 shadow-sm border border-zinc-200"
+                  title="Remove Document"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
       {/* MODAL OVERLAYS */}
       {showAddModal && (
         <AddOptionModal 

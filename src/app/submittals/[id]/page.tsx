@@ -84,6 +84,13 @@ export default async function SubmittalDetails({
     .eq('quote_id', id)
     .is('deleted_at', null);
 
+  // NEW: Fetch associated job documents
+  const { data: documents } = await supabase
+    .from('job_documents')
+    .select('*')
+    .eq('quote_id', id)
+    .order('created_at', { ascending: false });
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -149,6 +156,7 @@ export default async function SubmittalDetails({
         addons={addons || []} 
         id={id} 
         activeJob={job} 
+        initialDocuments={documents || []}
       />
     </div>
   );
