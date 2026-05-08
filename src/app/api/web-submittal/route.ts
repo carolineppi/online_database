@@ -1,6 +1,18 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
+// --- CORS HEADERS ---
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*', // Allows your WP site to talk to Vercel
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// --- PREFLIGHT HANDLER FOR BROWSER ---
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 // Helper function to parse the UTM sources
 function parseAdSource(rawUrl: string | null) {
   if (!rawUrl) return { source_url: null, quote_source: 'Organic / Direct' };
@@ -32,9 +44,9 @@ export async function POST(request: Request) {
       email, phone, 
       job_name, project_name,  
       notes, additional_notes, message,       
-      zip_code,       // NEW: Dedicated zip code field
-      pdf_base64, file_base64, file_name, // Legacy single-file fields
-      files,          // NEW: Array of multiple files [{ file_name, file_base64 }]
+      zip_code,       
+      pdf_base64, file_base64, file_name, 
+      files,          
       submission_url 
     } = body;
 
@@ -57,7 +69,10 @@ export async function POST(request: Request) {
     const numericPhone = parseInt(rawPhone, 10);
     
     if (isNaN(numericPhone) || rawPhone.length < 10) {
-        return NextResponse.json({ error: "Invalid phone format" }, { status: 400 });
+        return NextResponse.json(
+            { error: "Invalid phone format" }, 
+            { status: 400, headers: corsHeaders } // Notice the headers added here
+        );
     }
 
     // --- STEP 3: GENERATE BASE NUMBER (YY-XXXX) ---
@@ -110,7 +125,6 @@ export async function POST(request: Request) {
     // --- STEP 5: FILE UPLOAD LOGIC ---
     let fileUrls: string[] = [];
 
-    // Helper to process base64 and push to Supabase storage
     const uploadBase64File = async (base64Data: string, originalName: string | null, suffix: string) => {
         let buffer: Buffer;
         let contentType = 'application/pdf'; 
@@ -145,19 +159,16 @@ export async function POST(request: Request) {
         return null;
     };
 
-    // A. Handle Legacy Single File (from your first form)
     const legacyBase64 = pdf_base64 || file_base64; 
     if (legacyBase64) {
         const url = await uploadBase64File(legacyBase64, file_name, '');
         if (url) fileUrls.push(url);
     }
 
-    // B. Handle New Multi-File Uploads
     if (files && Array.isArray(files)) {
         for (let i = 0; i < files.length; i++) {
             const fileObj = files[i];
             if (fileObj.file_base64) {
-                // Suffixes them as _layout_1, _layout_2, etc.
                 const url = await uploadBase64File(fileObj.file_base64, fileObj.file_name, `_layout_${i+1}`);
                 if (url) fileUrls.push(url);
             }
@@ -172,9 +183,9 @@ export async function POST(request: Request) {
         quote_number: quoteNumber,
         status: 'Pending',
         customer: customer!.id,
-        pdf_url: fileUrls.length > 0 ? fileUrls[0] : null, // Backwards compatibility for the primary file
-        file_urls: fileUrls, // NEW: Saves the array of all uploaded URLs
-        zip_code: finalZip,  // NEW: Dedicated zip code storage
+        pdf_url: fileUrls.length > 0 ? fileUrls[0] : null, 
+        file_urls: fileUrls, 
+        zip_code: finalZip,  
         notes: finalNotes,
         source_url: adData.source_url,
         quote_source: adData.quote_source,
@@ -187,10 +198,17 @@ export async function POST(request: Request) {
 
     if (subError) throw subError;
 
-    return NextResponse.json({ success: true, quoteNumber });
+    // Returning success with CORS headers
+    return NextResponse.json(
+        { success: true, quoteNumber }, 
+        { headers: corsHeaders }
+    );
 
   } catch (err: any) {
     console.error(">>> [CRITICAL ERROR]:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+        { error: err.message }, 
+        { status: 500, headers: corsHeaders }
+    );
   }
 }
