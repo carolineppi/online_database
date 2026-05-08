@@ -9,7 +9,7 @@ import {
   ExternalLink,
   Download,
   User,
-  MapPin // NEW: Added for the Zip Code UI
+  MapPin
 } from 'lucide-react';
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
@@ -91,7 +91,6 @@ export default async function SubmittalDetails({
     .eq('quote_id', id)
     .order('created_at', { ascending: false });
 
-  // Boolean helper to check if this was a multi-file submission
   const hasMultipleFiles = submittal.file_urls && Array.isArray(submittal.file_urls) && submittal.file_urls.length > 0;
 
   return (
@@ -119,73 +118,63 @@ export default async function SubmittalDetails({
         displayName={displayName} 
       />
       
-      {/* CONDITIONAL RENDERING: 
-        If it has the new `file_urls` array, show the multi-file & zip code layout. 
-        Otherwise, if it has the old `pdf_url`, fallback to the single-file layout. 
-      */}
       {hasMultipleFiles ? (
-        <section className="mb-12">
-          <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-8 flex flex-col gap-6">
+        <section className="mb-8">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 md:p-6 flex flex-col gap-4">
             
-            {/* Header Area for Layout Docs */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-zinc-200 flex items-center justify-center text-blue-500">
-                  <FileText size={32} />
+            {/* COMPACT Header Area */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-200 flex items-center justify-center text-blue-500 shrink-0">
+                  <FileText size={24} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Layout Upload Tool</p>
-                  <h3 className="text-lg font-black text-zinc-900">Submitted Drawings & Details</h3>
-                  <p className="text-sm text-zinc-500 font-medium">Uploaded on {new Date(submittal.created_at).toLocaleDateString()}</p>
+                  <h3 className="text-base font-black text-zinc-900 leading-tight">Submitted Drawings</h3>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Uploaded {new Date(submittal.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
 
-              {/* Zip Code Badge */}
+              {/* COMPACT Zip Code Badge */}
               {submittal.zip_code && (
-                <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-2xl border border-zinc-200 shadow-sm w-full md:w-auto">
-                  <div className="p-2 bg-zinc-50 rounded-lg">
-                    <MapPin size={18} className="text-zinc-500" />
-                  </div>
+                <div className="flex items-center gap-2.5 bg-white px-4 py-2.5 rounded-xl border border-zinc-200 shadow-sm w-full md:w-auto shrink-0">
+                  <MapPin size={16} className="text-zinc-500" />
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Shipping Zip Code</span>
-                    <span className="text-sm font-bold text-zinc-900">{submittal.zip_code}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 leading-none">Shipping Zip</span>
+                    <span className="text-sm font-bold text-zinc-900 leading-none mt-1">{submittal.zip_code}</span>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="h-px bg-zinc-200 w-full my-2"></div>
-
-            {/* List of Uploaded Files */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* COMPACT Grid Layout for files (Fits up to 5 in a row on big screens) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {submittal.file_urls.map((url: string, index: number) => {
-                // Extract file extension to display a clean name
                 const extMatch = url.match(/\.([^.?]+)(\?.*)?$/);
                 const ext = extMatch ? extMatch[1].toUpperCase() : 'FILE';
                 
                 return (
-                  <div key={index} className="bg-white border border-zinc-200 rounded-2xl p-4 flex flex-col justify-between gap-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-zinc-100 text-zinc-500 p-2 rounded-lg text-xs font-bold">
+                  <div key={index} className="bg-white border border-zinc-200 rounded-xl p-3 flex flex-col gap-3 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded text-[10px] font-bold">
                         {ext}
                       </div>
-                      <span className="text-sm font-bold text-zinc-800 truncate">Drawing {index + 1}</span>
+                      <span className="text-xs font-bold text-zinc-800 truncate">Doc {index + 1}</span>
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5">
                       <Link 
                         href={url} 
                         target="_blank"
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-zinc-100 transition"
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-zinc-100 transition"
                       >
-                        <ExternalLink size={12} /> View
+                        <ExternalLink size={10} /> View
                       </Link>
                       <a 
                         href={url} 
                         download={`Drawing_${index + 1}`}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition"
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-zinc-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition"
                       >
-                        <Download size={12} /> Save
+                        <Download size={10} /> Save
                       </a>
                     </div>
                   </div>
@@ -196,34 +185,34 @@ export default async function SubmittalDetails({
           </div>
         </section>
       ) : submittal.pdf_url ? (
-        // --- LEGACY FALLBACK FOR SINGLE PDF UPLOADS ---
-        <section className="mb-12">
-          <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-zinc-200 flex items-center justify-center text-red-500">
-                <FileText size={32} />
+        // COMPACT Legacy fallback
+        <section className="mb-8">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-200 flex items-center justify-center text-red-500 shrink-0">
+                <FileText size={24} />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Source Document</p>
-                <h3 className="text-lg font-black text-zinc-900">Original Quote Tool PDF</h3>
-                <p className="text-sm text-zinc-500 font-medium">Uploaded on {new Date(submittal.created_at).toLocaleDateString()}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Source Document</p>
+                <h3 className="text-base font-black text-zinc-900 leading-tight">Original Quote Tool PDF</h3>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5">Uploaded {new Date(submittal.created_at).toLocaleDateString()}</p>
               </div>
             </div>
 
-            <div className="flex gap-3 w-full md:w-auto">
+            <div className="flex gap-2 w-full md:w-auto">
               <Link 
                 href={submittal.pdf_url} 
                 target="_blank"
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-50 transition"
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-zinc-200 text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition"
               >
-                <ExternalLink size={14} /> View PDF
+                <ExternalLink size={12} /> View PDF
               </Link>
               <a 
                 href={submittal.pdf_url} 
                 download 
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
               >
-                <Download size={14} /> Download
+                <Download size={12} /> Download
               </a>
             </div>
           </div>
