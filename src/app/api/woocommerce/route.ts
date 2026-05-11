@@ -9,7 +9,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // 1. Ignore Failed or Cancelled Orders
+    // --- 1. HANDLE WOOCOMMERCE PING EVENT ---
+    // When you create the webhook, WooCommerce sends a dummy payload to test the URL.
+    if (body.webhook_id) {
+      console.log(">>> [WOOCOMMERCE] Webhook Ping Successful");
+      return NextResponse.json({ message: "Webhook ping received" }, { status: 200 });
+    }
+
+    // Ignore Failed or Cancelled Orders
     if (body.status === 'failed' || body.status === 'cancelled') {
       return NextResponse.json({ message: "Ignored order status" }, { status: 200 });
     }
@@ -24,8 +31,9 @@ export async function POST(request: Request) {
       customer_note 
     } = body;
 
+    // Ensure it's a real order payload before proceeding
     if (!order_id || !billing?.email) {
-      return NextResponse.json({ error: "Invalid WooCommerce Payload" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid WooCommerce Payload. Missing order_id or email." }, { status: 400 });
     }
 
     // 2. Strict Phone Cleaning
@@ -36,13 +44,14 @@ export async function POST(request: Request) {
     const now = new Date();
     const yearSuffix = now.getFullYear().toString().slice(-2); 
 
+    // CRITICAL FIX: Changed .single() to .maybeSingle() to prevent 500 crashes
     const { data: lastQuote } = await supabase
       .from('quote_submittals')
       .select('quote_number')
       .ilike('quote_number', `${yearSuffix}-%`)
       .order('quote_number', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     let nextSequence = 1;
     if (lastQuote?.quote_number) {
@@ -57,11 +66,14 @@ export async function POST(request: Request) {
     const quoteNumber = `${yearSuffix}-${paddedSeq}`;
 
     // --- STEP 4: CUSTOMER LINKING / CREATION ---
-    // Search by email first, fallback to phone
+    // Added double quotes around the email to prevent parsing errors if an email has special characters
+    const emailFilter = `email.eq."${billing.email}"`;
+    const phoneFilter = numericPhone ? `,phone.eq.${numericPhone}` : '';
+
     let { data: customer } = await supabase
       .from('customers')
       .select('id')
-      .or(`email.eq.${billing.email}${numericPhone ? `,phone.eq.${numericPhone}` : ''}`)
+      .or(`${emailFilter}${phoneFilter}`)
       .maybeSingle();
 
     if (!customer) {
@@ -81,10 +93,9 @@ export async function POST(request: Request) {
     }
 
     // --- STEP 5: FORMAT CART ITEMS FOR DASHBOARD ---
-    // Maps the WooCommerce cart array into a clean, readable string
     const cartDetails = line_items?.map((item: any) => {
         return `• ${item.quantity}x ${item.name} (Subtotal: $${item.total})`;
-    }).join('\n');
+    }).join('\n') || 'No items found.';
 
     const formattedNotes = `WOOCOMMERCE CART ABANDONMENT / QUOTE REQUEST
 Order ID: #${order_id}
@@ -102,7 +113,6 @@ ${customer_note || 'None provided.'}`;
       : null;
 
     // --- STEP 6: INSERT RECORD ---
-    // Check to prevent duplicates if WooCommerce sends multiple events for the same order
     const jobName = `WooCommerce Order #${order_id}`;
     const { data: existingSubmittal } = await supabase
         .from('quote_submittals')
