@@ -13,6 +13,13 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
+// --- HELPER: EXTRACT METADATA ---
+const getMetaValue = (metaArray: any[], keysToFind: string[]) => {
+  if (!metaArray || !Array.isArray(metaArray)) return null;
+  const found = metaArray.find((m: any) => keysToFind.includes(m.key));
+  return found ? found.value : null;
+};
+
 export async function POST(request: Request) {
   console.log(">>> [WOOCOMMERCE WEBHOOK] Hit Received");
 
@@ -30,7 +37,6 @@ export async function POST(request: Request) {
     body = JSON.parse(rawText);
   } catch (e) {
     console.error(">>> [WOOCOMMERCE PARSE ERROR]: Could not parse JSON.", e);
-    // Return 200 so WooCommerce doesn't disable the webhook due to a parsing failure on a weird ping
     return NextResponse.json({ message: "Unprocessable payload, but acknowledged" }, { status: 200, headers: corsHeaders });
   }
 
@@ -60,7 +66,8 @@ export async function POST(request: Request) {
       shipping, 
       line_items, 
       total, 
-      customer_note 
+      customer_note,
+      meta_data
     } = body;
 
     const rawPhone = billing.phone ? billing.phone.toString().replace(/\D/g, '') : '';
@@ -116,17 +123,20 @@ export async function POST(request: Request) {
       customer = newCust;
     }
 
-    // Format Cart Items
-    const cartDetails = line_items?.map((item: any) => {
-        return `• ${item.quantity}x ${item.name} (Subtotal: $${item.total})`;
-    }).join('\n') || 'No items found.';
+    // --- STEP 5: DATA PREPARATION ---
+    
+    // Map the cart items into the exact JSON array expected by AddOptionModal
+    const itemizedBreakdown = line_items?.map((item: any) => ({
+      item: item.name,
+      qty: item.quantity
+    })) || [];
 
+    // Calculate the total item quantity
+    const totalQuantity = itemizedBreakdown.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0);
+
+    // Keep the general notes clean, stripping out the cart items since they will be their own quote option now
     const formattedNotes = `WOOCOMMERCE CART QUOTE REQUEST
 Order ID: #${order_id}
-Order Total: $${total}
-
---- CART ITEMS ---
-${cartDetails}
 
 --- CUSTOMER NOTES ---
 ${customer_note || 'None provided.'}`;
@@ -147,8 +157,16 @@ ${customer_note || 'None provided.'}`;
         return NextResponse.json({ message: "Order already exists" }, { status: 200, headers: corsHeaders });
     }
 
-    // Insert Submittal
-    const { error: subError } = await supabase
+    // Attribution Parsing
+    const quoteSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_source', '_wc_order_attribution_source_type', 'utm_source']) || 'WooCommerce / Direct';
+    const campaignSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_campaign', 'utm_campaign', 'gad_campaignid']);
+    const termSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_term', 'utm_term']);
+    const contentSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_content', 'utm_content']);
+    const sourceUrl = getMetaValue(meta_data, ['_wc_order_attribution_session_entry', 'submission_url']);
+
+    // --- STEP 6: INSERT RECORD ---
+    // Added `.select().single()` to return the new ID
+    const { data: newSubmittal, error: subError } = await supabase
       .from('quote_submittals')
       .insert([{
         job_name: jobName,
@@ -158,15 +176,40 @@ ${customer_note || 'None provided.'}`;
         notes: formattedNotes,
         zip_code: shipping?.postcode || billing?.postcode || null,
         shipping_address: shippingAddress,
-        quote_source: 'WooCommerce',
-      }]);
+        quote_source: quoteSource,
+        campaign_source: campaignSource,
+        term_source: termSource,
+        content_source: contentSource,
+        source_url: sourceUrl
+      }])
+      .select('id')
+      .single();
 
     if (subError) throw subError;
+
+    // --- STEP 7: CREATE AUTOMATIC QUOTE OPTION ---
+    if (newSubmittal && itemizedBreakdown.length > 0) {
+      const { error: quoteError } = await supabase
+        .from('individual_quotes')
+        .insert([{
+          quote_id: newSubmittal.id,
+          material: "Bathroom Accessories per Attached Submittal",
+          mounting_style: "Accessories Only",
+          manufacturer: "Partition Plus",
+          details: null,
+          color: null,
+          shipping_included: "Includes Shipping",
+          itemized_breakdown: itemizedBreakdown,
+          quantity: totalQuantity,
+          price: Number(total) || 0
+        }]);
+        
+      if (quoteError) throw quoteError;
+    }
 
     return NextResponse.json({ success: true, quoteNumber }, { headers: corsHeaders });
 
   } catch (err: any) {
-    // If the database fails, log it to Vercel but still return a 200 so WooCommerce doesn't disable the webhook
     console.error(">>> [WOOCOMMERCE DB ERROR]:", err.message);
     return NextResponse.json({ error: "Database operation failed, check Vercel logs" }, { status: 200, headers: corsHeaders });
   }
