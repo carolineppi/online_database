@@ -41,7 +41,6 @@ export default function SubmittalsPage() {
 
   const fetchSubmittals = async () => {
     setLoading(true);
-    // Added 'customer' to the select string to ensure we have the ID for duplication
     const { data, error } = await supabase
       .from('quote_submittals')
       .select(`
@@ -152,24 +151,31 @@ export default function SubmittalsPage() {
       sub.customers?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       sub.customers?.last_name?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = statusFilter === 'ALL' || sub.status === statusFilter;
+    // Safely check status match, ignoring case
+    const currentStatus = sub.status?.toUpperCase() || 'PENDING';
+    const matchesStatus = statusFilter === 'ALL' || currentStatus === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
+  // Explicitly map exactly to PENDING, QUOTED, and WON
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    const s = status?.toUpperCase() || 'PENDING';
+    switch (s) {
       case 'WON': return <CheckCircle size={14} className="text-emerald-500" />;
-      case 'PENDING': return <XCircle size={14} className="text-red-500" />;
-      default: return <Clock size={14} className="text-amber-500" />;
+      case 'QUOTED': return <Clock size={14} className="text-amber-500" />;
+      case 'PENDING': return <Clock size={14} className="text-red-500" />;
+      default: return <Clock size={14} className="text-red-500" />;
     }
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    const s = status?.toUpperCase() || 'PENDING';
+    switch (s) {
       case 'WON': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'QUOTED': return 'bg-amber-50 text-amber-700 border-amber-100';
       case 'PENDING': return 'bg-red-50 text-red-700 border-red-100';
-      default: return 'bg-amber-50 text-amber-700 border-amber-100';
+      default: return 'bg-red-50 text-red-700 border-red-100';
     }
   };
 
@@ -276,7 +282,7 @@ export default function SubmittalsPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getStatusBadge(submittal.status)}`}>
-                        {getStatusIcon(submittal.status)} {submittal.status}
+                        {getStatusIcon(submittal.status)} {submittal.status || 'PENDING'}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
