@@ -207,13 +207,14 @@ export default function EditJobFinancials({ job, options: passedOptions, onClose
               <p className="text-base font-black text-emerald-600">${totalSale.toLocaleString()}</p>
             </div>
             <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
-              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 truncate">Total Actual</p>
-              <p className="text-base font-black text-amber-600">${totalActualCalc.toLocaleString()}</p>
-            </div>
-            <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
               <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 truncate">Total Est.</p>
               <p className="text-base font-black text-blue-600">${totalEstCalc.toLocaleString()}</p>
             </div>
+            <div className="bg-zinc-50 p-3 rounded-xl border border-zinc-100">
+              <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1 truncate">Total Actual</p>
+              <p className="text-base font-black text-amber-600">${totalActualCalc.toLocaleString()}</p>
+            </div>
+
           </div>
 
           <button 

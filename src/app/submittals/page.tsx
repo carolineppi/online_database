@@ -160,7 +160,7 @@ export default function SubmittalsPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'WON': return <CheckCircle size={14} className="text-emerald-500" />;
-      case 'LOST': return <XCircle size={14} className="text-red-500" />;
+      case 'PENDING': return <XCircle size={14} className="text-red-500" />;
       default: return <Clock size={14} className="text-amber-500" />;
     }
   };
@@ -207,8 +207,8 @@ export default function SubmittalsPage() {
             >
               <option value="ALL">All Status</option>
               <option value="PENDING">Pending</option>
+              <option value="QUOTED">Quoted</option>
               <option value="WON">Won</option>
-              <option value="LOST">Lost</option>
             </select>
           </div>
         </div>

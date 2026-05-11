@@ -66,7 +66,7 @@ export default function FinancialDashboard() {
           .lte('created_at', `${dateRange.end}T23:59:59`)
           .order('created_at', { ascending: false }),
         
-        supabase.from('jobs').select('id, created_at, sale_amount, estimated_cost, quote_id, winning_quote_ids, accepted_individual_quote')
+        supabase.from('jobs').select('id, created_at, sale_amount, actual_cost, quote_id, winning_quote_ids, accepted_individual_quote')
           .is('deleted_at', null)
           .gte('created_at', `${dateRange.start}T00:00:00`)
           .lte('created_at', `${dateRange.end}T23:59:59`)
@@ -95,7 +95,7 @@ export default function FinancialDashboard() {
 
         const dateJobIds = jobsInDateRange.map(j => j.id);
         const { data: extraJobs } = await supabase.from('jobs')
-          .select('id, created_at, sale_amount, estimated_cost, quote_id, winning_quote_ids, accepted_individual_quote')
+          .select('id, created_at, sale_amount, actual_cost, quote_id, winning_quote_ids, accepted_individual_quote')
           .in('quote_id', allRequiredQuoteIds).is('deleted_at', null);
         
         if (extraJobs) {
@@ -141,7 +141,7 @@ export default function FinancialDashboard() {
         if (!submittal) return null;
 
         const contractAmount = (Number(job.sale_amount) || 0) + submittal.addonsTotal;
-        const costAmount = Number(job.estimated_cost) || 0;
+        const costAmount = Number(job.actual_cost) || 0;
         const profit = contractAmount - costAmount;
         const margin = contractAmount > 0 ? (profit / contractAmount) * 100 : 0;
 
@@ -404,7 +404,7 @@ export default function FinancialDashboard() {
                     <th className="px-6 py-4">Marketing Source</th>
                     <th className="px-6 py-4">Quote #</th>
                     <th className="px-6 py-4 text-right">Contract Amount</th>
-                    <th className="px-6 py-4 text-right">Est. Cost</th>
+                    <th className="px-6 py-4 text-right">Actual Cost</th>
                     <th className="px-6 py-4 text-right">Gross Profit</th>
                   </tr>
                 </thead>

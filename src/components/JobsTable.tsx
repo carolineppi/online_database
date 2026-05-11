@@ -18,7 +18,7 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
           <tr>
             <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Project</th>
             <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Contract</th>
-            <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Est. Cost</th>
+            <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Actual Cost</th>
             <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Markup</th>
             <th className="px-6 py-4"></th>
           </tr>
@@ -31,7 +31,7 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                 <div className="text-xs text-zinc-400">#{job.quote_submittals?.quote_number}</div>
               </td>
               <td className="px-6 py-4 font-medium">${Number(job.sale_amount).toLocaleString()}</td>
-              <td className="px-6 py-4 text-zinc-600">${Number(job.estimated_cost).toLocaleString()}</td>
+              <td className="px-6 py-4 text-zinc-600">${Number(job.actual_cost).toLocaleString()}</td>
               <td className="px-6 py-4">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
                   (job.markup_percent * 100) > 15 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
