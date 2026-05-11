@@ -168,7 +168,7 @@ export default function SubmittalsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'WON': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
-      case 'LOST': return 'bg-red-50 text-red-700 border-red-100';
+      case 'PENDING': return 'bg-red-50 text-red-700 border-red-100';
       default: return 'bg-amber-50 text-amber-700 border-amber-100';
     }
   };
