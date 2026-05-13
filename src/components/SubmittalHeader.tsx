@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Edit3, Save, X, Globe, User, Megaphone } from 'lucide-react';
+import { 
+  Edit3, Save, X, Globe, User, Megaphone, 
+  UserPlus, Search, Loader2 
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 function formatPhoneNumber(phoneNumberRaw: any): string {
@@ -18,6 +21,14 @@ function formatPhoneNumber(phoneNumberRaw: any): string {
 export default function SubmittalHeader({ submittal, isPaid, isManual, displayName }: any) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // Reassign Modal State
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isReassigning, setIsReassigning] = useState(false);
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -25,34 +36,68 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
 
   const [formData, setFormData] = useState({
     job_name: submittal.job_name || '',
-    quote_number_mask: submittal.quote_number_mask || '', // NEW: Mask state
+    quote_number_mask: submittal.quote_number_mask || '',
     first_name: customer.first_name || '',
     last_name: customer.last_name || '',
     phone: customer.phone || '',
     email: customer.email || ''
   });
 
+  // Debounced search for the Reassign Modal
+  useEffect(() => {
+    if (!showReassignModal) return;
+
+    const delayDebounceFn = setTimeout(() => {
+      fetchCustomersForReassign(searchQuery);
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, showReassignModal]);
+
+  const fetchCustomersForReassign = async (query = '') => {
+    setIsSearching(true);
+    try {
+      let request = supabase
+        .from('customer_summary_stats')
+        .select('id, full_name, email, phone, phone_text')
+        .limit(10);
+
+      if (query) {
+        request = request.or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone_text.ilike.%${query}%`);
+      } else {
+        request = request.order('quotes_count', { ascending: false });
+      }
+
+      const { data, error } = await request;
+      if (error) throw error;
+      setSearchResults(data || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to search customers.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleSave = async () => {
     setLoading(true);
     try {
-      // 1. Update the Job Name and Mask in quote_submittals
       const { error: subError } = await supabase
         .from('quote_submittals')
         .update({ 
           job_name: formData.job_name,
-          quote_number_mask: formData.quote_number_mask // NEW: Save mask to DB
+          quote_number_mask: formData.quote_number_mask 
         })
         .eq('id', submittal.id);
       if (subError) throw subError;
 
-      // 2. Update the Customer info in customers table (if a customer exists)
       if (customer.id) {
         const { error: custError } = await supabase
           .from('customers')
           .update({
             first_name: formData.first_name,
             last_name: formData.last_name,
-            phone: formData.phone,
+            phone: formData.phone ? formData.phone.replace(/\D/g, '') : null,
             email: formData.email
           })
           .eq('id', customer.id);
@@ -66,6 +111,27 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
       toast.error(err.message || "Failed to update details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReassignCustomer = async (newCustomerId: string) => {
+    setIsReassigning(true);
+    try {
+      const { error } = await supabase
+        .from('quote_submittals')
+        .update({ customer: newCustomerId })
+        .eq('id', submittal.id);
+
+      if (error) throw error;
+
+      toast.success("Quote successfully reassigned to new customer!");
+      setShowReassignModal(false);
+      setIsEditing(false);
+      router.refresh();
+    } catch (err: any) {
+      toast.error("Failed to reassign quote.");
+    } finally {
+      setIsReassigning(false);
     }
   };
 
@@ -120,37 +186,58 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
                 className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl font-bold text-zinc-900 outline-none"
               />
             </div>
-            <div>
-              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">First Name</label>
-              <input 
-                value={formData.first_name}
-                onChange={(e) => setFormData({...formData, first_name: e.target.value})}
-                className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl font-medium text-zinc-900 outline-none"
-              />
+          </div>
+
+          {/* NEW: Customer Info Header & Disclaimer */}
+          <div className="pt-4 border-t border-zinc-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-800">Customer Details</h3>
+                <p className="text-xs text-amber-600 mt-1 max-w-md">
+                  <strong>Warning:</strong> Edits here will change this customer's global profile. If you want to link this quote to a different person entirely, reassign it instead.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowReassignModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition whitespace-nowrap"
+              >
+                <UserPlus size={16} /> Reassign Quote
+              </button>
             </div>
-            <div>
-              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Last Name</label>
-              <input 
-                value={formData.last_name}
-                onChange={(e) => setFormData({...formData, last_name: e.target.value})}
-                className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl font-medium text-zinc-900 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Phone Number</label>
-              <input 
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl font-medium text-zinc-900 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Email Address</label>
-              <input 
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 rounded-xl font-medium text-zinc-900 outline-none"
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">First Name</label>
+                <input 
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                  className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-amber-400 rounded-xl font-medium text-zinc-900 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Last Name</label>
+                <input 
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                  className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-amber-400 rounded-xl font-medium text-zinc-900 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Phone Number</label>
+                <input 
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                  className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-amber-400 rounded-xl font-medium text-zinc-900 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Email Address</label>
+                <input 
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full p-3 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-amber-400 rounded-xl font-medium text-zinc-900 outline-none"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -159,7 +246,6 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-2xl font-black text-zinc-900">{submittal.job_name}</h1>
-              {/* NEW: Displays the mask if it exists, otherwise falls back to the original */}
               <span className="bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded text-sm font-mono font-bold" title={`Original DB ID: ${submittal.quote_number}`}>
                 #{submittal.quote_number_mask || submittal.quote_number}
               </span>
@@ -193,6 +279,69 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
             }`}>
               {submittal.status}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* REASSIGN MODAL */}
+      {showReassignModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
+              <h3 className="font-bold text-zinc-900 text-lg flex items-center gap-2">
+                <UserPlus size={20} className="text-blue-600" /> Reassign Quote
+              </h3>
+              <button 
+                onClick={() => setShowReassignModal(false)}
+                className="text-zinc-400 hover:text-zinc-600 transition p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-4 overflow-hidden">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="Search by name, email, or phone..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto min-h-[200px] border border-zinc-100 rounded-xl p-2 bg-zinc-50/50">
+                {isSearching ? (
+                  <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-2 py-8">
+                    <Loader2 className="animate-spin" size={24} />
+                    <span className="text-xs font-bold uppercase tracking-widest">Searching...</span>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {searchResults.map((res) => (
+                      <button
+                        key={res.id}
+                        onClick={() => handleReassignCustomer(res.id)}
+                        disabled={isReassigning}
+                        className="flex flex-col items-start p-3 bg-white border border-zinc-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition disabled:opacity-50 text-left"
+                      >
+                        <span className="font-black text-zinc-900 text-sm">{res.full_name || 'Unknown Name'}</span>
+                        <div className="flex gap-3 mt-1 text-xs text-zinc-500 font-medium">
+                          {res.email && <span>{res.email}</span>}
+                          {res.phone && <span>{formatPhoneNumber(res.phone)}</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-zinc-400 py-8 text-sm">
+                    No customers found.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
