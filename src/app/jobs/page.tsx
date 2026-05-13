@@ -6,12 +6,13 @@ export default async function ActiveJobsPage() {
 
   // Fetch jobs with the joined submittal name
   // Inside your jobs list fetch logic
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+
   const { data: activeJobs, error } = await supabase
     .from('jobs')
-    .select(`
-      *,
-      quote_submittals!fk_jobs_to_submittals (*)
-    `)
+    .select('*, quote_submittals!fk_jobs_to_submittals (*)')
+    .gte('created_at', firstDay) // Filters to this month automatically!
     .order('created_at', { ascending: false });
 
   if (error) console.error("Jobs Fetch Error:", error);
