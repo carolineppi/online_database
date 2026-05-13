@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     };
 
     const checkPageBreak = (currentY: number, neededSpace: number) => {
-      if (currentY + neededSpace > 700) {
+      if (currentY + neededSpace > 750) {
         doc.addPage();
         applyWatermark(doc);
         return 60; // reset Y
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
     doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 127);
     
     doc.setFontSize(12);
-    doc.text(submittal.job_name || "PROPOSAL", 50, 150);
+    doc.text(submittal.job_name || "PROPOSAL", 50, 145);
 
     // Replace the quote number logic around line 88
     doc.setFontSize(12);
@@ -266,11 +266,12 @@ export async function GET(req: NextRequest) {
     yPos += 30;
 
     // 6. Terms Box
-    yPos = checkPageBreak(yPos, 190);
+    yPos = checkPageBreak(yPos, 180);
     
     doc.setFont("helvetica", "italic");
     doc.setFontSize(11);
     doc.setTextColor(0);
+    yPos += 5;
     doc.text("Important terms of use information:", 40, yPos);
     
     yPos += 10;
