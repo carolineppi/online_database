@@ -90,11 +90,11 @@ export async function GET(req: NextRequest) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...darkText);
-    doc.text("We Make it ", 99, 75, { align: 'center' });
+    doc.text("We Make it ", 99, 80, { align: 'center' });
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 126, 75);
+    doc.text("Easy for Anyone ", 126, 80);
     doc.setTextColor(...darkText);
-    doc.text("to Buy Toilet Partitions", 140, 85, { align: 'center' });
+    doc.text("to Buy Toilet Partitions", 140, 95, { align: 'center' });
 
     // Header Right Info
     doc.setTextColor(0);
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
     doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 127);
     
     doc.setFontSize(12);
-    doc.text(submittal.job_name || "PROPOSAL", 55, 140);
+    doc.text(submittal.job_name || "PROPOSAL", 50, 150);
 
     // Replace the quote number logic around line 88
     doc.setFontSize(12);
@@ -203,7 +203,7 @@ export async function GET(req: NextRequest) {
       doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
       
       // Color
-      yPos += 16;
+      yPos += 14;
       currentX = 40;
       doc.setFont("helvetica", "normal");
       doc.text("Color: ", currentX, yPos);
