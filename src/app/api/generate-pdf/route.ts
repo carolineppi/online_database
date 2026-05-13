@@ -181,7 +181,11 @@ export async function GET(req: NextRequest) {
       doc.setFont("helvetica", "normal");
       doc.text("Mounting: ", 40, yPos);
       doc.setFont("helvetica", "bold");
-      doc.text(`${opt.mounting_style}  ${opt.details}` || '' , 88, yPos);
+      const mountingText = opt.details 
+        ? `${opt.mounting_style} for ${opt.details}" ceiling height` 
+        : opt.mounting_style;
+      
+      doc.text(mountingText || '', 88, yPos);
             
       doc.setFont("helvetica", "normal");
       doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });

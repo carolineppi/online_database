@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 // Extracted from legacy SQL data
-const MATERIALS = ["Powder Coated Steel (PCS)", "High Pressure Laminate (HPL)", "HDPE Solid Plastic", "Solid Phenolic", "Stainless Steel", "Bathroom Accessories per Attached Submittal" ];
+const MATERIALS = ["Powder Coated Steel (PCS)", "Series 1552 High Pressure Laminate (HPL)", "HineyHiders Solid Plastic", "HDPE - Solid Plastic", "Series 1082 Solid Phenolic", "Stainless Steel", "Bathroom Accessories per Attached Submittal" ];
 const MANUFACTURERS = ["ASI", "Bobrick", "Bradley", "Excel", "Global", "Hadrian", "Hawa", "Metpar", "Partition Plus", "Scranton Products"];
 const PRESET_ITEMS = ["Toilet Stalls", "Urinal Screens", "Privacy Screens", "Shower Stalls"];
 
@@ -222,7 +222,7 @@ export default function AddOptionModal({ quoteId, onClose, initialData }: AddOpt
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Details</label>
+                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">Height Details (in inches)</label>
                 <div className="relative">
                   <input value={formData.details} placeholder="Details" className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold"
                     onChange={e => setFormData({...formData, details: e.target.value})} />
