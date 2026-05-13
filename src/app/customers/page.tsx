@@ -1,10 +1,12 @@
 'use client';
 
+import EditCustomerModal from '@/components/EditCustomerModal';
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
+// 1. Add Edit, Save, and X to your imports
 import { 
   Users, Search, Mail, Phone, ChevronDown, ChevronUp, 
-  Briefcase, Loader2, Plus
+  Briefcase, Loader2, Plus, Edit, Save, X
 } from 'lucide-react';
 import CreateSubmittalForm from '@/components/CreateSubmittalForm';
 import { toast } from 'sonner';
@@ -25,6 +27,9 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedCustomerForSubmittal, setSelectedCustomerForSubmittal] = useState<any>(null);
+
+  // 2. Add these new states for the Edit feature
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
 
 // Add this effect to handle the Search Debounce
   useEffect(() => {
@@ -85,6 +90,11 @@ const fetchCustomers = async (query = '') => {
     setLoading(false);
   }
 };
+
+  const openEditModal = (customer: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCustomer(customer);
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedId(prev => prev === id ? null : id);
@@ -184,6 +194,15 @@ const fetchCustomers = async (query = '') => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                        {/* NEW: Edit Button */}
+                        <button 
+                          onClick={(e) => openEditModal(customer, e)}
+                          className="p-2 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 rounded-full transition"
+                          title="Edit Customer"
+                        >
+                          <Edit size={18} />
+                        </button>
+
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -289,6 +308,16 @@ const fetchCustomers = async (query = '') => {
         <CreateSubmittalForm 
           initialCustomer={selectedCustomerForSubmittal} 
           onClose={() => setSelectedCustomerForSubmittal(null)} 
+        />
+      )}
+      {editingCustomer && (
+        <EditCustomerModal 
+          customer={editingCustomer} 
+          onClose={() => setEditingCustomer(null)}
+          onSuccess={() => {
+            setEditingCustomer(null);
+            fetchCustomers(searchQuery); // Refresh the list after a successful save/merge
+          }}
         />
       )}
     </div>
