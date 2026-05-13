@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
     const addressText = submittal.shipping_address || 'Toilet Partitions shipping to:';
     const splitAddress = doc.splitTextToSize(addressText, 530);
     doc.text(splitAddress, 40, yPos);
-    yPos += (splitAddress.length * 14) + 10;
+    yPos += (splitAddress.length * 14) + 20;
 
     // Description
     // doc.setFont("helvetica", "bold");
@@ -257,6 +257,7 @@ export async function GET(req: NextRequest) {
 
     // 5. Hardware Banner (Red Background, White Text)
     yPos = checkPageBreak(yPos, 40);
+    yPos -= 10;
     doc.setFillColor(...redColor);
     doc.rect(40, yPos, 530, 25, 'F');
     doc.setTextColor(255);
@@ -271,7 +272,7 @@ export async function GET(req: NextRequest) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(11);
     doc.setTextColor(0);
-    yPos += 5;
+    yPos += 20;
     doc.text("Important terms of use information:", 40, yPos);
     
     yPos += 10;
