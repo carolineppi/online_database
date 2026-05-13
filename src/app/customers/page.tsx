@@ -53,23 +53,34 @@ const fetchCustomers = async (query = '') => {
     const { data: stats, error } = await request;
     if (error) throw error;
 
-    // Fetch the detailed quotes ONLY for these 20 customers
-    const customerIds = stats.map(c => c.id);
-    const { data: quotesData } = await supabase
-      .from('quote_submittals')
-      .select('*, individual_quotes(*)')
-      .in('customer', customerIds)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+    // Fetch the detailed quotes AND jobs ONLY for these 20 customers
+    const customerIds = (stats || []).map(c => c.id);
+    
+    let quotesData: any[] = [];
+    if (customerIds.length > 0) {
+      const { data } = await supabase
+        .from('quote_submittals')
+        .select('*, jobs(*)') // Added jobs(*) so project history shows sales correctly
+        .in('customer', customerIds)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+      
+      quotesData = data || [];
+    }
 
-    const formatted = stats.map(c => ({
+    // FIX: Map the snake_case DB columns to the camelCase variables React expects
+    const formatted = (stats || []).map(c => ({
       ...c,
       fullName: c.full_name || 'Unknown Customer',
-      quotes: quotesData?.filter(q => q.customer === c.id) || []
+      quotesCount: Number(c.quotes_count) || 0,
+      wonJobsCount: Number(c.won_jobs_count) || 0,
+      totalSpent: Number(c.total_spent) || 0,
+      quotes: quotesData.filter(q => q.customer === c.id) || []
     }));
 
     setCustomers(formatted);
   } catch (err: any) {
+    console.error("Fetch error:", err);
     toast.error("Failed to load customers.");
   } finally {
     setLoading(false);
