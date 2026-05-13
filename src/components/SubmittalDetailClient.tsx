@@ -154,28 +154,22 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
-  const handleGeneratePDF = async () => {
+  const handleGeneratePDF = () => {
     if (selectedIds.length === 0) return toast.error("Select at least one option.");
-    setGenerating(true);
     
     try {
-      const res = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submittalId: id, quoteIds: selectedIds }),
-      });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-      }
+      // 1. Convert the array of selected IDs into a comma-separated string
+      const quoteIdsString = selectedIds.join(',');
+      
+      // 2. Construct the GET URL with query parameters
+      const pdfUrl = `/api/generate-pdf?submittalId=${id}&quoteIds=${quoteIdsString}`;
+      
+      // 3. Open the URL in a new tab. The browser handles the PDF preview and downloading!
+      window.open(pdfUrl, '_blank');
+      
     } catch (err) {
       console.error("PDF Error:", err);
-      toast.error("Failed to generate PDF");
-    } finally {
-      setGenerating(false);
+      toast.error("Failed to open PDF preview");
     }
   };
 

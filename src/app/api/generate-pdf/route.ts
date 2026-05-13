@@ -6,9 +6,18 @@ const darkText = [50, 50, 50] as const;   // #323232
 const redColor = [183, 0, 32] as const;   // #b70020
 const lightGray = [243, 243, 243] as const; // #f3f3f3
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const { submittalId, quoteIds } = await req.json();
+    // 1. Grab variables from the URL query string instead of req.json()
+    const searchParams = req.nextUrl.searchParams;
+    const submittalId = searchParams.get('submittalId');
+    const quoteIdsParam = searchParams.get('quoteIds');
+    
+    if (!submittalId || !quoteIdsParam) throw new Error("Missing parameters");
+    
+    // Convert the comma-separated string back to an array
+    const quoteIds = quoteIdsParam.split(','); 
+
     const supabase = await createClient();
 
     const { data: submittal } = await supabase
@@ -300,13 +309,12 @@ export async function POST(req: NextRequest) {
     return new NextResponse(Buffer.from(pdfOutput), {
       headers: {
         'Content-Type': 'application/pdf',
-        // 2. Updated to your new format: [quote#]_quote.pdf
-        'Content-Disposition': `attachment; filename="${safeQuoteNumber}_quote.pdf"`,
+        // 2. Change "attachment" to "inline" to tell the browser to preview it!
+        'Content-Disposition': `inline; filename="${safeQuoteNumber}_quote.pdf"`,
       },
     });
 
   } catch (error: any) {
-    console.error("PDF Generation Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
