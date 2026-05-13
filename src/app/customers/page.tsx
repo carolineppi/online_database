@@ -26,81 +26,55 @@ export default function CustomersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedCustomerForSubmittal, setSelectedCustomerForSubmittal] = useState<any>(null);
 
+// Add this effect to handle the Search Debounce
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+  const delayDebounceFn = setTimeout(() => {
+    fetchCustomers(searchQuery);
+  }, 400); // Wait 400ms after user stops typing
+  return () => clearTimeout(delayDebounceFn);
+}, [searchQuery]);
 
-  const fetchCustomers = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select(`
-          id, 
-          first_name, 
-          last_name, 
-          email, 
-          phone, 
-          created_at,
-          quote_submittals (
-            id, 
-            job_name, 
-            quote_number, 
-            status, 
-            created_at,
-            deleted_at, 
-            jobs (
-              id, 
-              sale_amount,
-              deleted_at
-            )
-          )
-        `)
-        .order('created_at', { ascending: false });
+const fetchCustomers = async (query = '') => {
+  setLoading(true);
+  try {
+    let request = supabase
+      .from('customer_summary_stats')
+      .select(`*`)
+      .limit(20);
 
-      if (error) throw error;
-
-      const formattedCustomers = (data || []).map(customer => {
-        // NEW: Filter out any quote submittals that are in the trash
-        const activeQuotes = (customer.quote_submittals || []).filter((q: any) => !q.deleted_at);
-        
-        let totalSpent = 0;
-        let wonJobsCount = 0;
-
-        const sortedQuotes = Array.isArray(activeQuotes) 
-          ? [...activeQuotes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          : [];
-
-        sortedQuotes.forEach((q: any) => {
-          const jobs = Array.isArray(q.jobs) ? q.jobs : (q.jobs ? [q.jobs] : []);
-          
-          // NEW: Filter out any jobs that are in the trash
-          const activeJobs = jobs.filter((j: any) => !j.deleted_at);
-          
-          activeJobs.forEach((j: any) => {
-            totalSpent += Number(j.sale_amount) || 0;
-            wonJobsCount++;
-          });
-        });
-
-        return {
-          ...customer,
-          fullName: `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown Customer',
-          quotesCount: sortedQuotes.length, // Now reflects ACTIVE quotes only
-          wonJobsCount, // Now reflects ACTIVE jobs only
-          totalSpent, // Now reflects ACTIVE spend only
-          quotes: sortedQuotes 
-        };
-      });
-
-      setCustomers(formattedCustomers);
-    } catch (err: any) {
-      console.error("Error fetching customers:", err);
-      toast.error("Failed to load customer directory.");
-    } finally {
-      setLoading(false);
+    if (query) {
+      // Search mode: show top 20 matching results
+      request = request.or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%`);
+    } else {
+      // Default mode: show top 20 by popularity
+      request = request.order('quotes_count', { ascending: false });
     }
-  };
+
+    const { data: stats, error } = await request;
+    if (error) throw error;
+
+    // Fetch the detailed quotes ONLY for these 20 customers
+    const customerIds = stats.map(c => c.id);
+    const { data: quotesData } = await supabase
+      .from('quote_submittals')
+      .select('*, individual_quotes(*)')
+      .in('customer', customerIds)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    const formatted = stats.map(c => ({
+      ...c,
+      fullName: c.full_name || 'Unknown Customer',
+      quotes: quotesData?.filter(q => q.customer === c.id) || []
+    }));
+
+    setCustomers(formatted);
+  } catch (err: any) {
+    toast.error("Failed to load customers.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const toggleExpand = (id: string) => {
     setExpandedId(prev => prev === id ? null : id);
