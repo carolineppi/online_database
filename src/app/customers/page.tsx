@@ -4,12 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { 
   Users, Search, Mail, Phone, ChevronDown, ChevronUp, 
-  DollarSign, Briefcase, FileText, Loader2, Plus // <--- Add Plus here
+  Briefcase, Loader2, Plus
 } from 'lucide-react';
 import CreateSubmittalForm from '@/components/CreateSubmittalForm';
 import { toast } from 'sonner';
 
-// Helper to format phone numbers safely (Handles if phone is a number type)
 function formatPhone(phoneRaw: any) {
   if (!phoneRaw) return 'N/A';
   const stringData = String(phoneRaw);
@@ -34,7 +33,6 @@ export default function CustomersPage() {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      // Fetch customers and their relational data (Quotes -> Jobs)
       const { data, error } = await supabase
         .from('customers')
         .select(`
@@ -50,9 +48,11 @@ export default function CustomersPage() {
             quote_number, 
             status, 
             created_at,
+            deleted_at, 
             jobs (
               id, 
-              sale_amount
+              sale_amount,
+              deleted_at
             )
           )
         `)
@@ -60,22 +60,24 @@ export default function CustomersPage() {
 
       if (error) throw error;
 
-      // Map over the data to calculate aggregates (Total Spend, Job Counts)
       const formattedCustomers = (data || []).map(customer => {
-        const quotes = customer.quote_submittals || [];
+        // NEW: Filter out any quote submittals that are in the trash
+        const activeQuotes = (customer.quote_submittals || []).filter((q: any) => !q.deleted_at);
+        
         let totalSpent = 0;
         let wonJobsCount = 0;
 
-        // Spread into a new array [...quotes] before sorting to prevent read-only mutation crashes
-        const sortedQuotes = Array.isArray(quotes) 
-          ? [...quotes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        const sortedQuotes = Array.isArray(activeQuotes) 
+          ? [...activeQuotes].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           : [];
 
         sortedQuotes.forEach((q: any) => {
-          // Handle Supabase returning jobs as an array or a single object
           const jobs = Array.isArray(q.jobs) ? q.jobs : (q.jobs ? [q.jobs] : []);
           
-          jobs.forEach((j: any) => {
+          // NEW: Filter out any jobs that are in the trash
+          const activeJobs = jobs.filter((j: any) => !j.deleted_at);
+          
+          activeJobs.forEach((j: any) => {
             totalSpent += Number(j.sale_amount) || 0;
             wonJobsCount++;
           });
@@ -84,10 +86,10 @@ export default function CustomersPage() {
         return {
           ...customer,
           fullName: `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown Customer',
-          quotesCount: sortedQuotes.length,
-          wonJobsCount,
-          totalSpent,
-          quotes: sortedQuotes
+          quotesCount: sortedQuotes.length, // Now reflects ACTIVE quotes only
+          wonJobsCount, // Now reflects ACTIVE jobs only
+          totalSpent, // Now reflects ACTIVE spend only
+          quotes: sortedQuotes 
         };
       });
 
@@ -104,7 +106,6 @@ export default function CustomersPage() {
     setExpandedId(prev => prev === id ? null : id);
   };
 
-  // Filter customers based on the search query safely
   const filteredCustomers = customers.filter(c => {
     if (!searchQuery) return true;
     const term = searchQuery.toLowerCase();
@@ -119,7 +120,6 @@ export default function CustomersPage() {
   return (
     <div className="p-8 max-w-7xl mx-auto bg-zinc-50 min-h-screen">
       
-      {/* HEADER & SEARCH */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 flex items-center gap-3">
@@ -162,7 +162,6 @@ export default function CustomersPage() {
               <tbody className="divide-y divide-zinc-100 text-sm">
                 {filteredCustomers.map((customer) => (
                   <React.Fragment key={customer.id}>
-                    {/* MAIN CUSTOMER ROW */}
                     <tr 
                       onClick={() => toggleExpand(customer.id)}
                       className={`transition cursor-pointer ${expandedId === customer.id ? 'bg-blue-50/30' : 'hover:bg-zinc-50'}`}
@@ -173,11 +172,9 @@ export default function CustomersPage() {
                           Added {new Date(customer.created_at).toLocaleDateString()}
                         </div>
                       </td>
-                      {/* Added max-w-[220px] to strictly contain the width */}
                       <td className="px-6 py-4 max-w-[220px]">
                         <div className="flex flex-col gap-1.5">
                           <a href={`mailto:${customer.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-2 text-zinc-600 hover:text-blue-600 transition font-medium">
-                            {/* Added shrink-0 to icon, and truncate to the text */}
                             <Mail size={14} className="text-zinc-400 shrink-0" /> 
                             <span className="truncate" title={customer.email}>{customer.email || 'No Email'}</span>
                           </a>
@@ -203,7 +200,6 @@ export default function CustomersPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                        {/* NEW: Quick Create Button */}
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -215,14 +211,12 @@ export default function CustomersPage() {
                           <Plus size={20} />
                         </button>
                         
-                        {/* Existing Expand Button */}
                         <button className="p-2 text-zinc-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
                           {expandedId === customer.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                         </button>
                       </td>
                     </tr>
 
-                    {/* EXPANDED PROJECT HISTORY */}
                     {expandedId === customer.id && (
                       <tr>
                         <td colSpan={6} className="px-0 py-0 bg-zinc-50 border-b border-zinc-200">
@@ -238,7 +232,6 @@ export default function CustomersPage() {
                                 {customer.quotes.map((quote: any) => {
                                   const isWon = quote.status === 'WON';
                                   
-                                  // Safely extract the job amount whether it's an array or a flat object
                                   const jobObj = Array.isArray(quote.jobs) ? quote.jobs[0] : quote.jobs;
                                   const jobAmount = jobObj ? Number(jobObj.sale_amount) : 0;
 
@@ -249,7 +242,6 @@ export default function CustomersPage() {
                                       target="_blank"
                                       className="block bg-white p-4 rounded-2xl border border-zinc-200 hover:border-blue-300 hover:shadow-md transition group relative overflow-hidden"
                                     >
-                                      {/* Status Indicator Bar */}
                                       <div className={`absolute top-0 left-0 w-1 h-full ${isWon ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                                       
                                       <div className="pl-2">
@@ -309,7 +301,6 @@ export default function CustomersPage() {
         </div>
       )}
       
-{/* RENDER THE MODAL IF A CUSTOMER IS SELECTED */}
       {selectedCustomerForSubmittal && (
         <CreateSubmittalForm 
           initialCustomer={selectedCustomerForSubmittal} 

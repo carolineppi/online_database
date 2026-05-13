@@ -293,10 +293,15 @@ export async function POST(req: NextRequest) {
 
     // Output
     const pdfOutput = doc.output('arraybuffer');
+    
+    // 1. Sanitize the quote number to remove spaces, commas, and illegal characters
+    const safeQuoteNumber = String(displayQuoteNumber).replace(/[^a-zA-Z0-9-_]/g, '_');
+
     return new NextResponse(Buffer.from(pdfOutput), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=Proposal_${displayQuoteNumber}.pdf`,
+        // 2. Updated to your new format: [quote#]_quote.pdf
+        'Content-Disposition': `attachment; filename="${safeQuoteNumber}_quote.pdf"`,
       },
     });
 
