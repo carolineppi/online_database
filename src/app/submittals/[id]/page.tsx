@@ -96,7 +96,7 @@ export default async function SubmittalDetails({
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
+        <Link href="/submittals" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
           <ChevronLeft size={20} /> Back to Dashboard
         </Link>
 
