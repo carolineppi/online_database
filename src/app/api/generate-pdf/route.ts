@@ -174,39 +174,51 @@ export async function GET(req: NextRequest) {
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
       doc.text(priceFmt, 515, yPos, { align: 'center' });
 
-      // Mounting Style
       yPos += 14;
       doc.setTextColor(0);
       doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Mounting: ", 40, yPos);
+      let currentX = 40;
+
+      // Manufacturer
       doc.setFont("helvetica", "bold");
-      const mountingText = opt.details 
-        ? `${opt.mounting_style} for ${opt.details}" ceiling height` 
-        : opt.mounting_style;
-      
-      doc.text(mountingText || '', 88, yPos);
-      
-      // Manufacturer & Shipping Subtext
+      doc.text("Manufacturer: ", currentX, yPos);
+      currentX += doc.getTextWidth("Manufacturer: ");
+
       doc.setFont("helvetica", "normal");
-      doc.text("Manufacturer: ", 40, yPos);
+      const mfgText = opt.manufacturer || 'HADRIAN';
+      doc.text(mfgText, currentX, yPos);
+
+      currentX += doc.getTextWidth(mfgText) + 20;
+
+      // Mounting Style
       doc.setFont("helvetica", "bold");
-      doc.text(opt.manufacturer || 'HADRIAN', 262, yPos);
+      doc.text("Mounting: ", currentX, yPos);
+      currentX += doc.getTextWidth("Mounting: ");
+
+      doc.setFont("helvetica", "normal");
+      const mountingText = opt.details ? `${opt.mounting_style} for ${opt.details}"` : opt.mounting_style;
+      doc.text(mountingText || '', currentX, yPos);
             
       doc.setFont("helvetica", "normal");
       doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
       
       // Color
       yPos += 16;
+      currentX = 40;
       doc.setFont("helvetica", "normal");
-      doc.text("Color: ", 40, yPos);
+      doc.text("Color: ", currentX, yPos);
+      currentX += doc.getTextWidth("Color: ");
+
       doc.setFont("helvetica", "bold");
-      doc.text(opt.color || 'To Be Determined', 70, yPos);
+      const colorText = opt.color || 'TBD';
+      doc.text(colorText, currentX, yPos);
+      currentX += doc.getTextWidth(colorText) + 20;
 
       // Itemized Quantity List
-      yPos += 16;
       doc.setFont("helvetica", "normal");
-      doc.text("Quantity: ", 40, yPos);
+      doc.text("Quantity: ", currentX, yPos);
+      currentX += doc.getTextWidth("Quantity: ");
+
       doc.setFont("helvetica", "bold");
       
       // Parse the JSON array into "(5) item name, (1) item name"
@@ -217,7 +229,7 @@ export async function GET(req: NextRequest) {
       
       // Use splitTextToSize to gracefully wrap long lists of items
       const splitQty = doc.splitTextToSize(formattedQty, 450);
-      doc.text(splitQty, 85, yPos);
+      doc.text(splitQty, currentX, yPos);
       
       yPos += (splitQty.length * 12) + 10; // Extra padding for next material
     });
