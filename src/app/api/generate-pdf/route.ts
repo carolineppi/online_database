@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
       const splitQty = doc.splitTextToSize(formattedQty, 450);
       doc.text(splitQty, 85, yPos);
       
-      yPos += (splitQty.length * 12) + 12; // Extra padding for next material
+      yPos += (splitQty.length * 12) + 10; // Extra padding for next material
     });
 
     // Add-ons
