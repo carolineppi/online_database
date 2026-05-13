@@ -103,13 +103,13 @@ export async function GET(req: NextRequest) {
     doc.text(quoteDate, 570, 45, { align: 'right' });
     doc.setFontSize(10);
     doc.text("341 Granary Road, Suite A-B", 570, 60, { align: 'right' });
-    doc.text("Forest Hill, MD 21050", 570, 75, { align: 'right' });
-    doc.text("+1-800-298-9696", 570, 90, { align: 'right' });
-    doc.text("sales@partitionplus.com", 570, 105, { align: 'right' });
+    doc.text("Forest Hill, MD 21050", 570, 70, { align: 'right' });
+    doc.text("+1-800-298-9696", 570, 80, { align: 'right' });
+    doc.text("sales@partitionplus.com", 570, 90, { align: 'right' });
 
     // 2. Quote Info Box (Gray Background)
     doc.setFillColor(...lightGray);
-    doc.rect(40, 125, 530, 45, 'F');
+    doc.rect(40, 110, 530, 45, 'F');
     
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
@@ -119,23 +119,23 @@ export async function GET(req: NextRequest) {
     const lastName = submittal.linked_customer?.last_name || '';
     const phoneStr = formatPhoneNumber(submittal.linked_customer?.phone);
 
-    doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 142);
+    doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 127);
     
     doc.setFontSize(12);
     doc.text(submittal.job_name || "PROPOSAL", 50, 160);
 
     // Replace the quote number logic around line 88
     doc.setFontSize(12);
-    doc.text("Quote #: ", 420, 142);
+    doc.text("Quote #: ", 420, 127);
     doc.setFontSize(14);
     doc.setTextColor(...redColor);
     
     // Check for the mask, fallback to the original
     const displayQuoteNumber = submittal.quote_number_mask || submittal.quote_number;
-    doc.text(displayQuoteNumber, 475, 142);
+    doc.text(displayQuoteNumber, 475, 127);
 
     // 3. Quote Details & Address
-    let yPos = 200;
+    let yPos = 175;
     doc.setTextColor(0);
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
