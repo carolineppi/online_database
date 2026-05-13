@@ -231,7 +231,7 @@ export async function GET(req: NextRequest) {
       const splitQty = doc.splitTextToSize(formattedQty, 450);
       doc.text(splitQty, currentX, yPos);
       
-      yPos += (splitQty.length * 14) + 15; // Extra padding for next material
+      yPos += (splitQty.length * 14) + 20; // Extra padding for next material
     });
 
     // Add-ons
@@ -258,7 +258,7 @@ export async function GET(req: NextRequest) {
     // 5. Hardware Banner (Red Background, White Text)
     yPos = checkPageBreak(yPos, 40);
     doc.setFillColor(...redColor);
-    doc.rect(40, yPos, 530, 20, 'F');
+    doc.rect(40, yPos, 530, 25, 'F');
     doc.setTextColor(255);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
