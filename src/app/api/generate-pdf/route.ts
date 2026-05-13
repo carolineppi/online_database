@@ -191,7 +191,7 @@ export async function GET(req: NextRequest) {
       doc.setFont("helvetica", "normal");
       doc.text("Manufacturer: ", 40, yPos);
       doc.setFont("helvetica", "bold");
-      doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
+      doc.text(opt.manufacturer || 'HADRIAN', 262, yPos);
             
       doc.setFont("helvetica", "normal");
       doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
       const splitQty = doc.splitTextToSize(formattedQty, 450);
       doc.text(splitQty, 85, yPos);
       
-      yPos += (splitQty.length * 14) + 20; // Extra padding for next material
+      yPos += (splitQty.length * 12) + 12; // Extra padding for next material
     });
 
     // Add-ons
