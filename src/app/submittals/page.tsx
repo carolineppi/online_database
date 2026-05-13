@@ -35,19 +35,26 @@ export default function SubmittalsPage() {
   const lastDay = today.toISOString().split('T')[0];
   const [dateRange, setDateRange] = useState({ start: firstDay, end: lastDay });
 
+  // 1. Debounce Effect: Triggers automatically when Search, Dates, or Status change
   useEffect(() => {
-    fetchSubmittals();
-  }, [dateRange]);
+    const delayDebounceFn = setTimeout(() => {
+      fetchSubmittals();
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, dateRange, statusFilter]);
 
   const fetchSubmittals = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    let request = supabase
       .from('quote_submittals')
       .select(`
         id,
         created_at,
         job_name,
         quote_number,
+        quote_number_mask,
         status,
         is_hardware_included,
         customer,
@@ -61,13 +68,52 @@ export default function SubmittalsPage() {
           phone
         )
       `)
-      .is('deleted_at', null)
-      .gte('created_at', `${dateRange.start}T00:00:00`)
-      .lte('created_at', `${dateRange.end}T23:59:59`)
-      .order('created_at', { ascending: false });
+      .is('deleted_at', null);
+
+    // Apply Status Filter directly to the database request
+    if (statusFilter !== 'ALL') {
+      request = request.eq('status', statusFilter);
+    }
+
+    // 2. Search vs Date Logic
+    if (searchQuery.trim().length > 0) {
+      // MODE 1: Search Whole Database (Unbound by date)
+      const query = searchQuery.trim().replace(/,/g, ''); // Strip commas for safe DB queries
+      
+      // Look up matching customers first (since Supabase OR doesn't cross tables easily)
+      const { data: matchedCustomers } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`);
+        
+      const customerIds = matchedCustomers?.map(c => c.id) || [];
+      
+      // Search job names, quote numbers, and our newly added quote mask!
+      let orString = `job_name.ilike.%${query}%,quote_number.ilike.%${query}%,quote_number_mask.ilike.%${query}%`;
+      
+      if (customerIds.length > 0) {
+        orString += `,customer.in.(${customerIds.join(',')})`;
+      }
+      
+      // Limit to 100 to prevent crashing the browser if they search something broad like "The"
+      request = request.or(orString).limit(100); 
+      
+    } else {
+      // MODE 2: Browse by Date Range
+      request = request
+        .gte('created_at', `${dateRange.start}T00:00:00`)
+        .lte('created_at', `${dateRange.end}T23:59:59`);
+    }
+
+    request = request.order('created_at', { ascending: false });
+
+    const { data, error } = await request;
 
     if (!error && data) {
       setSubmittals(data);
+    } else if (error) {
+      console.error(error);
+      toast.error("Failed to load submittals");
     }
     setLoading(false);
   };
@@ -80,16 +126,13 @@ export default function SubmittalsPage() {
     setDuplicatingId(submittal.id);
     
     try {
-      // 1. Get employee name_code
       const savedEmployee = localStorage.getItem('employee');
       const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
       const nameCode = employee?.name_code || 'XX';
 
-      // 2. Generate secure quote number
       const { data: newQuoteNumber, error: rpcError } = await supabase.rpc('generate_quote_number', { name_code: nameCode });
       if (rpcError) throw rpcError;
 
-      // 3. Duplicate Quote Submittal Parent
       const { data: newSubmittal, error: subError } = await supabase
         .from('quote_submittals')
         .insert({
@@ -108,7 +151,6 @@ export default function SubmittalsPage() {
 
       if (subError) throw subError;
 
-      // 4. Fetch and Duplicate Individual Quotes (Options)
       const { data: options } = await supabase
         .from('individual_quotes')
         .select('*')
@@ -144,21 +186,6 @@ export default function SubmittalsPage() {
     }
   };
 
-  const filteredSubmittals = submittals.filter(sub => {
-    const matchesSearch = 
-      sub.job_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sub.quote_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sub.customers?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sub.customers?.last_name?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Safely check status match, ignoring case
-    const currentStatus = sub.status?.toUpperCase() || 'PENDING';
-    const matchesStatus = statusFilter === 'ALL' || currentStatus === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Explicitly map exactly to PENDING, QUOTED, and WON
   const getStatusIcon = (status: string) => {
     const s = status?.toUpperCase() || 'PENDING';
     switch (s) {
@@ -182,7 +209,6 @@ export default function SubmittalsPage() {
   return (
     <div className="p-8 max-w-7xl mx-auto bg-zinc-50 min-h-screen">
       
-      {/* HEADER ROW */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900">Quote Submittals</h1>
@@ -190,7 +216,6 @@ export default function SubmittalsPage() {
         </div>
       </div>
 
-      {/* FILTER BAR */}
       <div className="bg-white p-4 rounded-3xl border border-zinc-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
         <div className="flex items-center w-full md:w-auto gap-3">
           <div className="relative w-full md:w-64">
@@ -219,7 +244,13 @@ export default function SubmittalsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-zinc-50 p-2 rounded-xl ring-1 ring-zinc-200">
+        {/* 3. Dynamic styling to show when Date filters are overridden by Search */}
+        <div 
+          className={`flex items-center gap-2 p-2 rounded-xl ring-1 transition duration-300 ${
+            searchQuery.trim() ? 'bg-zinc-100 ring-zinc-200 opacity-50 pointer-events-none' : 'bg-zinc-50 ring-zinc-200'
+          }`}
+          title={searchQuery.trim() ? "Date filter is disabled while searching" : ""}
+        >
           <Calendar size={16} className="text-zinc-400 ml-2" />
           <input 
             type="date" 
@@ -237,7 +268,6 @@ export default function SubmittalsPage() {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left whitespace-nowrap">
@@ -254,12 +284,12 @@ export default function SubmittalsPage() {
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-zinc-400">Loading submittals...</td>
                 </tr>
-              ) : filteredSubmittals.length === 0 ? (
+              ) : submittals.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-zinc-400 font-medium">No submittals found matching your filters.</td>
                 </tr>
               ) : (
-                filteredSubmittals.map((submittal) => (
+                submittals.map((submittal) => (
                   <tr key={submittal.id} className="hover:bg-zinc-50 transition group">
                     <td className="px-6 py-4">
                       <div className="font-bold text-zinc-900 flex items-center gap-2">
@@ -267,7 +297,8 @@ export default function SubmittalsPage() {
                         {submittal.job_name || 'Untitled Project'}
                       </div>
                       <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1 flex gap-2">
-                        <span>#{submittal.quote_number}</span>
+                        {/* We pull in the Mask you added earlier! */}
+                        <span>#{submittal.quote_number_mask || submittal.quote_number}</span>
                         <span>•</span>
                         <span>{new Date(submittal.created_at).toLocaleDateString()}</span>
                       </div>
@@ -287,7 +318,6 @@ export default function SubmittalsPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* Duplicate Button */}
                         <button 
                           onClick={(e) => handleDuplicate(e, submittal)}
                           disabled={duplicatingId === submittal.id}
