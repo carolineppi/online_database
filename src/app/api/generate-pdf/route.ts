@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
     doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 127);
     
     doc.setFontSize(12);
-    doc.text(submittal.job_name || "PROPOSAL", 50, 140);
+    doc.text(submittal.job_name || "PROPOSAL", 55, 140);
 
     // Replace the quote number logic around line 88
     doc.setFontSize(12);
@@ -257,7 +257,6 @@ export async function GET(req: NextRequest) {
 
     // 5. Hardware Banner (Red Background, White Text)
     yPos = checkPageBreak(yPos, 40);
-    yPos += 10;
     doc.setFillColor(...redColor);
     doc.rect(40, yPos, 530, 20, 'F');
     doc.setTextColor(255);
@@ -267,7 +266,7 @@ export async function GET(req: NextRequest) {
     yPos += 30;
 
     // 6. Terms Box
-    yPos = checkPageBreak(yPos, 185);
+    yPos = checkPageBreak(yPos, 190);
     
     doc.setFont("helvetica", "italic");
     doc.setFontSize(11);
