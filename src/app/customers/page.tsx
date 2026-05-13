@@ -43,24 +43,24 @@ const fetchCustomers = async (query = '') => {
       .limit(20);
 
     if (query) {
-      // Search mode: show top 20 matching results
-      request = request.or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%`);
-    } else {
-      // Default mode: show top 20 by popularity
-      request = request.order('quotes_count', { ascending: false });
+      // Search mode: explicitly search against our new phone_text column
+      request = request.or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone_text.ilike.%${query}%`);
     }
+
+    // Always sort by most active customers, whether searching or browsing
+    request = request.order('quotes_count', { ascending: false });
 
     const { data: stats, error } = await request;
     if (error) throw error;
 
-    // Fetch the detailed quotes AND jobs ONLY for these 20 customers
+    // Fetch the detailed quotes and jobs ONLY for these 20 matching customers
     const customerIds = (stats || []).map(c => c.id);
     
     let quotesData: any[] = [];
     if (customerIds.length > 0) {
       const { data } = await supabase
         .from('quote_submittals')
-        .select('*, jobs(*)') // Added jobs(*) so project history shows sales correctly
+        .select('*, jobs(*)')
         .in('customer', customerIds)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
@@ -68,7 +68,6 @@ const fetchCustomers = async (query = '') => {
       quotesData = data || [];
     }
 
-    // FIX: Map the snake_case DB columns to the camelCase variables React expects
     const formatted = (stats || []).map(c => ({
       ...c,
       fullName: c.full_name || 'Unknown Customer',
