@@ -161,99 +161,77 @@ export async function GET(req: NextRequest) {
     // doc.text(splitDesc, 113, yPos);
     // yPos += (splitDesc.length * 14) + 20;
 
-    // 4. Materials Loop (Now contains Quantity and Color)
+// 4. Materials Loop (Condensed layout for single-page fit)
     options.forEach((opt: any) => {
-      yPos = checkPageBreak(yPos, 100);
+      yPos = checkPageBreak(yPos, 60); // Reduced break threshold
 
-      // Material Title & Price
+      // Line 1: Material Title (Left) & Price (Right)
       doc.setTextColor(...redColor);
-      doc.setFontSize(14);
+      doc.setFontSize(12); // Shrunk from 14
       doc.setFont("helvetica", "bold");
-      doc.text(opt.material, 40, yPos);
+      doc.text(`${opt.material} Toilet Partitions`, 40, yPos);
 
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
-      doc.text(priceFmt, 515, yPos, { align: 'center' });
+      doc.text(priceFmt, 570, yPos, { align: 'right' }); // Right-aligned to edge instead of centered
 
-      // Mounting Style
-      yPos += 18;
+      // Line 2: Mounting, Mfg, Color, and Shipping status horizontally across
+      yPos += 14; 
       doc.setTextColor(0);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9); // Shrunk from 10
+      
+      // Mounting
+      doc.setFont("helvetica", "bold");
       doc.text("Mounting: ", 40, yPos);
-      doc.setFont("helvetica", "bold");
-      const mountingText = opt.details 
-        ? `${opt.mounting_style} for ${opt.details}" ceiling height` 
-        : opt.mounting_style;
-      
+      doc.setFont("helvetica", "normal");
+      const mountingText = opt.details ? `${opt.mounting_style} for ${opt.details}"` : opt.mounting_style;
       doc.text(mountingText || '', 88, yPos);
-            
-      doc.setFont("helvetica", "normal");
-      doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
-      
-      // Manufacturer & Shipping Subtext
-      yPos += 16;
-      doc.setFont("helvetica", "normal");
-      doc.text("Manufacturer: ", 40, yPos);
+
+      // Manufacturer
       doc.setFont("helvetica", "bold");
-      doc.text(opt.manufacturer || 'HADRIAN', 105, yPos);
+      doc.text("Mfg: ", 240, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(opt.manufacturer || 'HADRIAN', 262, yPos);
 
       // Color
-      yPos += 16;
-      doc.setFont("helvetica", "normal");
-      doc.text("Color: ", 40, yPos);
       doc.setFont("helvetica", "bold");
-      doc.text(opt.color || 'To Be Determined', 70, yPos);
+      doc.text("Color: ", 380, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(opt.color || 'TBD', 412, yPos);
 
-      // Itemized Quantity List
-      yPos += 16;
-      doc.setFont("helvetica", "normal");
-      doc.text("Quantity: ", 40, yPos);
+      // Shipping included (placed directly beneath the price)
+      doc.setFontSize(8);
+      doc.text(`** ${opt.shipping_included || "includes shipping"} **`, 570, yPos, { align: 'right' });
+
+      // Line 3: Itemized Quantity List
+      yPos += 14;
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
+      doc.text("Quantity: ", 40, yPos);
+      doc.setFont("helvetica", "normal");
       
-      // Parse the JSON array into "(5) item name, (1) item name"
       let formattedQty = opt.quantity || "N/A";
       if (opt.itemized_breakdown && Array.isArray(opt.itemized_breakdown) && opt.itemized_breakdown.length > 0) {
          formattedQty = opt.itemized_breakdown.map((item: any) => `(${item.qty || item.quantity || 0}) ${item.item || item.name || 'item'}`).join(', ');
       }
       
-      // Use splitTextToSize to gracefully wrap long lists of items
-      const splitQty = doc.splitTextToSize(formattedQty, 450);
-      doc.text(splitQty, 85, yPos);
+      // Allows text wrapping at 480pt wide
+      const splitQty = doc.splitTextToSize(formattedQty, 480);
+      doc.text(splitQty, 88, yPos);
       
-      yPos += (splitQty.length * 14) + 20; // Extra padding for next material
+      // Tighter padding before the next option begins
+      yPos += (splitQty.length * 12) + 12; 
     });
 
-    // Add-ons
-    // if (addons && addons.length > 0) {
-    //   yPos = checkPageBreak(yPos, 40 + (addons.length * 15));
-    //   doc.setTextColor(0);
-    //   doc.setFontSize(12);
-    //   doc.setFont("helvetica", "bold");
-    //   doc.text("ADDITIONAL ACCESSORIES / HARDWARE", 40, yPos);
-      
-    //   yPos += 15;
-    //   doc.setTextColor(0);
-    //   doc.setFontSize(10);
-    //   doc.setFont("helvetica", "normal");
-    //   addons.forEach((addon: any) => {
-    //     doc.text(`${addon.quantity || 1}x ${addon.material}`, 40, yPos);
-    //     const addonPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(addon.price);
-    //     doc.text(addonPrice, 570, yPos, { align: 'right' });
-    //     yPos += 15;
-    //   });
-    //   yPos += 15;
-    // }
-
-    // 5. Hardware Banner (Red Background, White Text)
-    yPos = checkPageBreak(yPos, 40);
-    yPos += 10;
+    // 5. Hardware Banner (Condensed)
+    yPos = checkPageBreak(yPos, 35);
+    yPos += 5; // Reduced top padding
     doc.setFillColor(...redColor);
-    doc.rect(40, yPos, 530, 22, 'F');
+    doc.rect(40, yPos, 530, 20, 'F'); // Thinner banner 
     doc.setTextColor(255);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(submittal.description || "** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
-    yPos += 45;
+    doc.text(submittal.description || "** All hardware needed for installation is included **", 305, yPos + 14, { align: 'center' });
+    yPos += 30; // Reduced bottom padding to save vertical space
 
     // 6. Terms Box
     yPos = checkPageBreak(yPos, 180);

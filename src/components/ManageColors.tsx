@@ -7,9 +7,10 @@ import { toast } from 'sonner';
 
 const MATERIALS = [
   "Powder Coated Steel (PCS)", 
-  "High Pressure Laminate (HPL)", 
-  "HDPE Solid Plastic", 
-  "Solid Phenolic", 
+  "Series 1552 High Pressure Laminate (HPL)", 
+  "HineyHiders Solid Plastic", 
+  "HDPE - Solid Plastic", 
+  "Series 1082 Solid Phenolic", 
   "Stainless Steel", 
   "Bathroom Accessories per Attached Submittal"
 ];
