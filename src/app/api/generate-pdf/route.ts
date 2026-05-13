@@ -90,11 +90,11 @@ export async function GET(req: NextRequest) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...darkText);
-    doc.text("We Make it ", 99, 85, { align: 'center' });
+    doc.text("We Make it ", 99, 75, { align: 'center' });
     doc.setTextColor(...redColor);
-    doc.text("Easy for Anyone ", 126, 85);
+    doc.text("Easy for Anyone ", 126, 75);
     doc.setTextColor(...darkText);
-    doc.text("to Buy Toilet Partitions", 140, 100, { align: 'center' });
+    doc.text("to Buy Toilet Partitions", 140, 85, { align: 'center' });
 
     // Header Right Info
     doc.setTextColor(0);
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
     doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 127);
     
     doc.setFontSize(12);
-    doc.text(submittal.job_name || "PROPOSAL", 50, 160);
+    doc.text(submittal.job_name || "PROPOSAL", 50, 140);
 
     // Replace the quote number logic around line 88
     doc.setFontSize(12);
@@ -231,7 +231,7 @@ export async function GET(req: NextRequest) {
       const splitQty = doc.splitTextToSize(formattedQty, 450);
       doc.text(splitQty, currentX, yPos);
       
-      yPos += (splitQty.length * 12) + 10; // Extra padding for next material
+      yPos += (splitQty.length * 14) + 15; // Extra padding for next material
     });
 
     // Add-ons
@@ -267,7 +267,7 @@ export async function GET(req: NextRequest) {
     yPos += 30;
 
     // 6. Terms Box
-    yPos = checkPageBreak(yPos, 180);
+    yPos = checkPageBreak(yPos, 185);
     
     doc.setFont("helvetica", "italic");
     doc.setFontSize(11);
