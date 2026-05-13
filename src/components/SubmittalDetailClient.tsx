@@ -173,7 +173,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
-  // NEW: Updated Winner Toggling Logic (No Confirmation Popup)
+ // NEW: Updated Winner Toggling Logic with WooCommerce Name Append
   const handleSelectWinner = async (option: any) => {
     const isCurrentlyWinner = winningIds.includes(option.id);
     
@@ -191,6 +191,37 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       .reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0) || 0;
 
     setLoading(true);
+
+    // --- NEW: WOOCOMMERCE NAME CODE APPEND LOGIC ---
+    const isFirstTimeWinner = winningIds.length === 0 && newWinningIds.length > 0;
+    
+    // CHANGE THIS: Adjust to match how you flag WooCommerce orders in your database
+    const isWooCommerce = submittal.source === 'WooCommerce'; 
+
+    if (isFirstTimeWinner && isWooCommerce) {
+      const savedEmployee = localStorage.getItem('employee');
+      const loggedInUser = savedEmployee ? JSON.parse(savedEmployee) : null;
+      const userEmail = loggedInUser?.email;
+
+      if (userEmail) {
+        const { data: employee } = await supabase
+          .from('employees') 
+          .select('name_code, id')
+          .eq('email', userEmail)
+          .single();
+
+        if (employee?.name_code && !submittal.quote_number.endsWith(employee.name_code)) {
+          await supabase
+            .from('quote_submittals')
+            .update({ 
+              quote_number: `${submittal.quote_number}${employee.name_code}`,
+              employee_quoted: employee.id 
+            })
+            .eq('id', id);
+        }
+      }
+    }
+    // --- END WOOCOMMERCE LOGIC ---
 
     const { error: jobError } = await supabase
       .from('jobs')

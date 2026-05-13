@@ -164,14 +164,14 @@ ${customer_note || 'None provided.'}`;
     const contentSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_content', 'utm_content']);
     const sourceUrl = getMetaValue(meta_data, ['_wc_order_attribution_session_entry', 'submission_url']);
 
-    // --- STEP 6: INSERT RECORD ---
+// --- STEP 6: INSERT RECORD ---
     // Added `.select().single()` to return the new ID
     const { data: newSubmittal, error: subError } = await supabase
       .from('quote_submittals')
       .insert([{
         job_name: jobName,
         quote_number: quoteNumber,
-        status: 'PENDING',
+        status: 'Pending',
         customer: customer!.id,
         notes: formattedNotes,
         zip_code: shipping?.postcode || billing?.postcode || null,
@@ -180,7 +180,8 @@ ${customer_note || 'None provided.'}`;
         campaign_source: campaignSource,
         term_source: termSource,
         content_source: contentSource,
-        source_url: sourceUrl
+        source_url: sourceUrl,
+        source: 'WooCommerce' // <-- Added this line to trigger your frontend logic!
       }])
       .select('id')
       .single();
