@@ -1,33 +1,46 @@
-import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+import { NextRequest, NextResponse } from "next/server";
+import nodemailer from "nodemailer";
 
 export async function POST(req: NextRequest) {
   try {
     // 1. Extract the payload from the TrackingMailer component
-    const { 
-      customer_email, 
-      po_number, 
-      display_job_number, // <-- Capture the new mask
-      tracking_number, 
-      freight_website, 
-      freight_phone 
+    const {
+      customer_email,
+      additional_email, // NEW: Extract the additional email
+      po_number,
+      display_job_number,
+      tracking_number,
+      freight_website,
+      freight_phone,
     } = await req.json();
 
-    if (!customer_email || (!po_number && !display_job_number) || !tracking_number) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (
+      !customer_email ||
+      (!po_number && !display_job_number) ||
+      !tracking_number
+    ) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     // Determine which number to show the customer
     const activeOrderNumber = display_job_number || po_number;
 
+    // NEW: Format the recipients list. If additional_email exists, append it.
+    const recipients = additional_email
+      ? `${customer_email}, ${additional_email}`
+      : customer_email;
+
     // 2. Configure the SMTP Transporter
     const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
+      host: "smtp.gmail.com",
       port: 587,
-      secure: false, 
+      secure: false,
       auth: {
-        user: 'tracking@partitionplus.com',
-        pass: process.env.EMAIL_PASSWORD, 
+        user: "tracking@partitionplus.com",
+        pass: process.env.EMAIL_PASSWORD,
       },
     });
 
@@ -65,12 +78,12 @@ export async function POST(req: NextRequest) {
     // 4. Send the Email
     const info = await transporter.sendMail({
       from: '"Partition Plus Order Tracking" <tracking@partitionplus.com>',
-      to: customer_email,
-      replyTo: 'tracking@partitionplus.com',
+      to: recipients, // NEW: Use the combined recipients variable here
+      replyTo: "tracking@partitionplus.com",
       bcc: [
-        'ted@partitionplus.com', 
-        'bill@partitionplus.com', 
-        'tim@partitionplus.com'
+        "ted@partitionplus.com",
+        "bill@partitionplus.com",
+        "tim@partitionplus.com",
       ],
       subject: `Your Partition Plus order has shipped - ${activeOrderNumber}`,
       text: `Your Partition Plus order has shipped. Order #: ${activeOrderNumber}. Carrier website: ${freight_website} PRO/Tracking: ${tracking_number} Carrier phone: ${freight_phone}`,
@@ -80,9 +93,11 @@ export async function POST(req: NextRequest) {
     console.log("Message sent: %s", info.messageId);
 
     return NextResponse.json({ success: true, messageId: info.messageId });
-
   } catch (error: any) {
     console.error("Email Sending Error:", error);
-    return NextResponse.json({ error: error.message || 'Failed to send email' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Failed to send email" },
+      { status: 500 },
+    );
   }
 }
