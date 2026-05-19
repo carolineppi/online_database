@@ -154,6 +154,7 @@ export default function TrackingMailer({
         await supabase.from("review_emails").insert({
           job_id: job.id,
           customer_email: customerEmail,
+          additional_email: additionalEmail, // <-- NEW: Save this to the database!
           scheduled_for: scheduleDate.toISOString(),
           status: finalStatus,
         });
