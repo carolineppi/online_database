@@ -56,9 +56,9 @@ export default function TrackingMailer({
         .select(
           `
           id, created_at, tracking_number,
-          jobs ( quote_submittals ( quote_number, customers!customer ( email ) ) )
+          jobs ( quote_submittals ( quote_number, quote_number_mask, customers!customer ( email ) ) )
         `,
-        )
+        ) // <-- Added quote_number_mask here
         .order("created_at", { ascending: false })
         .limit(5);
       if (data) setRecentSubmissions(data);
@@ -169,6 +169,7 @@ export default function TrackingMailer({
           jobs: {
             quote_submittals: {
               quote_number: poNumber,
+              quote_number_mask: job.quote_submittals?.quote_number_mask || "", // <-- Added this line
               customers: { email: customerEmail },
             },
           },
@@ -394,8 +395,12 @@ export default function TrackingMailer({
                       const derivedEmail =
                         sub.jobs?.quote_submittals?.customers?.email ||
                         "Unknown";
+                      // NEW LOGIC: Try mask first, then fallback to original, then fallback to 'Unknown'
+                      const submittalData = sub.jobs?.quote_submittals;
                       const derivedPo =
-                        sub.jobs?.quote_submittals?.quote_number || "Unknown";
+                        submittalData?.quote_number_mask ||
+                        submittalData?.quote_number ||
+                        "Unknown";
 
                       return (
                         <tr key={sub.id}>
