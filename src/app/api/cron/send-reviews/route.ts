@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { createClient } from "@supabase/supabase-js";
 
+// --- CRITICAL FIX: PREVENT NEXT.JS CACHING ---
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   // 1. Secure the route: Only allow authorized requests
   // Vercel sends a specific authorization header with cron jobs
@@ -19,7 +22,6 @@ export async function GET(req: NextRequest) {
 
   try {
     // 3. Find pending emails where the scheduled time has arrived or passed
-    // NEW: Added additional_email to the .select() string
     const { data: pendingReviews, error } = await supabaseAdmin
       .from("review_emails")
       .select(
@@ -63,12 +65,12 @@ export async function GET(req: NextRequest) {
         : null;
       const jobName = submittalData?.job_name || "your recent project";
 
-      // NEW: Format the recipients list. If additional_email exists, append it.
+      // Format the recipients list. If additional_email exists, append it.
       const recipients = review.additional_email
         ? `${review.customer_email}, ${review.additional_email}`
         : review.customer_email;
 
-      // Build the email body (Make sure to swap YOUR_GOOGLE_REVIEW_LINK_HERE)
+      // Build the email body
       const htmlBody = `
         <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px;">
           <h2>How did we do?</h2>
@@ -81,7 +83,7 @@ export async function GET(req: NextRequest) {
 
       await transporter.sendMail({
         from: '"Partition Plus" <tracking@partitionplus.com>',
-        to: recipients, // NEW: Using the combined recipients variable
+        to: recipients, 
         subject: "How was your experience with Partition Plus?",
         html: htmlBody,
       });
