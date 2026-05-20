@@ -51,9 +51,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Ignored order status" }, { status: 200, headers: corsHeaders });
   }
 
-  // Ensure it's a real order payload before hitting the database
-  if (!body?.id || !body?.billing?.email) {
-    return NextResponse.json({ message: "Missing order_id or email, ignoring." }, { status: 200, headers: corsHeaders });
+  // FIX 1: Removed the strict email block. Only require an order ID. 
+  // If an order comes in without an email, we still want the order!
+  if (!body?.id) {
+    return NextResponse.json({ message: "Missing order_id, ignoring." }, { status: 200, headers: corsHeaders });
   }
 
   // --- SAFE DATABASE OPERATIONS BEGIN HERE ---
@@ -70,7 +71,8 @@ export async function POST(request: Request) {
       meta_data
     } = body;
 
-    const rawPhone = billing.phone ? billing.phone.toString().replace(/\D/g, '') : '';
+    const billingEmail = billing?.email || null;
+    const rawPhone = billing?.phone ? billing.phone.toString().replace(/\D/g, '') : '';
     const numericPhone = rawPhone.length >= 10 ? parseInt(rawPhone, 10) : null;
 
     // Generate Base Number (YY-XXXX)
@@ -97,23 +99,34 @@ export async function POST(request: Request) {
     const paddedSeq = nextSequence.toString().padStart(4, '0');
     const quoteNumber = `${yearSuffix}-${paddedSeq}`;
 
-    // Customer Linking / Creation
-    const emailFilter = `email.eq."${billing.email}"`;
-    const phoneFilter = numericPhone ? `,phone.eq.${numericPhone}` : '';
+    // --- FIX 2 & 3: BULLETPROOF CUSTOMER LOOKUP ---
+    let customer = null;
+    const orConditions = [];
+    
+    // Build the Supabase 'or' query safely without inserting raw quotation marks
+    if (billingEmail) orConditions.push(`email.eq.${billingEmail}`);
+    if (numericPhone) orConditions.push(`phone.eq.${numericPhone}`);
 
-    let { data: customer } = await supabase
-      .from('customers')
-      .select('id')
-      .or(`${emailFilter}${phoneFilter}`)
-      .maybeSingle();
+    if (orConditions.length > 0) {
+      const { data } = await supabase
+        .from('customers')
+        .select('id')
+        .or(orConditions.join(','))
+        .order('created_at', { ascending: false }) // Get the most recent if there are duplicates
+        .limit(1) // Prevents fatal crash if multiple customers match
+        .maybeSingle();
+        
+      customer = data;
+    }
 
+    // If no customer matched, safely create one
     if (!customer) {
       const { data: newCust, error: custError } = await supabase
         .from('customers')
         .insert([{
-          first_name: billing.first_name || 'Web',
-          last_name: billing.last_name || 'Customer',
-          email: billing.email,
+          first_name: billing?.first_name || 'Web',
+          last_name: billing?.last_name || 'Customer',
+          email: billingEmail,
           phone: numericPhone
         }])
         .select()
@@ -164,8 +177,7 @@ ${customer_note || 'None provided.'}`;
     const contentSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_content', 'utm_content']);
     const sourceUrl = getMetaValue(meta_data, ['_wc_order_attribution_session_entry', 'submission_url']);
 
-// --- STEP 6: INSERT RECORD ---
-    // Added `.select().single()` to return the new ID
+    // --- STEP 6: INSERT RECORD ---
     const { data: newSubmittal, error: subError } = await supabase
       .from('quote_submittals')
       .insert([{
@@ -181,7 +193,7 @@ ${customer_note || 'None provided.'}`;
         term_source: termSource,
         content_source: contentSource,
         source_url: sourceUrl,
-        source: 'WooCommerce' // <-- Added this line to trigger your frontend logic!
+        source: 'WooCommerce'
       }])
       .select('id')
       .single();
