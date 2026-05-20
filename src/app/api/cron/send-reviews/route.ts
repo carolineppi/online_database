@@ -102,7 +102,7 @@ for (const review of pendingReviews) {
                 
                 <tr>
                   <td style="padding: 40px 40px 20px; text-align: center; border-bottom: 1px solid #f0f0f0;">
-                    <h1 style="margin: 0; color: #18181b; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Partition Plus</h1>
+                    <img src="https://partitionplus.com/wp-content/uploads/2023/06/cropped-cropped-Logo-Number-No-Background-1-e1687733418964.webp">
                   </td>
                 </tr>
                 
@@ -125,20 +125,20 @@ for (const review of pendingReviews) {
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center">
-                          <a href="YOUR_GOOGLE_REVIEW_LINK_HERE" target="_blank" style="display: inline-block; padding: 16px 36px; background-color: #b70020; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                          <a href="https://g.page/r/CRPncZt_9o8jEBM/review" target="_blank" style="display: inline-block; padding: 16px 36px; background-color: #b70020; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                             Leave a Review
                           </a>
                         </td>
                       </tr>
                     </table>
-                  </td>
-                    <p style="margin: 0 0 32px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
+                      <p style="margin: 32px 0 32px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
                      Less than satisfied with your purchase or your experience? Give us a chance to make it right! Contact your sales rep today with any questions or concerns you have.
                     </p>
 
                     <p style="margin: 0 0 32px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
                       Thanks in advance for taking time to review us. We look forward to hearing from you!
                     </p>
+                  </td>
                 </tr>
                 
                 <tr>
