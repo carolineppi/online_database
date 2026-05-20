@@ -23,11 +23,19 @@ export async function GET(req: NextRequest) {
 
   try {
     // 3. Find pending emails where the scheduled time has arrived or passed
-    const { data: pendingReviews, error } = await supabaseAdmin
+  const { data: pendingReviews, error } = await supabaseAdmin
       .from("review_emails")
-      .select(
-        "id, customer_email, additional_email, jobs(quote_submittals(job_name))",
-      )
+      .select(`
+        id, 
+        customer_email, 
+        additional_email, 
+        jobs(
+          quote_submittals(
+            job_name,
+            customers(first_name)
+          )
+        )
+      `)
       .eq("status", "pending")
       .lte("scheduled_for", new Date().toISOString());
 
@@ -54,42 +62,110 @@ export async function GET(req: NextRequest) {
     // 5. Send emails and update the database
     let sentCount = 0;
 
-    for (const review of pendingReviews) {
-      // Safely extract the job name, accounting for Supabase returning arrays on joins
+for (const review of pendingReviews) {
+      // 1. Safely extract the job name and customer first name
       const jobData: any = Array.isArray(review.jobs)
         ? review.jobs[0]
         : review.jobs;
+      
       const submittalData: any = jobData
         ? Array.isArray(jobData.quote_submittals)
           ? jobData.quote_submittals[0]
           : jobData.quote_submittals
         : null;
+        
       const jobName = submittalData?.job_name || "your recent project";
+      
+      // NEW: Extract first name, fallback to "there" if it's missing
+      const firstName = submittalData?.customers?.first_name || "there";
 
-      // Format the recipients list. If additional_email exists, append it.
+      // 2. Format the recipients list
       const recipients = review.additional_email
         ? `${review.customer_email}, ${review.additional_email}`
         : review.customer_email;
 
-      // Build the email body
+      // 3. The Fancy HTML Template
+      // Make sure to swap YOUR_GOOGLE_REVIEW_LINK_HERE!
       const htmlBody = `
-        <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px;">
-          <h2>How did we do?</h2>
-          <p>Hi there,</p>
-          <p>We hope everything went smoothly with your delivery for <strong>${jobName}</strong>. If you have a moment, we'd love it if you could share your experience by leaving us a Google Review!</p>
-          <p><a href="YOUR_GOOGLE_REVIEW_LINK_HERE" style="background-color: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Leave a Review</a></p>
-          <p>Thank you for choosing Partition Plus!</p>
-        </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Leave a Review</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                
+                <tr>
+                  <td style="padding: 40px 40px 20px; text-align: center; border-bottom: 1px solid #f0f0f0;">
+                    <h1 style="margin: 0; color: #18181b; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Partition Plus</h1>
+                  </td>
+                </tr>
+                
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="margin: 0 0 20px; color: #3f3f46; font-size: 16px; line-height: 1.6;">Hi <strong>${firstName}</strong>,</p>
+                    
+                    <p style="margin: 0 0 24px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
+                      Thank you for your recent purchase with Partition Plus. We truly appreciate your business. 
+                    </p>
+                    
+                    <p style="margin: 0 0 32px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
+                      Here at Partition Plus we value customer satisfaction. So, we want to know what you think about your experience. If you would take a few minutes to leave a Google Review for us, we would be so excited to hear from you.
+                    </p>
+
+                    <p style="margin: 0 0 32px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
+                      To give us a review, just click the link below:
+                    </p>
+                    
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center">
+                          <a href="YOUR_GOOGLE_REVIEW_LINK_HERE" target="_blank" style="display: inline-block; padding: 16px 36px; background-color: #b70020; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Leave a Review
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                    <p style="margin: 0 0 32px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
+                     Less than satisfied with your purchase or your experience? Give us a chance to make it right! Contact your sales rep today with any questions or concerns you have.
+                    </p>
+
+                    <p style="margin: 0 0 32px; color: #3f3f46; font-size: 16px; line-height: 1.6;">
+                      Thanks in advance for taking time to review us. We look forward to hearing from you!
+                    </p>
+                </tr>
+                
+                <tr>
+                
+                  <td style="padding: 30px 40px; background-color: #fafafa; text-align: center; border-top: 1px solid #f0f0f0;">
+                    <p style="margin: 0 0 8px; color: #71717a; font-size: 14px;">Thank you for choosing Partition Plus!</p>
+                    <p style="margin: 0; color: #a1a1aa; font-size: 12px;">This is an automated email regarding your recent project.</p>
+                  </td>
+                </tr>
+                
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
       `;
 
+      // 4. Send the email
       await transporter.sendMail({
         from: '"Partition Plus" <tracking@partitionplus.com>',
-        to: recipients, 
+        to: recipients,
         subject: "How was your experience with Partition Plus?",
         html: htmlBody,
       });
 
-      // Mark the database row as successfully sent
+      // 5. Mark the database row as successfully sent
       await supabaseAdmin
         .from("review_emails")
         .update({ status: "sent", sent_at: new Date().toISOString() })
