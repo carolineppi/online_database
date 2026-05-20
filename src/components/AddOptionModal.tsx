@@ -437,6 +437,8 @@ export default function AddOptionModal({
                         newItems[index].qty = parseInt(e.target.value) || 0;
                         setItems(newItems);
                       }}
+                      // NEW: Highlight text automatically when focused
+                      onFocus={(e) => e.target.select()}
                     />
                     {items.length > 1 && (
                       <button
