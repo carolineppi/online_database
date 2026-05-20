@@ -1,30 +1,42 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
-import { 
-  Edit3, Save, X, Globe, User, Megaphone, 
-  UserPlus, Search, Loader2 
-} from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
+import {
+  Edit3,
+  Save,
+  X,
+  Globe,
+  User,
+  Megaphone,
+  UserPlus,
+  Search,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
 
 function formatPhoneNumber(phoneNumberRaw: any): string {
-  if (!phoneNumberRaw) return 'N/A';
+  if (!phoneNumberRaw) return "N/A";
   const stringData = String(phoneNumberRaw);
-  const cleaned = stringData.replace(/\D/g, '');
+  const cleaned = stringData.replace(/\D/g, "");
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
   if (match) return `${match[1]}-${match[2]}-${match[3]}`;
   return stringData;
 }
 
-export default function SubmittalHeader({ submittal, isPaid, isManual, displayName }: any) {
+export default function SubmittalHeader({
+  submittal,
+  isPaid,
+  isManual,
+  displayName,
+}: any) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   // Reassign Modal State
   const [showReassignModal, setShowReassignModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isReassigning, setIsReassigning] = useState(false);
@@ -35,14 +47,15 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
   const customer = submittal.linked_customer || {};
 
   const [formData, setFormData] = useState({
-    job_name: submittal.job_name || '',
-    quote_number_mask: submittal.quote_number_mask || '',
-    first_name: customer.first_name || '',
-    last_name: customer.last_name || '',
-    phone: customer.phone || '',
-    email: customer.email || ''
+    job_name: submittal.job_name || "",
+    quote_number_mask: submittal.quote_number_mask || "",
+    first_name: customer.first_name || "",
+    last_name: customer.last_name || "",
+    phone: customer.phone ? String(customer.phone) : "", // <-- Wrap in String()
+    email: customer.email || "",
   });
 
+  // Debounced search for the Reassign Modal
   useEffect(() => {
     if (!showReassignModal) return;
 
@@ -53,18 +66,20 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, showReassignModal]);
 
-  const fetchCustomersForReassign = async (query = '') => {
+  const fetchCustomersForReassign = async (query = "") => {
     setIsSearching(true);
     try {
       let request = supabase
-        .from('customer_summary_stats')
-        .select('id, full_name, email, phone, phone_text')
+        .from("customer_summary_stats")
+        .select("id, full_name, email, phone, phone_text")
         .limit(10);
 
       if (query) {
-        request = request.or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone_text.ilike.%${query}%`);
+        request = request.or(
+          `full_name.ilike.%${query}%,email.ilike.%${query}%,phone_text.ilike.%${query}%`,
+        );
       } else {
-        request = request.order('quotes_count', { ascending: false });
+        request = request.order("quotes_count", { ascending: false });
       }
 
       const { data, error } = await request;
@@ -82,24 +97,26 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
     setLoading(true);
     try {
       const { error: subError } = await supabase
-        .from('quote_submittals')
-        .update({ 
+        .from("quote_submittals")
+        .update({
           job_name: formData.job_name,
-          quote_number_mask: formData.quote_number_mask 
+          quote_number_mask: formData.quote_number_mask,
         })
-        .eq('id', submittal.id);
+        .eq("id", submittal.id);
       if (subError) throw subError;
 
       if (customer.id) {
         const { error: custError } = await supabase
-          .from('customers')
+          .from("customers")
           .update({
             first_name: formData.first_name,
             last_name: formData.last_name,
-            phone: formData.phone ? formData.phone.replace(/\D/g, '') : null,
-            email: formData.email
+            phone: formData.phone
+              ? String(formData.phone).replace(/\D/g, "")
+              : null, // <-- Wrap in String()
+            email: formData.email,
           })
-          .eq('id', customer.id);
+          .eq("id", customer.id);
         if (custError) throw custError;
       }
 
@@ -117,9 +134,9 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
     setIsReassigning(true);
     try {
       const { error } = await supabase
-        .from('quote_submittals')
+        .from("quote_submittals")
         .update({ customer: newCustomerId })
-        .eq('id', submittal.id);
+        .eq("id", submittal.id);
 
       if (error) throw error;
 
@@ -137,7 +154,7 @@ export default function SubmittalHeader({ submittal, isPaid, isManual, displayNa
   return (
     <div className="bg-white border rounded-3xl p-8 mb-8 shadow-sm relative group">
       {!isEditing && (
-        <button 
+        <button
           onClick={() => setIsEditing(true)}
           className="absolute top-6 right-6 p-2 text-zinc-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition opacity-0 group-hover:opacity-100"
           title="Edit Details"
