@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   // CRON jobs don't have user cookies, so we MUST use the Service Role Key to bypass RLS
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.SUPABASE_SECRET_KEY!, // <-- Updated to the new variable name!
   );
 
   try {
