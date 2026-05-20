@@ -124,15 +124,26 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(12);
     doc.text(submittal.job_name || "PROPOSAL", 50, 145);
 
-    // Replace the quote number logic around line 88
-    doc.setFontSize(12);
-    doc.text("Quote #: ", 420, 127);
-    doc.setFontSize(14);
-    doc.setTextColor(...redColor);
-    
     // Check for the mask, fallback to the original
-    const displayQuoteNumber = submittal.quote_number_mask || submittal.quote_number;
-    doc.text(displayQuoteNumber, 475, 127);
+    const displayQuoteNumber = String(submittal.quote_number_mask || submittal.quote_number || "");
+
+    // 1. Set the font size for the Quote Number so we can measure it accurately
+    doc.setFontSize(14);
+    const quoteNumWidth = doc.getTextWidth(displayQuoteNumber);
+
+    // The grey box ends at X=570. We will use 560 as our safe right margin so it breathes.
+    const rightMarginX = 560;
+
+    // 2. Draw "Quote #: " dynamically positioned to the left of the Quote Number
+    doc.setFontSize(12);
+    doc.setTextColor(0); // Black text
+    // We right-align this text just to the left of where the Quote Number will start
+    doc.text("Quote #: ", rightMarginX - quoteNumWidth - 2, 127, { align: 'right' });
+
+    // 3. Draw the actual Quote Number right-aligned against the margin
+    doc.setFontSize(14);
+    doc.setTextColor(...redColor); // Red text
+    doc.text(displayQuoteNumber, rightMarginX, 127, { align: 'right' });
 
     // 3. Quote Details & Address
     let yPos = 175;
