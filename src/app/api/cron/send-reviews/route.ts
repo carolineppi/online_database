@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
   // 1. Secure the route: Only allow authorized requests
   // Vercel sends a specific authorization header with cron jobs
   const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+// Allows the real CRON_SECRET *or* our temporary Colab secret
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && authHeader !== `Bearer TEMP_COLAB_TEST_99`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
