@@ -1,51 +1,98 @@
+'use client'; // Make it a client component
+
 import Image from "next/image";
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@/utils/supabase/client'; // Use the client version
 import RecentActivity from '@/components/RecentActivity';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Plus, ClipboardList, UserCheck, Trash2, User } from 'lucide-react';
+import { Search, Plus, ClipboardList, UserCheck, Trash2, User, Loader2 } from 'lucide-react';
 import SubmittalSearchBar from '@/components/SubmittalSearchBar';
 import NewSubmittalButton from '@/components/NewSubmittalButton'; 
-import { revalidatePath } from 'next/cache';
+import { useEffect, useState } from 'react';
+import { isStrictlyAccounting, normalizeRoles } from '@/utils/rbac';
 
-export default async function Page() {
+export default function Page() {
   const CURRENT_EMPLOYEE_ID = '1';
-  const supabase = await createClient();
-  const { data: campaignSources } = await supabase.from('campaign_sources').select('*');
+  const supabase = createClient();
+  const router = useRouter();
 
-  // 1. Fetch Submittals: 
-  // Get all 'Pending' statuses OR any 'WooCommerce' order that is 'Quoted'
-  const { data: unquotedSubmittals, error: fetchError } = await supabase
-    .from('quote_submittals')
-    .select('*')
-    .or('status.ilike.pending,and(job_name.ilike.WooCommerce%,status.ilike.quoted)')
-    .is('deleted_at', null) 
-    .order('created_at', { ascending: false });
+  // State
+  const [authorized, setAuthorized] = useState(false);
+  const [unquotedSubmittals, setUnquotedSubmittals] = useState<any[]>([]);
+  const [campaignSources, setCampaignSources] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (fetchError) console.error("Database Error:", fetchError.message);
-
-  // 2. Fetch My Active Quotes (Assigned but not yet WON)
-  const { data: myAssignedQuotes } = await supabase
-    .from('quote_submittals')
-    .select('*')
-    .eq('employee_quoted', CURRENT_EMPLOYEE_ID)
-    .neq('status', 'WON')
-    .is('deleted_at', null) 
-    .order('created_at', { ascending: false });
-
-  // 3. Server Action for Soft Delete
-  async function softDeleteSubmittal(formData: FormData) {
-    'use server';
-    const id = formData.get('id');
-    const supabase = await createClient();
+  // 1. RBAC Bouncer Effect
+  useEffect(() => {
+    const saved = localStorage.getItem('employee');
     
-    await supabase
+    if (!saved) {
+      window.location.href = '/login'; 
+      return;
+    }
+
+    const employee = JSON.parse(saved);
+    const roles = normalizeRoles(employee.roles);
+
+    if (isStrictlyAccounting(roles)) {
+      router.replace('/accounting'); // Kick strictly accounting users
+    } else {
+      setAuthorized(true); // Let everyone else see the dashboard
+    }
+  }, [router]);
+
+  // 2. Data Fetching Effect (Only runs if authorized)
+  useEffect(() => {
+    if (!authorized) return;
+
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // Fetch Campaigns
+      const { data: campaigns } = await supabase.from('campaign_sources').select('*');
+      setCampaignSources(campaigns || []);
+
+      // Fetch Submittals
+      const { data: submittals, error: fetchError } = await supabase
+        .from('quote_submittals')
+        .select('*')
+        .or('status.ilike.pending,and(job_name.ilike.WooCommerce%,status.ilike.quoted)')
+        .is('deleted_at', null) 
+        .order('created_at', { ascending: false });
+
+      if (fetchError) console.error("Database Error:", fetchError.message);
+      setUnquotedSubmittals(submittals || []);
+      
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [authorized, supabase]);
+
+  // Soft Delete Handler (Client Side)
+  const handleSoftDelete = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!confirm("Move this submittal to the trash?")) return;
+    
+    const { error } = await supabase
       .from('quote_submittals')
       .update({ deleted_at: new Date().toISOString() }) 
       .eq('id', id);
 
-    revalidatePath('/');
-  }
+    if (!error) {
+       // Refresh the list locally
+       setUnquotedSubmittals(unquotedSubmittals.filter(item => item.id !== id));
+    } else {
+      console.error("Delete error:", error);
+    }
+  };
+
+  // Don't flash the dashboard to the accountant before the redirect fires
+  if (!authorized) return (
+     <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="animate-spin text-blue-600" size={40} />
+     </div>
+  );
 
   return (
     <main className="p-8 bg-gray-50 min-h-screen">
@@ -74,12 +121,16 @@ export default async function Page() {
                   </div>
                 </div>
                 <span className="bg-zinc-100 text-zinc-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                  {unquotedSubmittals?.length || 0} Total
+                  {unquotedSubmittals.length || 0} Total
                 </span>
               </div>
 
               <div className="divide-y divide-zinc-100">
-                {unquotedSubmittals?.length ? unquotedSubmittals.map((item) => {
+                {loading ? (
+                    <div className="p-16 text-center flex justify-center">
+                        <Loader2 className="animate-spin text-zinc-400" size={24} />
+                    </div>
+                ) : unquotedSubmittals.length ? unquotedSubmittals.map((item) => {
                   
                   // Database-driven Marketing Source Logic
                   const matchedCampaign = campaignSources?.find(c => c.campaign_id === item.quote_source);
@@ -136,16 +187,13 @@ export default async function Page() {
 
                       {/* Action Buttons: Delete & View */}
                       <div className="flex items-center gap-3 pr-6">
-                        <form action={softDeleteSubmittal}>
-                          <input type="hidden" name="id" value={item.id} />
-                          <button 
-                            type="submit"
-                            className="h-9 w-9 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition shadow-sm bg-white"
-                            title="Move to Trash"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </form>
+                        <button 
+                          onClick={(e) => handleSoftDelete(item.id, e)}
+                          className="h-9 w-9 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition shadow-sm bg-white"
+                          title="Move to Trash"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                         <Link 
                           href={`/submittals/${item.id}`}
                           className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
