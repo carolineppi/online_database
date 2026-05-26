@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, FileText, CheckCircle2, Users, DollarSign, Trash2 } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  FileText, 
+  CheckCircle2, 
+  Users, 
+  DollarSign, 
+  Calculator, // Imported a new icon for the Accounting tab
+  Trash2 
+} from 'lucide-react';
 import UserProfile from './UserProfile';
 import { hasAccess, isStrictlyAccounting, normalizeRoles } from '@/utils/rbac';
 
@@ -10,7 +18,8 @@ const navItems = [
   { name: 'New Quotes', href: '/', icon: LayoutDashboard },
   { name: 'Dashboard', href: '/submittals', icon: FileText },
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
-  { name: 'Accounting', href: '/accounting', icon: DollarSign }, // Updated to Accounting
+  { name: 'Financials', href: '/financials', icon: DollarSign },
+  { name: 'Accounting', href: '/accounting', icon: Calculator }, // Both tabs now exist!
   { name: 'Customers', href: '/customers', icon: Users },
 ];
 
@@ -21,7 +30,6 @@ export default function Sidebar({ user }: { user: any }) {
     const savedEmployee = localStorage.getItem('employee');
     if (savedEmployee) {
       const parsed = JSON.parse(savedEmployee);
-      // Use our new normalizer to guarantee it's a clean array
       setUserRoles(normalizeRoles(parsed.roles));
     }
   }, []);
@@ -30,12 +38,14 @@ export default function Sidebar({ user }: { user: any }) {
   const strictlyAccounting = isStrictlyAccounting(userRoles);
   
   // SuperAdmin is automatically true via the utility, so we just check for Accounting or Admin
-  const canSeeAccounting = hasAccess(userRoles, ['Accounting', 'Admin']);
+  const canSeeFinanceAndAccounting = hasAccess(userRoles, ['Accounting', 'Admin']);
 
   // Filter the navigation links based on role
   const visibleNavItems = navItems.filter((item) => {
-    if (item.name === 'Accounting') return canSeeAccounting;
-    return !strictlyAccounting; // Hide all other main links if they are strictly accounting
+    if (item.name === 'Financials' || item.name === 'Accounting') {
+      return canSeeFinanceAndAccounting; 
+    }
+    return !strictlyAccounting; // Hide operational links (Dashboard, etc.) if they are strictly accounting
   });
 
   if (!user) return null;
