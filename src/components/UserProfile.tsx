@@ -8,6 +8,24 @@ import {
   ChevronUp, 
   ChevronDown 
 } from 'lucide-react';
+import { normalizeRoles } from '@/utils/rbac'; // Import our new helper!
+
+// Define the exact hierarchy from highest to lowest
+const ROLE_HIERARCHY = ['SuperAdmin', 'Admin', 'Project Manager', 'Accounting'];
+
+function getHighestRole(rawRoles: any): string {
+  const roles = normalizeRoles(rawRoles);
+  
+  for (const hierarchyRole of ROLE_HIERARCHY) {
+    // Case-insensitive check to find their highest ranking role
+    if (roles.some((r: string) => r.toLowerCase() === hierarchyRole.toLowerCase())) {
+      // Format "Accounting" to "Accountant" for a better display title
+      return hierarchyRole === 'Accounting' ? 'Accountant' : hierarchyRole;
+    }
+  }
+  
+  return 'Estimator'; // Fallback if they somehow have no roles
+}
 
 export default function UserProfile() {
   const [employee, setEmployee] = useState<any>(null);
@@ -30,7 +48,7 @@ export default function UserProfile() {
 
   return (
     <div className="relative mt-auto border-t border-zinc-800 pt-4 px-2 mb-4">
-      {/* Profile Toggle Button - Added 'group' class here */}
+      {/* Profile Toggle Button */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className={`group w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${
@@ -41,14 +59,14 @@ export default function UserProfile() {
           {employee.name_code}
         </div>
         <div className="flex-1 text-left overflow-hidden">
-          {/* TEXT COLOR LOGIC: White/light by default, dark when open or hovered */}
           <p className={`text-sm font-bold truncate transition-colors ${
             isOpen ? 'text-zinc-900' : 'text-zinc-100 group-hover:text-zinc-900'
           }`}>
             {employee.first_name} {employee.last_name}
           </p>
-          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-            Estimator
+          {/* Dynamically display their highest role */}
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest truncate">
+            {getHighestRole(employee.roles)}
           </p>
         </div>
         {isOpen ? (

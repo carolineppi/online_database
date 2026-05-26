@@ -1,32 +1,68 @@
-import { createClient } from '@/utils/supabase/server';
-import { redirect } from 'next/navigation';
-import { hasAccess, Role } from '@/utils/rbac';
+'use client';
 
-export default async function AccountingDashboard() {
-  const supabase = await createClient();
-  
-  // 1. Get the currently logged-in user
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { DollarSign, Loader2 } from 'lucide-react';
+import { hasAccess, normalizeRoles } from '@/utils/rbac';
 
-  // 2. Fetch their employee record to get their roles
-  const { data: employee } = await supabase
-    .from('employees')
-    .select('roles')
-    .eq('email', user.email)
-    .single();
+export default function AccountingPage() {
+  const [authorized, setAuthorized] = useState(false);
+  const router = useRouter();
 
-  // 3. Check access! (Only SuperAdmin or Accounting can see this)
-  const userRoles = (employee?.roles || []) as Role[];
-  if (!hasAccess(userRoles, ['Accounting'])) {
-    redirect('/unauthorized'); // Or redirect them back to the main dashboard '/'
+  useEffect(() => {
+    // 1. Grab the user from local storage
+    const saved = localStorage.getItem('employee');
+    
+    // 2. If nobody is logged in, kick to login page
+    if (!saved) {
+      window.location.href = '/'; // Adjust this if your login page is somewhere else
+      return;
+    }
+
+    // 3. Verify their roles
+    const employee = JSON.parse(saved);
+    const roles = normalizeRoles(employee.roles);
+
+    // 4. Check if they have Accounting or SuperAdmin access
+    if (!hasAccess(roles, ['Accounting'])) {
+      // If a PM sneaks in here, kick them to the regular dashboard
+      router.replace('/submittals'); 
+    } else {
+      // Let them in!
+      setAuthorized(true);
+    }
+  }, [router]);
+
+  // Show a loading spinner while we check their credentials
+  if (!authorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+        <Loader2 className="animate-spin text-emerald-600" size={40} />
+      </div>
+    );
   }
 
+  // THE ACCOUNTING DASHBOARD
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-black uppercase text-zinc-900">Financial Overview</h1>
-      <p className="text-zinc-500">Track estimated vs final job costs.</p>
-      {/* Accounting content goes here */}
+    <div className="p-8 lg:p-12 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="h-14 w-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
+          <DollarSign size={28} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-black text-zinc-900 uppercase tracking-tight">Financial Overview</h1>
+          <p className="text-zinc-500 font-medium mt-1">Track estimated vs final job costs.</p>
+        </div>
+      </div>
+      
+      <div className="bg-white rounded-[2.5rem] border border-zinc-200 p-8 shadow-sm min-h-[400px] flex items-center justify-center">
+         <div className="text-center space-y-3">
+           <DollarSign size={48} className="mx-auto text-zinc-200" />
+           <p className="text-zinc-400 font-bold uppercase tracking-widest text-sm">
+             Accounting Ledger Coming Soon
+           </p>
+         </div>
+      </div>
     </div>
   );
 }
