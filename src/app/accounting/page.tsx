@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { hasAccess, normalizeRoles } from '@/utils/rbac';
-import { DollarSign, Loader2, Calendar, Search, Save } from 'lucide-react';
+import { DollarSign, Loader2, Calendar, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LedgerRow {
@@ -48,7 +48,6 @@ export default function AccountingPage() {
     const employee = JSON.parse(saved);
     const roles = normalizeRoles(employee.roles);
 
-    // Allow Accounting, Admins, and SuperAdmins (SuperAdmin is handled implicitly in hasAccess)
     if (!hasAccess(roles, ['Accounting', 'Admin'])) {
       router.replace('/submittals'); 
     } else {
@@ -57,11 +56,9 @@ export default function AccountingPage() {
   }, [router]);
 
   // --- 2. DATA FETCHING ---
-// --- 2. DATA FETCHING ---
   const fetchLedger = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Jobs within the date range
       const endOfDay = new Date(endDate);
       endOfDay.setDate(endOfDay.getDate() + 1);
 
@@ -87,7 +84,6 @@ export default function AccountingPage() {
         return;
       }
 
-      // 2. Fetch the related Quote Submittals (Removed "company" from this query)
       const { data: submittals, error: subError } = await supabase
         .from('quote_submittals')
         .select('*, linked_customer:customers!customer(first_name, last_name)')
@@ -95,7 +91,6 @@ export default function AccountingPage() {
 
       if (subError) throw subError;
 
-      // 3. Fetch the individual winning quotes
       const { data: quotes, error: quoteError } = await supabase
         .from('individual_quotes')
         .select('id, quote_id, price, estimated_cost, actual_cost, manufacturer')
@@ -103,7 +98,6 @@ export default function AccountingPage() {
 
       if (quoteError) throw quoteError;
 
-      // 4. MAP AND ASSEMBLE THE SPREADSHEET ROWS
       const assembledRows: LedgerRow[] = [];
 
       jobs.forEach(job => {
@@ -113,7 +107,6 @@ export default function AccountingPage() {
         const jobWinningIds = job.winning_quote_ids || (job.accepted_individual_quote ? [job.accepted_individual_quote] : []);
         const jobQuotes = quotes?.filter(q => jobWinningIds.includes(q.id)) || [];
 
-        // Build the Customer Name (Updated to only use first and last name)
         const customer = jobSubmittal.linked_customer;
         const customerName = customer 
           ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown Customer'
@@ -165,7 +158,6 @@ export default function AccountingPage() {
   };
 
   const handleActualCostBlur = async (quoteId: string, newCost: number, oldCost: number) => {
-    // Only save to DB if the value actually changed
     if (newCost === oldCost) return;
 
     setSavingId(quoteId);
@@ -179,7 +171,6 @@ export default function AccountingPage() {
       toast.success('Cost updated!');
     } catch (err: any) {
       toast.error('Error saving cost');
-      // Revert the row if it fails
       setRows(prev => prev.map(row => 
         row.quoteId === quoteId ? { ...row, actualCost: oldCost } : row
       ));
@@ -188,7 +179,52 @@ export default function AccountingPage() {
     }
   };
 
-  // Prevent flash while authenticating
+  // --- 4. CSV EXPORT LOGIC ---
+  const handleExportCSV = () => {
+    if (rows.length === 0) {
+      toast.error('No data to export.');
+      return;
+    }
+
+    // Define CSV Headers
+    const headers = ['PO Number', 'Customer Name', 'Sale Amount', 'Estimated Cost', 'Actual Cost', 'Markup'];
+    
+    // Map data to CSV string format
+    const csvData = rows.map(row => {
+      let markupString = 'N/A';
+      if (row.actualCost > 0) {
+        const markupNum = ((row.saleAmount - row.actualCost) / row.actualCost) * 100;
+        markupString = `${markupNum.toFixed(1)}%`;
+      } else if (row.saleAmount > 0 && row.actualCost === 0) {
+        markupString = '100.0%';
+      }
+
+      // Escape quotes in customer names just in case, and wrap strings in quotes to avoid comma breaks
+      return [
+        `"${row.poNumber}"`,
+        `"${row.customerName.replace(/"/g, '""')}"`,
+        row.saleAmount,
+        row.estimatedCost,
+        row.actualCost,
+        `"${markupString}"`
+      ].join(',');
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers.join(','), ...csvData].join('\n');
+    
+    // Create a Blob and trigger a temporary download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Accounting_Ledger_${startDate}_to_${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (!authorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -212,25 +248,38 @@ export default function AccountingPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-zinc-200 shadow-sm">
-          <div className="flex items-center gap-2 px-3 border-r border-zinc-100">
-            <Calendar size={18} className="text-zinc-400" />
-            <input 
-              type="date" 
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="text-sm font-bold text-zinc-700 outline-none bg-transparent"
-            />
+        <div className="flex items-center gap-3">
+          {/* Date Filter Box */}
+          <div className="flex items-center bg-white p-2 rounded-2xl border border-zinc-200 shadow-sm">
+            <div className="flex items-center gap-2 px-3 border-r border-zinc-100">
+              <Calendar size={18} className="text-zinc-400" />
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-sm font-bold text-zinc-700 outline-none bg-transparent"
+              />
+            </div>
+            <div className="flex items-center gap-2 px-3">
+              <span className="text-zinc-400 text-sm font-bold">to</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="text-sm font-bold text-zinc-700 outline-none bg-transparent"
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2 px-3">
-            <span className="text-zinc-400 text-sm font-bold">to</span>
-            <input 
-              type="date" 
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="text-sm font-bold text-zinc-700 outline-none bg-transparent"
-            />
-          </div>
+          
+          {/* CSV Export Button */}
+          <button 
+            onClick={handleExportCSV}
+            disabled={loading || rows.length === 0}
+            className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-emerald-600 transition disabled:opacity-50"
+            title="Export to CSV"
+          >
+            <Download size={16} /> Export
+          </button>
         </div>
       </div>
 
@@ -264,7 +313,6 @@ export default function AccountingPage() {
                 </tr>
               ) : (
                 rows.map((row) => {
-                  // Calculate Markup Percentage: ((Sale - Cost) / Cost) * 100
                   let markupString = 'N/A';
                   if (row.actualCost > 0) {
                     const markupNum = ((row.saleAmount - row.actualCost) / row.actualCost) * 100;
