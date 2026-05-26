@@ -191,12 +191,7 @@ export async function GET(req: NextRequest) {
     const splitFinalQty = doc.splitTextToSize(finalQty, 570 - (280 + qtyWidth + 5));
     doc.text(splitFinalQty, 280 + qtyWidth + 5, yPos);
 
-    yPos += (splitFinalQty.length * 14) + 10;
-    
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(200, 200, 200);
-    doc.line(40, yPos, 570, yPos); // Divider Line
-    yPos += 20;
+    yPos += (splitFinalQty.length * 14) + 30;
 
     // --- OPTIONS LOOP ---
     options.forEach((opt: any) => {
