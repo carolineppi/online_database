@@ -145,50 +145,51 @@ export async function GET(req: NextRequest) {
     doc.text(splitAddress, 40, yPos);
     yPos += (splitAddress.length * 14) + 15;
 
+    // Determine the global specifications based on selection or overrides
+    const finalMounting = overrideMounting || options[0]?.mounting_style || "TBD";
+    const finalColor = overrideColor || options[0]?.color || "TBD";
+    const finalQty = overrideQty || formatQtyStr(options[0]);
+
     // --- DESCRIPTION ---
     doc.setFont("helvetica", "bold");
     doc.text("Description:", 40, yPos);
+    const descWidth = doc.getTextWidth("Description:");
     doc.setLineWidth(0.75);
-    doc.line(40, yPos + 2, 106, yPos + 2); // Underline Description
+    doc.line(40, yPos + 2, 40 + descWidth, yPos + 2); // Underline Description
     
     doc.setFont("helvetica", "normal");
-    const descText = submittal.description || 'Toilet Compartments are: ';
-    const splitDesc = doc.splitTextToSize(descText, 440);
-    doc.text(splitDesc, 115, yPos);
-    yPos += (splitDesc.length * 14) + 20;
-
-    // --- PROJECT SPECIFICATIONS (GLOBAL) ---
-    // If the frontend didn't pass an override, fallback to the first option's data
-    const finalMounting = overrideMounting || options[0].mounting_style || "TBD";
-    const finalColor = overrideColor || options[0].color || "TBD";
-    const finalQty = overrideQty || formatQtyStr(options[0]);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...redColor);
-    doc.text("Project Specifications", 40, yPos);
     
-    yPos += 15;
-    doc.setTextColor(0);
-    doc.setFontSize(10);
+    // Conditionally set the description text
+    const descText = finalMounting !== "Accessories Only" 
+      ? `Toilet Compartments are: ${finalMounting}` 
+      : (submittal.description || 'Bathroom Accessories');
+      
+    const splitDesc = doc.splitTextToSize(descText, 530 - (40 + descWidth + 5));
+    doc.text(splitDesc, 40 + descWidth + 5, yPos);
     
-    doc.setFont("helvetica", "bold");
-    doc.text("Mounting Style: ", 40, yPos);
-    doc.setFont("helvetica", "normal");
-    doc.text(finalMounting, 130, yPos);
+    // Small gap right into the Colors and Quantity line
+    yPos += (splitDesc.length * 14) + 5;
 
-    yPos += 15;
+    // --- COLOR & QUANTITY ---
     doc.setFont("helvetica", "bold");
-    doc.text("Color: ", 40, yPos);
-    doc.setFont("helvetica", "normal");
-    doc.text(finalColor, 130, yPos);
+    doc.text("Color:", 40, yPos);
+    const colorWidth = doc.getTextWidth("Color:");
+    doc.setLineWidth(0.75);
+    doc.line(40, yPos + 2, 40 + colorWidth, yPos + 2); // Underline Color
 
-    yPos += 15;
-    doc.setFont("helvetica", "bold");
-    doc.text("Quantities: ", 40, yPos);
     doc.setFont("helvetica", "normal");
-    const splitFinalQty = doc.splitTextToSize(finalQty, 410);
-    doc.text(splitFinalQty, 130, yPos);
+    doc.text(finalColor, 40 + colorWidth + 5, yPos);
+
+    // Quantity (Shifted to the right to share the line)
+    doc.setFont("helvetica", "bold");
+    doc.text("Quantity:", 280, yPos);
+    const qtyWidth = doc.getTextWidth("Quantity:");
+    doc.setLineWidth(0.75);
+    doc.line(280, yPos + 2, 280 + qtyWidth, yPos + 2); // Underline Quantity
+
+    doc.setFont("helvetica", "normal");
+    const splitFinalQty = doc.splitTextToSize(finalQty, 570 - (280 + qtyWidth + 5));
+    doc.text(splitFinalQty, 280 + qtyWidth + 5, yPos);
 
     yPos += (splitFinalQty.length * 14) + 10;
     
@@ -197,7 +198,7 @@ export async function GET(req: NextRequest) {
     doc.line(40, yPos, 570, yPos); // Divider Line
     yPos += 20;
 
-    // --- OPTIONS LOOP (SLIMMED DOWN) ---
+    // --- OPTIONS LOOP ---
     options.forEach((opt: any) => {
       yPos = checkPageBreak(yPos, 40);
 
@@ -224,7 +225,8 @@ export async function GET(req: NextRequest) {
       doc.setFont("helvetica", "normal");
       doc.text(`** ${opt.shipping_included || "Includes Shipping"} **`, 515, yPos, { align: 'center' });
       
-      yPos += 20; 
+      // Increased gap between option chunks! (Changed from +20 to +35)
+      yPos += 35; 
     });
 
     // --- HARDWARE BANNER ---
