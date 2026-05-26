@@ -57,11 +57,11 @@ export default function AccountingPage() {
   }, [router]);
 
   // --- 2. DATA FETCHING ---
+// --- 2. DATA FETCHING ---
   const fetchLedger = async () => {
     setLoading(true);
     try {
       // 1. Fetch Jobs within the date range
-      // Add a full day to endDate to ensure we capture jobs created late in the day
       const endOfDay = new Date(endDate);
       endOfDay.setDate(endOfDay.getDate() + 1);
 
@@ -78,7 +78,6 @@ export default function AccountingPage() {
         return;
       }
 
-      // Extract all necessary IDs
       const submittalIds = jobs.map(j => j.quote_id);
       const allWinningQuoteIds = jobs.flatMap(j => j.winning_quote_ids || (j.accepted_individual_quote ? [j.accepted_individual_quote] : []));
 
@@ -88,15 +87,15 @@ export default function AccountingPage() {
         return;
       }
 
-      // 2. Fetch the related Quote Submittals (for PO Number & Customer Link)
+      // 2. Fetch the related Quote Submittals (Removed "company" from this query)
       const { data: submittals, error: subError } = await supabase
         .from('quote_submittals')
-        .select('*, linked_customer:customers!customer(first_name, last_name, company)')
+        .select('*, linked_customer:customers!customer(first_name, last_name)')
         .in('id', submittalIds);
 
       if (subError) throw subError;
 
-      // 3. Fetch the individual winning quotes (for pricing and manufacturer)
+      // 3. Fetch the individual winning quotes
       const { data: quotes, error: quoteError } = await supabase
         .from('individual_quotes')
         .select('id, quote_id, price, estimated_cost, actual_cost, manufacturer')
@@ -114,19 +113,17 @@ export default function AccountingPage() {
         const jobWinningIds = job.winning_quote_ids || (job.accepted_individual_quote ? [job.accepted_individual_quote] : []);
         const jobQuotes = quotes?.filter(q => jobWinningIds.includes(q.id)) || [];
 
-        // Build the Customer Name
+        // Build the Customer Name (Updated to only use first and last name)
         const customer = jobSubmittal.linked_customer;
         const customerName = customer 
-          ? (customer.company || `${customer.first_name || ''} ${customer.last_name || ''}`).trim()
+          ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Unknown Customer'
           : 'Unknown Customer';
 
-        // Keep track of manufacturer counts for this specific job to append numbers (e.g. -HAD2)
         const mfgCounts: Record<string, number> = {};
 
         jobQuotes.forEach(quote => {
           let poNumber = jobSubmittal.quote_number;
 
-          // If there are multiple winning quotes for this job, append the manufacturer logic
           if (jobQuotes.length > 1) {
             const mfgPrefix = (quote.manufacturer || 'UNK').substring(0, 3).toUpperCase();
             mfgCounts[mfgPrefix] = (mfgCounts[mfgPrefix] || 0) + 1;
