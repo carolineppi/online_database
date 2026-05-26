@@ -10,7 +10,7 @@ const navItems = [
   { name: 'New Quotes', href: '/', icon: LayoutDashboard },
   { name: 'Dashboard', href: '/submittals', icon: FileText },
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
-  { name: 'Financials', href: '/financials', icon: DollarSign },
+  { name: 'Accounting', href: '/accounting', icon: DollarSign }, // Updated to Accounting
   { name: 'Customers', href: '/customers', icon: Users },
 ];
 
@@ -28,11 +28,13 @@ export default function Sidebar({ user }: { user: any }) {
 
   // Determine permissions
   const strictlyAccounting = isStrictlyAccounting(userRoles);
-  const canSeeFinancials = hasAccess(userRoles, ['Accounting', 'Admin']);
+  
+  // SuperAdmin is automatically true via the utility, so we just check for Accounting or Admin
+  const canSeeAccounting = hasAccess(userRoles, ['Accounting', 'Admin']);
 
   // Filter the navigation links based on role
   const visibleNavItems = navItems.filter((item) => {
-    if (item.name === 'Financials') return canSeeFinancials;
+    if (item.name === 'Accounting') return canSeeAccounting;
     return !strictlyAccounting; // Hide all other main links if they are strictly accounting
   });
 
