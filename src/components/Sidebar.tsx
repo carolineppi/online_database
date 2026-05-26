@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { LayoutDashboard, FileText, CheckCircle2, Users, DollarSign, Trash2 } from 'lucide-react';
 import UserProfile from './UserProfile';
-import { hasAccess, isStrictlyAccounting, Role } from '@/utils/rbac';
+import { hasAccess, isStrictlyAccounting, normalizeRoles } from '@/utils/rbac';
 
 const navItems = [
   { name: 'New Quotes', href: '/', icon: LayoutDashboard },
@@ -15,20 +15,19 @@ const navItems = [
 ];
 
 export default function Sidebar({ user }: { user: any }) {
-  const [userRoles, setUserRoles] = useState<Role[]>([]);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
 
-  // Fetch the employee's roles from localStorage when the sidebar mounts
   useEffect(() => {
     const savedEmployee = localStorage.getItem('employee');
     if (savedEmployee) {
       const parsed = JSON.parse(savedEmployee);
-      setUserRoles(parsed.roles || []);
+      // Use our new normalizer to guarantee it's a clean array
+      setUserRoles(normalizeRoles(parsed.roles));
     }
   }, []);
 
   // Determine permissions
   const strictlyAccounting = isStrictlyAccounting(userRoles);
-  // Allowing Admins and Accounting to see Financials (SuperAdmin is always true via the utility)
   const canSeeFinancials = hasAccess(userRoles, ['Accounting', 'Admin']);
 
   // Filter the navigation links based on role
