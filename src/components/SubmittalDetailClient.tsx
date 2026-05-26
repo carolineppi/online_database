@@ -7,9 +7,7 @@ import {
   CheckSquare, 
   Square, 
   Trophy, 
-  RefreshCcw, 
   Trash2, 
-  PlusSquare, 
   FileText, 
   PlusCircle,
   AlertCircle,
@@ -22,7 +20,7 @@ import {
   File,
   Loader2,
   ExternalLink,
-  XSquare // Added XSquare for the unselect icon
+  XSquare 
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -51,14 +49,17 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const [showEditFinancials, setShowEditFinancials] = useState(false);
   const [modalData, setModalData] = useState<any>(null); 
   
+  // NEW: PDF Override States
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfConflicts, setPdfConflicts] = useState({ mountings: [] as string[], colors: [] as string[], qties: [] as string[] });
+  const [pdfOverrides, setPdfOverrides] = useState({ mounting: '', color: '', qty: '' });
+  
   const supabase = createClient();
   const router = useRouter();
 
-  // NEW: Determine all winning IDs (falls back to legacy single ID for old records)
   const winningIds: any[] = activeJob?.winning_quote_ids || 
     (activeJob?.accepted_individual_quote ? [activeJob.accepted_individual_quote] : []);
 
-  // NEW: Sum up all winning options
   const winnerPrice = options
     ?.filter((o: any) => winningIds.includes(o.id))
     .reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0) || 0;
@@ -102,7 +103,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
     setIsUploading(true);
     try {
-      // 1. Upload to Supabase Storage bucket
       const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '');
       const filePath = `${id}/${Date.now()}_${safeName}`; 
 
@@ -112,12 +112,10 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
       if (uploadError) throw uploadError;
 
-      // 2. Get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from('job_documents')
         .getPublicUrl(filePath);
 
-      // 3. Save reference to the database
       const { data: newDoc, error: dbError } = await supabase
         .from('job_documents')
         .insert({
@@ -130,7 +128,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
       if (dbError) throw dbError;
 
-      // Update UI immediately
       setDocs(prev => [newDoc, ...prev]);
       toast.success("Document uploaded!");
     } catch (error: any) {
@@ -154,30 +151,50 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
+  // NEW: Helper function to format quantity
+  const formatQtyString = (opt: any) => {
+    if (opt.itemized_breakdown && opt.itemized_breakdown.length > 0) {
+      return opt.itemized_breakdown.map((item: any) => `(${item.qty || item.quantity || 0}) ${item.item || item.name || 'item'}`).join(', ');
+    }
+    return String(opt.quantity || "N/A");
+  };
+
+  // NEW: Updated PDF Generation logic with Conflict Detection
   const handleGeneratePDF = () => {
     if (selectedIds.length === 0) return toast.error("Select at least one option.");
     
     try {
-      // 1. Convert the array of selected IDs into a comma-separated string
-      const quoteIdsString = selectedIds.join(',');
+      // 1. Get the full objects of the quotes the user checked
+      const selectedOpts = options.filter((opt: any) => selectedIds.includes(opt.id));
       
-      // 2. Construct the GET URL with query parameters
-      const pdfUrl = `/api/generate-pdf?submittalId=${id}&quoteIds=${quoteIdsString}`;
-      
-      // 3. Open the URL in a new tab. The browser handles the PDF preview and downloading!
-      window.open(pdfUrl, '_blank');
-      
+      // 2. Find all unique values
+      const uniqueMountings = [...new Set(selectedOpts.map((o: any) => o.mounting_style).filter(Boolean))] as string[];
+      const uniqueColors = [...new Set(selectedOpts.map((o: any) => o.color).filter(Boolean))] as string[];
+      const uniqueQties = [...new Set(selectedOpts.map((o: any) => formatQtyString(o)).filter(Boolean))] as string[];
+
+      // 3. If any category has more than 1 distinct value, trigger the modal!
+      if (uniqueMountings.length > 1 || uniqueColors.length > 1 || uniqueQties.length > 1) {
+        setPdfConflicts({ mountings: uniqueMountings, colors: uniqueColors, qties: uniqueQties });
+        setPdfOverrides({ 
+          mounting: uniqueMountings[0] || '', 
+          color: uniqueColors[0] || '', 
+          qty: uniqueQties[0] || '' 
+        });
+        setShowPdfModal(true);
+      } else {
+        // No conflicts! Generate directly.
+        const quoteIdsString = selectedIds.join(',');
+        window.open(`/api/generate-pdf?submittalId=${id}&quoteIds=${quoteIdsString}`, '_blank');
+      }
     } catch (err) {
       console.error("PDF Error:", err);
       toast.error("Failed to open PDF preview");
     }
   };
 
- // NEW: Updated Winner Toggling Logic with WooCommerce Name Append
   const handleSelectWinner = async (option: any) => {
     const isCurrentlyWinner = winningIds.includes(option.id);
     
-    // Determine the new array of winning IDs
     let newWinningIds: any[];
     if (isCurrentlyWinner) {
       newWinningIds = winningIds.filter((winId: any) => winId !== option.id);
@@ -185,17 +202,13 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       newWinningIds = [...winningIds, option.id];
     }
 
-    // Calculate the new total sale amount
     const newSaleAmount = options
       ?.filter((o: any) => newWinningIds.includes(o.id))
       .reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0) || 0;
 
     setLoading(true);
 
-    // --- NEW: WOOCOMMERCE NAME CODE APPEND LOGIC ---
     const isFirstTimeWinner = winningIds.length === 0 && newWinningIds.length > 0;
-    
-    // CHANGE THIS: Adjust to match how you flag WooCommerce orders in your database
     const isWooCommerce = submittal.source === 'WooCommerce'; 
 
     if (isFirstTimeWinner && isWooCommerce) {
@@ -221,21 +234,19 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
         }
       }
     }
-    // --- END WOOCOMMERCE LOGIC ---
 
     const { error: jobError } = await supabase
       .from('jobs')
       .upsert({
         quote_id: id, 
-        accepted_individual_quote: newWinningIds.length > 0 ? newWinningIds[0] : null, // Fallback for legacy
-        winning_quote_ids: newWinningIds, // New Array Column
+        accepted_individual_quote: newWinningIds.length > 0 ? newWinningIds[0] : null,
+        winning_quote_ids: newWinningIds,
         sale_amount: newSaleAmount,
         created_at: activeJob?.created_at || new Date().toISOString(),
       }, { 
         onConflict: 'quote_id' 
       });
 
-    // Revert status to PENDING if no winners are selected
     const newStatus = newWinningIds.length > 0 ? 'WON' : 'PENDING';
     await supabase
       .from('quote_submittals')
@@ -367,7 +378,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
 
         <div className="grid gap-4">
           {options?.map((option: any) => {
-            // NEW: Checks the array instead of the single string
             const isWinner = winningIds.includes(option.id);
 
             return (
@@ -436,7 +446,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                       <Trash2 size={20} />
                     </button>
 
-                    {/* NEW: Toggling button logic */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -628,6 +637,80 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
           onClose={() => setShowEditFinancials(false)} 
         />
       )}
+
+      {/* NEW: PDF Conflict Resolution Modal */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl">
+            <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tight mb-2">Resolve PDF Conflicts</h2>
+            <p className="text-sm text-zinc-500 mb-6">
+              The options you selected have different specifications. Choose which values to display at the top of the PDF proposal.
+            </p>
+
+            <div className="space-y-4">
+              {pdfConflicts.mountings.length > 1 && (
+                <div>
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Mounting Style</label>
+                  <select 
+                    value={pdfOverrides.mounting}
+                    onChange={(e) => setPdfOverrides({...pdfOverrides, mounting: e.target.value})}
+                    className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-200 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {pdfConflicts.mountings.map((m, i) => <option key={i} value={m}>{m}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {pdfConflicts.colors.length > 1 && (
+                <div>
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Color</label>
+                  <select 
+                    value={pdfOverrides.color}
+                    onChange={(e) => setPdfOverrides({...pdfOverrides, color: e.target.value})}
+                    className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-200 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {pdfConflicts.colors.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {pdfConflicts.qties.length > 1 && (
+                <div>
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Quantity List</label>
+                  <select 
+                    value={pdfOverrides.qty}
+                    onChange={(e) => setPdfOverrides({...pdfOverrides, qty: e.target.value})}
+                    className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-200 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {pdfConflicts.qties.map((q, i) => <option key={i} value={q}>{q}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button 
+                onClick={() => setShowPdfModal(false)}
+                className="flex-1 p-3 rounded-xl font-bold text-zinc-500 bg-zinc-100 hover:bg-zinc-200 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  setShowPdfModal(false);
+                  // Ensure we hit the correct api endpoint (/api/generate-pdf vs /api/pdf)
+                  const url = `/api/generate-pdf?submittalId=${id}&quoteIds=${selectedIds.join(',')}&overrideMounting=${encodeURIComponent(pdfOverrides.mounting)}&overrideColor=${encodeURIComponent(pdfOverrides.color)}&overrideQty=${encodeURIComponent(pdfOverrides.qty)}`;
+                  window.open(url, '_blank');
+                }}
+                className="flex-1 p-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition"
+              >
+                Generate PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

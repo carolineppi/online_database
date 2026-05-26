@@ -8,14 +8,17 @@ const lightGray = [243, 243, 243] as const; // #f3f3f3
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Grab variables from the URL query string instead of req.json()
     const searchParams = req.nextUrl.searchParams;
     const submittalId = searchParams.get('submittalId');
     const quoteIdsParam = searchParams.get('quoteIds');
     
+    // Capture potential overrides from the frontend modal
+    const overrideMounting = searchParams.get('overrideMounting');
+    const overrideColor = searchParams.get('overrideColor');
+    const overrideQty = searchParams.get('overrideQty');
+    
     if (!submittalId || !quoteIdsParam) throw new Error("Missing parameters");
     
-    // Convert the comma-separated string back to an array
     const quoteIds = quoteIdsParam.split(','); 
 
     const supabase = await createClient();
@@ -31,13 +34,7 @@ export async function GET(req: NextRequest) {
       .select('*')
       .in('id', quoteIds);
 
-    const { data: addons } = await supabase
-      .from('add_ons')
-      .select('*')
-      .eq('quote_id', submittalId)
-      .is('deleted_at', null);
-
-    if (!submittal || !options) throw new Error("Data not found");
+    if (!submittal || !options || options.length === 0) throw new Error("Data not found");
 
     const doc = new jsPDF({ 
       orientation: 'portrait',
@@ -61,30 +58,30 @@ export async function GET(req: NextRequest) {
       if (currentY + neededSpace > 750) {
         doc.addPage();
         applyWatermark(doc);
-        return 60; // reset Y
+        return 60; 
       }
       return currentY;
     };
 
     const formatPhoneNumber = (phone?: string) => {
       if (!phone) return '';
-      // Strip all non-digit characters just in case
       const cleaned = ('' + phone).replace(/\D/g, '');
-      // Match 10 digits, optionally ignoring a leading '1' (US country code)
       const match = cleaned.match(/^(?:1)?(\d{3})(\d{3})(\d{4})$/);
-      
-      if (match) {
-        // Returns with a leading space so you don't have to manually add it later
-        return ` (${match[1]}) ${match[2]}-${match[3]}`;
-      }
-      // Fallback in case the number isn't 10 digits
+      if (match) return ` (${match[1]}) ${match[2]}-${match[3]}`;
       return ` ${phone}`; 
+    };
+
+    const formatQtyStr = (opt: any) => {
+      let formattedQty = opt.quantity || "N/A";
+      if (opt.itemized_breakdown && Array.isArray(opt.itemized_breakdown) && opt.itemized_breakdown.length > 0) {
+         formattedQty = opt.itemized_breakdown.map((item: any) => `(${item.qty || item.quantity || 0}) ${item.item || item.name || 'item'}`).join(', ');
+      }
+      return String(formattedQty);
     };
 
     // --- RENDER PAGE 1 ---
     applyWatermark(doc);
     
-    // 1. Header Area
     doc.addImage(logoBase64, 'PNG', 40, 40, 200, 25); 
     
     doc.setFont("helvetica", "bold");
@@ -96,7 +93,6 @@ export async function GET(req: NextRequest) {
     doc.setTextColor(...darkText);
     doc.text("to Buy Toilet Partitions", 140, 95, { align: 'center' });
 
-    // Header Right Info
     doc.setTextColor(0);
     const quoteDate = new Date(submittal.created_at || new Date()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     doc.setFontSize(12);
@@ -107,7 +103,6 @@ export async function GET(req: NextRequest) {
     doc.text("+1-800-298-9696", 570, 80, { align: 'right' });
     doc.text("sales@partitionplus.com", 570, 90, { align: 'right' });
 
-    // 2. Quote Info Box (Gray Background)
     doc.setFillColor(...lightGray);
     doc.rect(40, 110, 530, 45, 'F');
     
@@ -124,59 +119,88 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(12);
     doc.text(submittal.job_name || "PROPOSAL", 50, 145);
 
-    // Check for the mask, fallback to the original
     const displayQuoteNumber = String(submittal.quote_number_mask || submittal.quote_number || "");
-
-    // 1. Set the font size for the Quote Number so we can measure it accurately
     doc.setFontSize(14);
     const quoteNumWidth = doc.getTextWidth(displayQuoteNumber);
-
-    // The grey box ends at X=570. We will use 560 as our safe right margin so it breathes.
     const rightMarginX = 560;
 
-    // 2. Draw "Quote #: " dynamically positioned to the left of the Quote Number
     doc.setFontSize(12);
-    doc.setTextColor(0); // Black text
-    // We right-align this text just to the left of where the Quote Number will start
+    doc.setTextColor(0); 
     doc.text("Quote #: ", rightMarginX - quoteNumWidth - 2, 127, { align: 'right' });
-
-    // 3. Draw the actual Quote Number right-aligned against the margin
     doc.setFontSize(14);
-    doc.setTextColor(...redColor); // Red text
+    doc.setTextColor(...redColor); 
     doc.text(displayQuoteNumber, rightMarginX, 127, { align: 'right' });
 
-    // 3. Quote Details & Address
     let yPos = 175;
     doc.setTextColor(0);
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.text("We are pleased to enter our price on the following: ", 40, yPos);
 
-    // Shipping Address
+    // --- SHIPPING ADDRESS ---
     yPos += 15;
     doc.setFont("helvetica", "bold");
     const addressText = submittal.shipping_address || 'Toilet Partitions shipping to:';
     const splitAddress = doc.splitTextToSize(addressText, 530);
     doc.text(splitAddress, 40, yPos);
-    yPos += (splitAddress.length * 14) + 20;
+    yPos += (splitAddress.length * 14) + 15;
 
-    // Description
-    // doc.setFont("helvetica", "bold");
-    // doc.text("Description:", 40, yPos);
-    // doc.setLineWidth(0.75);
-    // doc.line(40, yPos + 2, 106, yPos + 2); // Underline Description
-    // doc.setFont("helvetica", "normal");
+    // --- DESCRIPTION ---
+    doc.setFont("helvetica", "bold");
+    doc.text("Description:", 40, yPos);
+    doc.setLineWidth(0.75);
+    doc.line(40, yPos + 2, 106, yPos + 2); // Underline Description
     
-    // const descText = submittal.description || 'Toilet Compartments are: ';
-    // const splitDesc = doc.splitTextToSize(descText, 440);
-    // doc.text(splitDesc, 113, yPos);
-    // yPos += (splitDesc.length * 14) + 20;
+    doc.setFont("helvetica", "normal");
+    const descText = submittal.description || 'Toilet Compartments are: ';
+    const splitDesc = doc.splitTextToSize(descText, 440);
+    doc.text(splitDesc, 115, yPos);
+    yPos += (splitDesc.length * 14) + 20;
 
-    // 4. Materials Loop (Now contains Quantity and Color)
+    // --- PROJECT SPECIFICATIONS (GLOBAL) ---
+    // If the frontend didn't pass an override, fallback to the first option's data
+    const finalMounting = overrideMounting || options[0].mounting_style || "TBD";
+    const finalColor = overrideColor || options[0].color || "TBD";
+    const finalQty = overrideQty || formatQtyStr(options[0]);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...redColor);
+    doc.text("Project Specifications", 40, yPos);
+    
+    yPos += 15;
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Mounting Style: ", 40, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.text(finalMounting, 130, yPos);
+
+    yPos += 15;
+    doc.setFont("helvetica", "bold");
+    doc.text("Color: ", 40, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.text(finalColor, 130, yPos);
+
+    yPos += 15;
+    doc.setFont("helvetica", "bold");
+    doc.text("Quantities: ", 40, yPos);
+    doc.setFont("helvetica", "normal");
+    const splitFinalQty = doc.splitTextToSize(finalQty, 410);
+    doc.text(splitFinalQty, 130, yPos);
+
+    yPos += (splitFinalQty.length * 14) + 10;
+    
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(200, 200, 200);
+    doc.line(40, yPos, 570, yPos); // Divider Line
+    yPos += 20;
+
+    // --- OPTIONS LOOP (SLIMMED DOWN) ---
     options.forEach((opt: any) => {
-      yPos = checkPageBreak(yPos, 60);
+      yPos = checkPageBreak(yPos, 40);
 
-      // Material Title & Price
       doc.setTextColor(...redColor);
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
@@ -188,85 +212,22 @@ export async function GET(req: NextRequest) {
       yPos += 14;
       doc.setTextColor(0);
       doc.setFontSize(10);
+      
       let currentX = 40;
-
-      // Manufacturer
       doc.setFont("helvetica", "bold");
       doc.text("Manufacturer: ", currentX, yPos);
       currentX += doc.getTextWidth("Manufacturer: ");
 
       doc.setFont("helvetica", "normal");
-      const mfgText = opt.manufacturer || 'HADRIAN';
-      doc.text(mfgText, currentX, yPos);
-
-      currentX += doc.getTextWidth(mfgText) + 20;
-
-      // Mounting Style
-      doc.setFont("helvetica", "bold");
-      doc.text("Mounting: ", currentX, yPos);
-      currentX += doc.getTextWidth("Mounting: ");
+      doc.text(opt.manufacturer || 'HADRIAN', currentX, yPos);
 
       doc.setFont("helvetica", "normal");
-      const mountingText = opt.details ? `${opt.mounting_style} for ${opt.details}"` : opt.mounting_style;
-      doc.text(mountingText || '', currentX, yPos);
-            
-      doc.setFont("helvetica", "normal");
-      doc.text(`** ${opt.shipping_included} **` || "** includes shipping **", 515, yPos, { align: 'center' });
+      doc.text(`** ${opt.shipping_included || "Includes Shipping"} **`, 515, yPos, { align: 'center' });
       
-      // Color
-      yPos += 14;
-      currentX = 40;
-      doc.setFont("helvetica", "normal");
-      doc.text("Color: ", currentX, yPos);
-      currentX += doc.getTextWidth("Color: ");
-
-      doc.setFont("helvetica", "bold");
-      const colorText = opt.color || 'TBD';
-      doc.text(colorText, currentX, yPos);
-      currentX += doc.getTextWidth(colorText) + 20;
-
-      // Itemized Quantity List
-      doc.setFont("helvetica", "normal");
-      doc.text("Quantity: ", currentX, yPos);
-      currentX += doc.getTextWidth("Quantity: ");
-
-      doc.setFont("helvetica", "bold");
-      
-      // Parse the JSON array into "(5) item name, (1) item name"
-      let formattedQty = opt.quantity || "N/A";
-      if (opt.itemized_breakdown && Array.isArray(opt.itemized_breakdown) && opt.itemized_breakdown.length > 0) {
-         formattedQty = opt.itemized_breakdown.map((item: any) => `(${item.qty || item.quantity || 0}) ${item.item || item.name || 'item'}`).join(', ');
-      }
-      
-      // Use splitTextToSize to gracefully wrap long lists of items
-      const splitQty = doc.splitTextToSize(formattedQty, 450);
-      doc.text(splitQty, currentX, yPos);
-      
-      yPos += (splitQty.length * 14) + 20; // Extra padding for next material
+      yPos += 20; 
     });
 
-    // Add-ons
-    // if (addons && addons.length > 0) {
-    //   yPos = checkPageBreak(yPos, 40 + (addons.length * 15));
-    //   doc.setTextColor(0);
-    //   doc.setFontSize(12);
-    //   doc.setFont("helvetica", "bold");
-    //   doc.text("ADDITIONAL ACCESSORIES / HARDWARE", 40, yPos);
-      
-    //   yPos += 15;
-    //   doc.setTextColor(0);
-    //   doc.setFontSize(10);
-    //   doc.setFont("helvetica", "normal");
-    //   addons.forEach((addon: any) => {
-    //     doc.text(`${addon.quantity || 1}x ${addon.material}`, 40, yPos);
-    //     const addonPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(addon.price);
-    //     doc.text(addonPrice, 570, yPos, { align: 'right' });
-    //     yPos += 15;
-    //   });
-    //   yPos += 15;
-    // }
-
-    // 5. Hardware Banner (Red Background, White Text)
+    // --- HARDWARE BANNER ---
     yPos = checkPageBreak(yPos, 40);
     yPos -= 10;
     doc.setFillColor(...redColor);
@@ -274,10 +235,10 @@ export async function GET(req: NextRequest) {
     doc.setTextColor(255);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text(submittal.description || "** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
+    doc.text("** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
     yPos += 30;
 
-    // 6. Terms Box
+    // --- TERMS AND CONDITIONS ---
     yPos = checkPageBreak(yPos, 180);
     
     doc.setFont("helvetica", "italic");
@@ -290,7 +251,6 @@ export async function GET(req: NextRequest) {
     doc.setFillColor(...lightGray);
     doc.rect(40, yPos, 530, 180, 'F');
     
-    // Terms Content (Centered)
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(0);
@@ -318,7 +278,6 @@ export async function GET(req: NextRequest) {
 
     yPos += 180;
 
-    // 7. Footer CTA
     yPos = checkPageBreak(yPos, 40);
     doc.setFillColor(...redColor);
     doc.rect(40, yPos + 10, 530, 25, 'F');
@@ -327,16 +286,12 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(12);
     doc.text("Have Questions about your Partitions? - Give us a Call!", 305, yPos + 27, { align: 'center' });
 
-    // Output
     const pdfOutput = doc.output('arraybuffer');
-    
-    // 1. Sanitize the quote number to remove spaces, commas, and illegal characters
     const safeQuoteNumber = String(displayQuoteNumber).replace(/[^a-zA-Z0-9-_]/g, '_');
 
     return new NextResponse(Buffer.from(pdfOutput), {
       headers: {
         'Content-Type': 'application/pdf',
-        // 2. Change "attachment" to "inline" to tell the browser to preview it!
         'Content-Disposition': `inline; filename="${safeQuoteNumber}_quote.pdf"`,
       },
     });
