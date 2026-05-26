@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { isStrictlyAccounting, Role } from '@/utils/rbac'; // Import our new RBAC utility
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -26,9 +27,18 @@ export default function LoginPage() {
       .single();
 
     if (data) {
+      // 1. Save the employee data to local storage so the rest of the app knows who is logged in
       localStorage.setItem('employee', JSON.stringify(data));
-      // Forces the app to "wake up" and show the sidebar immediately
-      window.location.href = '/submittals'; 
+      
+      // 2. Extract their roles array (fallback to an empty array if they have none)
+      const userRoles = (data.roles || []) as Role[];
+
+      // 3. Force the app to "wake up" and route them to the correct page based on their role
+      if (isStrictlyAccounting(userRoles)) {
+        window.location.href = '/accounting'; 
+      } else {
+        window.location.href = '/submittals'; 
+      }
     } else {
       alert('Login failed. Please verify credentials.');
     }
@@ -58,7 +68,7 @@ export default function LoginPage() {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700"
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition"
           >
             {loading ? 'Verifying...' : 'Login'}
           </button>
