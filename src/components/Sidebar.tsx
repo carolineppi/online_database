@@ -18,8 +18,8 @@ const navItems = [
   { name: 'New Quotes', href: '/', icon: LayoutDashboard },
   { name: 'Dashboard', href: '/submittals', icon: FileText },
   { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
-  { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Accounting', href: '/accounting', icon: Calculator }, // Both tabs now exist!
+  { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Customers', href: '/customers', icon: Users },
 ];
 
