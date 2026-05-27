@@ -167,10 +167,24 @@ export async function GET(req: NextRequest) {
     const splitDesc = doc.splitTextToSize(descText, 530 - (40 + descWidth + 5));
     doc.text(splitDesc, 40 + descWidth + 5, yPos);
     
-    // Small gap right into the Colors and Quantity line
-    yPos += (splitDesc.length * 14) + 5;
+    // Increased gap between Description and Quantity
+    yPos += (splitDesc.length * 14) + 15;
 
-    // --- COLOR & QUANTITY ---
+    // --- QUANTITY ---
+    doc.setFont("helvetica", "bold");
+    doc.text("Quantity:", 40, yPos);
+    const qtyWidth = doc.getTextWidth("Quantity:");
+    doc.setLineWidth(0.75);
+    doc.line(40, yPos + 2, 40 + qtyWidth, yPos + 2); // Underline Quantity
+
+    doc.setFont("helvetica", "normal");
+    const splitFinalQty = doc.splitTextToSize(finalQty, 530 - (40 + qtyWidth + 5));
+    doc.text(splitFinalQty, 40 + qtyWidth + 5, yPos);
+
+    // Increased gap between Quantity and Color
+    yPos += (splitFinalQty.length * 14) + 15;
+
+    // --- COLOR ---
     doc.setFont("helvetica", "bold");
     doc.text("Color:", 40, yPos);
     const colorWidth = doc.getTextWidth("Color:");
@@ -178,20 +192,16 @@ export async function GET(req: NextRequest) {
     doc.line(40, yPos + 2, 40 + colorWidth, yPos + 2); // Underline Color
 
     doc.setFont("helvetica", "normal");
-    doc.text(finalColor, 40 + colorWidth + 5, yPos);
+    const splitFinalColor = doc.splitTextToSize(finalColor, 530 - (40 + colorWidth + 5));
+    doc.text(splitFinalColor, 40 + colorWidth + 5, yPos);
 
-    // Quantity (Shifted to the right to share the line)
-    doc.setFont("helvetica", "bold");
-    doc.text("Quantity:", 280, yPos);
-    const qtyWidth = doc.getTextWidth("Quantity:");
-    doc.setLineWidth(0.75);
-    doc.line(280, yPos + 2, 280 + qtyWidth, yPos + 2); // Underline Quantity
+    // Gap before the divider line
+    yPos += (splitFinalColor.length * 14) + 20;
 
-    doc.setFont("helvetica", "normal");
-    const splitFinalQty = doc.splitTextToSize(finalQty, 570 - (280 + qtyWidth + 5));
-    doc.text(splitFinalQty, 280 + qtyWidth + 5, yPos);
-
-    yPos += (splitFinalQty.length * 14) + 30;
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(200, 200, 200);
+    doc.line(40, yPos, 570, yPos); // Divider Line
+    yPos += 20;
 
 // --- OPTIONS LOOP ---
     const OPTION_BLOCK_HEIGHT = 45; // Fixed height allocated for EACH option
