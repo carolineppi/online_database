@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
     yPos += (splitFinalQty.length * 14) + 30;
 
 // --- OPTIONS LOOP ---
-    const OPTION_BLOCK_HEIGHT = 50; // Fixed height allocated for EACH option
+    const OPTION_BLOCK_HEIGHT = 40; // Fixed height allocated for EACH option
     let itemsOnCurrentPage = 0;
 
     options.forEach((opt: any) => {
@@ -204,7 +204,7 @@ export async function GET(req: NextRequest) {
       // If checkPageBreak returned 60, it means it created a new page!
       if (newY === 60) {
         yPos = newY;
-        itemsOnCurrentPage = 0; // Reset counter for the new page
+        itemsOnCurrentPage = 0; // Reset counter for the new page 
       }
 
       doc.setTextColor(...redColor);
