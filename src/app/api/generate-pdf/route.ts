@@ -200,7 +200,7 @@ export async function GET(req: NextRequest) {
     yPos += 20;
 
 // --- OPTIONS LOOP ---
-    const OPTION_BLOCK_HEIGHT = 40; // Fixed height allocated for EACH option
+    const OPTION_BLOCK_HEIGHT = 35; // Fixed height allocated for EACH option
     let itemsOnCurrentPage = 0;
 
     options.forEach((opt: any) => {
