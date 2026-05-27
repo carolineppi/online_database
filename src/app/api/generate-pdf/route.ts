@@ -196,11 +196,7 @@ export async function GET(req: NextRequest) {
     doc.text(splitFinalColor, 40 + colorWidth + 5, yPos);
 
     // Gap before the divider line
-    yPos += (splitFinalColor.length * 14) + 20;
-
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(200, 200, 200);
-    doc.line(40, yPos, 570, yPos); // Divider Line
+    yPos += (splitFinalColor.length * 14) + 5;
     yPos += 20;
 
 // --- OPTIONS LOOP ---
