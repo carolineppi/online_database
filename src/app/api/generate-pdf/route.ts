@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
     
     // Conditionally set the description text
     const descText = finalMounting !== "Accessories Only" 
-      ? `Toilet Compartments are: ${finalMounting}` 
+      ? `Toilet Compartments are ${finalMounting}` 
       : (submittal.description || 'Bathroom Accessories');
       
     const splitDesc = doc.splitTextToSize(descText, 530 - (40 + descWidth + 5));
