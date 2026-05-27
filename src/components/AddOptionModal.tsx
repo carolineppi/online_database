@@ -18,7 +18,7 @@ import { toast } from "sonner";
 const MATERIALS = [
   "Powder Coated Steel",
   "Series 1552 High Pressure Laminate",
-  "HineyHiders Solid Plastic",
+  "HinyHiders Solid Plastic",
   "HDPE - Solid Plastic",
   "Series 1082 Solid Phenolic",
   "Stainless Steel",
