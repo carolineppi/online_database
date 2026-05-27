@@ -193,9 +193,19 @@ export async function GET(req: NextRequest) {
 
     yPos += (splitFinalQty.length * 14) + 30;
 
-    // --- OPTIONS LOOP ---
+// --- OPTIONS LOOP ---
+    const OPTION_BLOCK_HEIGHT = 65; // Fixed height allocated for EACH option
+    let itemsOnCurrentPage = 0;
+
     options.forEach((opt: any) => {
-      yPos = checkPageBreak(yPos, 40);
+      // Check if this new option block will push us over the page limit
+      const newY = checkPageBreak(yPos, OPTION_BLOCK_HEIGHT);
+      
+      // If checkPageBreak returned 60, it means it created a new page!
+      if (newY === 60) {
+        yPos = newY;
+        itemsOnCurrentPage = 0; // Reset counter for the new page
+      }
 
       doc.setTextColor(...redColor);
       doc.setFontSize(13);
@@ -205,35 +215,46 @@ export async function GET(req: NextRequest) {
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
       doc.text(priceFmt, 515, yPos, { align: 'center' });
 
-      yPos += 14;
       doc.setTextColor(0);
       doc.setFontSize(10);
       
       let currentX = 40;
       doc.setFont("helvetica", "bold");
-      doc.text("Manufacturer: ", currentX, yPos);
+      doc.text("Manufacturer: ", currentX, yPos + 14);
       currentX += doc.getTextWidth("Manufacturer: ");
 
       doc.setFont("helvetica", "normal");
-      doc.text(opt.manufacturer || 'HADRIAN', currentX, yPos);
+      doc.text(opt.manufacturer || 'HADRIAN', currentX, yPos + 14);
 
       doc.setFont("helvetica", "normal");
-      doc.text(`** ${opt.shipping_included || "Includes Shipping"} **`, 515, yPos, { align: 'center' });
+      doc.text(`** ${opt.shipping_included || "Includes Shipping"} **`, 515, yPos + 14, { align: 'center' });
       
-      // Increased gap between option chunks! (Changed from +20 to +35)
-      yPos += 35; 
+      // Advance by the strict, fixed block height
+      yPos += OPTION_BLOCK_HEIGHT; 
+      itemsOnCurrentPage++;
     });
 
+    // PADDING LOGIC:
+    // We want a max of 4 items per page. If there are fewer than 4 items 
+    // on the current page, add "dummy padding" to simulate the missing items.
+    // This pushes the hardware banner and terms down consistently.
+    if (itemsOnCurrentPage > 0 && itemsOnCurrentPage < 4) {
+        const missingItems = 4 - itemsOnCurrentPage;
+        yPos += (missingItems * OPTION_BLOCK_HEIGHT); 
+    }
+
     // --- HARDWARE BANNER ---
-    yPos = checkPageBreak(yPos, 40);
-    yPos -= 10;
+    // Double check that our artificial padding didn't push the banner off the page!
+    yPos = checkPageBreak(yPos, 40); 
+    
+    // We remove the arbitrary yPos -= 10 here so it aligns perfectly with the grid
     doc.setFillColor(...redColor);
     doc.rect(40, yPos, 530, 25, 'F');
     doc.setTextColor(255);
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
-    yPos += 30;
+    yPos += 35; // Advance past the banner
 
     // --- TERMS AND CONDITIONS ---
     yPos = checkPageBreak(yPos, 180);
