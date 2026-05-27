@@ -194,7 +194,7 @@ export async function GET(req: NextRequest) {
     yPos += (splitFinalQty.length * 14) + 30;
 
 // --- OPTIONS LOOP ---
-    const OPTION_BLOCK_HEIGHT = 40; // Fixed height allocated for EACH option
+    const OPTION_BLOCK_HEIGHT = 45; // Fixed height allocated for EACH option
     let itemsOnCurrentPage = 0;
 
     options.forEach((opt: any) => {
@@ -254,7 +254,7 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("** All hardware needed for installation is included **", 305, yPos + 15, { align: 'center' });
-    yPos += 35; // Advance past the banner
+    yPos += 25; // Advance past the banner
 
     // --- TERMS AND CONDITIONS ---
     yPos = checkPageBreak(yPos, 180);
