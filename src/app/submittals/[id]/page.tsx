@@ -16,6 +16,7 @@ import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import SubmittalHeader from '@/components/SubmittalHeader';
+import StatusDropdown from '@/components/StatusDropdown'; // --- ADDED IMPORT ---
 
 export default async function SubmittalDetails({ 
   params 
@@ -99,16 +100,23 @@ export default async function SubmittalDetails({
         <Link href="/submittals" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
           <ChevronLeft size={20} /> Back to Dashboard
         </Link>
+        
+        {/* --- ADDED STATUS DROPDOWN HERE --- */}
+        <div className="flex items-center gap-4">
+          <StatusDropdown id={id} currentStatus={submittal.status} />
 
-        <form action={softDeleteSubmittal}>
-          <button 
-            type="submit"
-            className="flex items-center gap-2 text-zinc-400 hover:text-red-600 transition text-xs font-black uppercase tracking-widest"
-            formAction={softDeleteSubmittal}
-          >
-            <Trash2 size={16} /> Move to Trash
-          </button>
-        </form>
+          <div className="w-px h-4 bg-zinc-200"></div>
+
+          <form action={softDeleteSubmittal}>
+            <button 
+              type="submit"
+              className="flex items-center gap-2 text-zinc-400 hover:text-red-600 transition text-xs font-black uppercase tracking-widest"
+              formAction={softDeleteSubmittal}
+            >
+              <Trash2 size={16} /> Move to Trash
+            </button>
+          </form>
+        </div>
       </div>
       
       <SubmittalHeader 
@@ -146,7 +154,7 @@ export default async function SubmittalDetails({
               )}
             </div>
 
-            {/* COMPACT Grid Layout for files (Fits up to 5 in a row on big screens) */}
+            {/* COMPACT Grid Layout for files */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {submittal.file_urls.map((url: string, index: number) => {
                 const extMatch = url.match(/\.([^.?]+)(\?.*)?$/);
@@ -185,7 +193,7 @@ export default async function SubmittalDetails({
           </div>
         </section>
       ) : submittal.pdf_url ? (
-        // COMPACT Legacy fallback (Now with Zip Code)
+        // COMPACT Legacy fallback
         <section className="mb-8">
           <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             

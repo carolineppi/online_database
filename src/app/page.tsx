@@ -2,14 +2,14 @@
 
 import Image from "next/image";
 import { createClient } from '@/utils/supabase/client'; // Use the client version
-import RecentActivity from '@/components/RecentActivity';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Plus, ClipboardList, UserCheck, Trash2, User, Loader2 } from 'lucide-react';
+import { Search, Plus, ClipboardList, UserCheck, Trash2, User, Loader2, Tag, X } from 'lucide-react';
 import SubmittalSearchBar from '@/components/SubmittalSearchBar';
 import NewSubmittalButton from '@/components/NewSubmittalButton'; 
 import { useEffect, useState } from 'react';
 import { isStrictlyAccounting, normalizeRoles } from '@/utils/rbac';
+import { toast } from "sonner"; // Assuming you use sonner for toasts based on previous files!
 
 export default function Page() {
   const CURRENT_EMPLOYEE_ID = '1';
@@ -21,6 +21,10 @@ export default function Page() {
   const [unquotedSubmittals, setUnquotedSubmittals] = useState<any[]>([]);
   const [campaignSources, setCampaignSources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Quick Status Modal State
+  const [statusModalId, setStatusModalId] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // 1. RBAC Bouncer Effect
   useEffect(() => {
@@ -48,11 +52,9 @@ export default function Page() {
     const fetchData = async () => {
       setLoading(true);
       
-      // Fetch Campaigns
       const { data: campaigns } = await supabase.from('campaign_sources').select('*');
       setCampaignSources(campaigns || []);
 
-      // Fetch Submittals
       const { data: submittals, error: fetchError } = await supabase
         .from('quote_submittals')
         .select('*')
@@ -80,14 +82,35 @@ export default function Page() {
       .eq('id', id);
 
     if (!error) {
-       // Refresh the list locally
        setUnquotedSubmittals(unquotedSubmittals.filter(item => item.id !== id));
     } else {
       console.error("Delete error:", error);
     }
   };
 
-  // Don't flash the dashboard to the accountant before the redirect fires
+  // Quick Status Change Handler
+  const handleQuickStatus = async (status: string) => {
+    if (!statusModalId) return;
+    setIsUpdatingStatus(true);
+    
+    const { error } = await supabase
+      .from('quote_submittals')
+      .update({ status })
+      .eq('id', statusModalId);
+
+    if (!error) {
+      // Remove it from the pending list since it has been categorized
+      setUnquotedSubmittals(unquotedSubmittals.filter(item => item.id !== statusModalId));
+      toast?.success(`Marked as ${status}`);
+    } else {
+      console.error("Status Update Error:", error);
+      toast?.error("Failed to update status");
+    }
+    
+    setIsUpdatingStatus(false);
+    setStatusModalId(null);
+  };
+
   if (!authorized) return (
      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loader2 className="animate-spin text-blue-600" size={40} />
@@ -95,8 +118,8 @@ export default function Page() {
   );
 
   return (
-    <main className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
+    <main className="pl-64 min-h-screen bg-gray-50 relative"> 
+      <div className="p-8 max-w-7xl mx-auto">
         
         {/* Header */}
         <div className="flex justify-between items-center mb-10">
@@ -132,14 +155,10 @@ export default function Page() {
                     </div>
                 ) : unquotedSubmittals.length ? unquotedSubmittals.map((item) => {
                   
-                  // Database-driven Marketing Source Logic
                   const matchedCampaign = campaignSources?.find(c => c.campaign_id === item.quote_source);
                   const isManual = item.quote_source === 'PM Input';
-                  
                   const isPaid = !!matchedCampaign || (!isManual && item.quote_source !== 'Organic / Direct' && item.quote_source !== 'Unknown' && !isNaN(Number(item.quote_source)));
                   const badgeText = matchedCampaign ? matchedCampaign.campaign_name : 'Paid Ad';
-
-                  // Logic to spot WooCommerce orders that are currently waiting for a winner
                   const isWooCommerce = item.job_name?.toLowerCase().includes('woocommerce');
                   const isQuoted = item.status?.toUpperCase() === 'QUOTED';
 
@@ -152,7 +171,6 @@ export default function Page() {
                               #{item.quote_number}
                             </span>
                             
-                            {/* WOOCOMMERCE WAITING FOR WINNER BADGE */}
                             {isWooCommerce && isQuoted && (
                               <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
                                 <span className="h-1.5 w-1.5 bg-amber-500 rounded-full" />
@@ -160,7 +178,6 @@ export default function Page() {
                               </span>
                             )}
 
-                            {/* DYNAMIC PAID AD BADGE */}
                             {isPaid && (
                               <span className="flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
                                 <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-pulse" />
@@ -168,7 +185,6 @@ export default function Page() {
                               </span>
                             )}
 
-                            {/* MANUAL ENTRY BADGE */}
                             {isManual && (
                               <span className="flex items-center gap-1 text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full border border-purple-200">
                                 <User size={10} /> PM Input
@@ -185,18 +201,28 @@ export default function Page() {
                         </div>
                       </Link>
 
-                      {/* Action Buttons: Delete & View */}
-                      <div className="flex items-center gap-3 pr-6">
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 pr-6">
+                        {/* NEW TAG BUTTON */}
+                        <button 
+                          onClick={(e) => { e.preventDefault(); setStatusModalId(item.id); }}
+                          className="h-9 w-9 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-400 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-200 transition shadow-sm bg-white"
+                          title="Categorize Job"
+                        >
+                          <Tag size={16} />
+                        </button>
+                        
                         <button 
                           onClick={(e) => handleSoftDelete(item.id, e)}
-                          className="h-9 w-9 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-300 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition shadow-sm bg-white"
+                          className="h-9 w-9 rounded-xl border border-zinc-200 flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition shadow-sm bg-white"
                           title="Move to Trash"
                         >
                           <Trash2 size={16} />
                         </button>
+
                         <Link 
                           href={`/submittals/${item.id}`}
-                          className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
+                          className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white hover:bg-blue-600 transition shadow-lg shadow-zinc-200 ml-1"
                         >
                           <Plus size={18} />
                         </Link>
@@ -220,6 +246,33 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {/* QUICK STATUS MODAL */}
+      {statusModalId && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-zinc-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-black text-lg text-zinc-900 uppercase tracking-tight">Categorize Job</h3>
+              <button onClick={() => setStatusModalId(null)} className="text-zinc-400 hover:text-zinc-800"><X size={20}/></button>
+            </div>
+            
+            <div className="space-y-3">
+              <button onClick={() => handleQuickStatus('SPAM')} disabled={isUpdatingStatus} className="w-full p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-zinc-700 font-bold hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition flex items-center justify-between group">
+                Mark as Spam
+                <Tag size={16} className="text-zinc-400 group-hover:text-red-500" />
+              </button>
+              <button onClick={() => handleQuickStatus('DUPLICATE')} disabled={isUpdatingStatus} className="w-full p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-zinc-700 font-bold hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600 transition flex items-center justify-between group">
+                Mark as Duplicate
+                <Tag size={16} className="text-zinc-400 group-hover:text-amber-500" />
+              </button>
+              <button onClick={() => handleQuickStatus('OFFICE')} disabled={isUpdatingStatus} className="w-full p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-zinc-700 font-bold hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition flex items-center justify-between group">
+                Send to Office
+                <Tag size={16} className="text-zinc-400 group-hover:text-blue-500" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
