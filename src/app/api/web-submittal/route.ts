@@ -1,16 +1,17 @@
 import { createClient } from "@/utils/supabase/server";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
-// --- CORS HEADERS ---
+// --- 1. CORS HEADERS ---
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-// --- PREFLIGHT HANDLER FOR BROWSER ---
+// --- 2. PREFLIGHT HANDLER FOR BROWSER ---
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+  // Answers the browser's preflight check before the POST request
+  return NextResponse.json({}, { headers: corsHeaders });
 }
 
 // Helper function to parse the UTM sources
@@ -32,7 +33,8 @@ function parseAdSource(rawUrl: string | null) {
   }
 }
 
-export async function POST(request: Request) {
+// --- 3. MAIN POST HANDLER ---
+export async function POST(request: NextRequest) {
   console.log(">>> [WEBHOOK] API Entry Point Reached");
 
   const supabase = await createClient();
@@ -76,8 +78,7 @@ export async function POST(request: Request) {
 
     const adData = parseAdSource(submission_url);
 
-    // --- FIX 1: RESILIENT PHONE PARSING ---
-    // Instead of rejecting the whole payload, we just set the phone to null if it's missing or invalid
+    // --- RESILIENT PHONE PARSING ---
     const rawPhone = phone ? phone.toString().replace(/\D/g, "") : "";
     let numericPhone: number | null = null;
 
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
       numericPhone = parseInt(rawPhone, 10);
     }
 
-    // --- STEP 3: GENERATE BASE NUMBER (YY-XXXX) ---
+    // --- GENERATE BASE NUMBER (YY-XXXX) ---
     const now = new Date();
     const yearSuffix = now.getFullYear().toString().slice(-2);
 
@@ -109,10 +110,9 @@ export async function POST(request: Request) {
     const paddedSeq = nextSequence.toString().padStart(4, "0");
     const quoteNumber = `${yearSuffix}-${paddedSeq}`;
 
-    // --- FIX 2: SAFE CUSTOMER LOOKUP ---
+    // --- SAFE CUSTOMER LOOKUP ---
     let customer = null;
 
-    // Only run the lookup if we actually have an email or phone to search with
     if (email || numericPhone) {
       let query = supabase.from("customers").select("id");
 
@@ -120,18 +120,16 @@ export async function POST(request: Request) {
       if (email) orConditions.push(`email.eq.${email}`);
       if (numericPhone) orConditions.push(`phone.eq.${numericPhone}`);
 
-      // Joins the conditions properly so we don't send undefined syntax to Supabase
       const { data } = await query.or(orConditions.join(",")).maybeSingle();
       customer = data;
     }
 
-    // If no customer was found, create one gracefully
     if (!customer) {
       const { data: newCust, error: custError } = await supabase
         .from("customers")
         .insert([
           {
-            first_name: finalFirstName || "Unknown User", // Fallback just in case name is empty
+            first_name: finalFirstName || "Unknown User",
             last_name: finalLastName || "",
             email: email || null,
             phone: numericPhone,
@@ -144,7 +142,7 @@ export async function POST(request: Request) {
       customer = newCust;
     }
 
-    // --- STEP 5: FILE UPLOAD LOGIC ---
+    // --- FILE UPLOAD LOGIC ---
     let fileUrls: string[] = [];
 
     const uploadBase64File = async (
@@ -207,14 +205,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // --- STEP 6: INSERT RECORD ---
+    // --- INSERT RECORD ---
     const { data: submittal, error: subError } = await supabase
       .from("quote_submittals")
       .insert([
         {
           job_name: finalJobName,
           quote_number: quoteNumber,
-          status: "PENDING", // Capitalized to match your Next.js filters
+          status: "PENDING",
           customer: customer!.id,
           pdf_url: fileUrls.length > 0 ? fileUrls[0] : null,
           file_urls: fileUrls,
@@ -232,12 +230,15 @@ export async function POST(request: Request) {
 
     if (subError) throw subError;
 
+    // --- SUCCESS: RETURN WITH CORS HEADERS ---
     return NextResponse.json(
       { success: true, quoteNumber },
       { headers: corsHeaders },
     );
   } catch (err: any) {
     console.error(">>> [CRITICAL ERROR]:", err.message);
+    
+    // --- ERROR: RETURN WITH CORS HEADERS ---
     return NextResponse.json(
       { error: err.message },
       { status: 500, headers: corsHeaders },
