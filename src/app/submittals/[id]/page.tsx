@@ -9,14 +9,15 @@ import {
   ExternalLink,
   Download,
   User,
-  MapPin
+  MapPin,
+  MessageSquare // --- ADDED IMPORT ---
 } from 'lucide-react';
 import Link from 'next/link';
 import SubmittalDetailClient from '@/components/SubmittalDetailClient';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import SubmittalHeader from '@/components/SubmittalHeader';
-import StatusDropdown from '@/components/StatusDropdown'; // --- ADDED IMPORT ---
+import StatusDropdown from '@/components/StatusDropdown'; 
 
 export default async function SubmittalDetails({ 
   params 
@@ -101,7 +102,6 @@ export default async function SubmittalDetails({
           <ChevronLeft size={20} /> Back to Dashboard
         </Link>
         
-        {/* --- ADDED STATUS DROPDOWN HERE --- */}
         <div className="flex items-center gap-4">
           <StatusDropdown id={id} currentStatus={submittal.status} />
 
@@ -154,8 +154,21 @@ export default async function SubmittalDetails({
               )}
             </div>
 
+            {/* --- NEW CUSTOMER NOTES AREA --- */}
+            {submittal.notes && (
+              <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm mt-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageSquare size={14} className="text-zinc-400" />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Customer Notes</h4>
+                </div>
+                <p className="text-sm font-medium text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                  {submittal.notes}
+                </p>
+              </div>
+            )}
+
             {/* COMPACT Grid Layout for files */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-2">
               {submittal.file_urls.map((url: string, index: number) => {
                 const extMatch = url.match(/\.([^.?]+)(\?.*)?$/);
                 const ext = extMatch ? extMatch[1].toUpperCase() : 'FILE';
@@ -195,49 +208,64 @@ export default async function SubmittalDetails({
       ) : submittal.pdf_url ? (
         // COMPACT Legacy fallback
         <section className="mb-8">
-          <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-5 flex flex-col gap-4">
             
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-200 flex items-center justify-center text-red-500 shrink-0">
-                <FileText size={24} />
-              </div>
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Source Document</p>
-                <h3 className="text-base font-black text-zinc-900 leading-tight">Original Quote Tool PDF</h3>
-                <p className="text-xs text-zinc-500 font-medium mt-0.5">Uploaded {new Date(submittal.created_at).toLocaleDateString()}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-              {/* Zip Code Badge */}
-              {submittal.zip_code && (
-                <div className="flex items-center gap-2.5 bg-white px-4 py-2.5 rounded-xl border border-zinc-200 shadow-sm w-full sm:w-auto shrink-0">
-                  <MapPin size={16} className="text-zinc-500" />
-                  <div className="flex flex-col">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 leading-none">Shipping Zip</span>
-                    <span className="text-sm font-bold text-zinc-900 leading-none mt-1">{submittal.zip_code}</span>
-                  </div>
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-200 flex items-center justify-center text-red-500 shrink-0">
+                  <FileText size={24} />
                 </div>
-              )}
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-0.5">Source Document</p>
+                  <h3 className="text-base font-black text-zinc-900 leading-tight">Original Quote Tool PDF</h3>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Uploaded {new Date(submittal.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
 
-              {/* View/Download Buttons */}
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Link 
-                  href={submittal.pdf_url} 
-                  target="_blank"
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white border border-zinc-200 text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition"
-                >
-                  <ExternalLink size={12} /> View PDF
-                </Link>
-                <a 
-                  href={submittal.pdf_url} 
-                  download 
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
-                >
-                  <Download size={12} /> Download
-                </a>
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                {/* Zip Code Badge */}
+                {submittal.zip_code && (
+                  <div className="flex items-center gap-2.5 bg-white px-4 py-2.5 rounded-xl border border-zinc-200 shadow-sm w-full sm:w-auto shrink-0">
+                    <MapPin size={16} className="text-zinc-500" />
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 leading-none">Shipping Zip</span>
+                      <span className="text-sm font-bold text-zinc-900 leading-none mt-1">{submittal.zip_code}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* View/Download Buttons */}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Link 
+                    href={submittal.pdf_url} 
+                    target="_blank"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white border border-zinc-200 text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-50 transition"
+                  >
+                    <ExternalLink size={12} /> View PDF
+                  </Link>
+                  <a 
+                    href={submittal.pdf_url} 
+                    download 
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition shadow-lg shadow-zinc-200"
+                  >
+                    <Download size={12} /> Download
+                  </a>
+                </div>
               </div>
             </div>
+
+            {/* --- NEW CUSTOMER NOTES AREA (Legacy Fallback) --- */}
+            {submittal.notes && (
+              <div className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm mt-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageSquare size={14} className="text-zinc-400" />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Customer Notes</h4>
+                </div>
+                <p className="text-sm font-medium text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                  {submittal.notes}
+                </p>
+              </div>
+            )}
 
           </div>
         </section>
