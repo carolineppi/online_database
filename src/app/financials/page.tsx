@@ -16,7 +16,10 @@ import {
   Download,
   Briefcase,
   Layers,
-  Loader2
+  Loader2,
+  Ban, // Added for Spam
+  Copy, // Added for Duplicate
+  Building // Added for Office
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -152,7 +155,7 @@ export default function FinancialDashboard() {
           addonCount: submittal.addons.length 
         };
       })
-      .filter((job): job is any => job !== null) // <-- Explicit Type Guard for TS compiler
+      .filter((job): job is any => job !== null) 
       .filter((job: any) => {
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return job.quote_submittals.is_paid;
@@ -163,7 +166,7 @@ export default function FinancialDashboard() {
 
       // Format Quotes List (Only those created IN the date range)
       const formattedQuotes = quotesInDateRange.map(q => submittalsMap.get(q.id))
-      .filter((q): q is any => q !== null) // <-- Explicit Type Guard for TS compiler
+      .filter((q): q is any => q !== null) 
       .filter((q: any) => {
         if (campaignFilter === 'all') return true;
         if (campaignFilter === 'paid') return q.is_paid;
@@ -178,8 +181,8 @@ export default function FinancialDashboard() {
       setAvailableCampaigns(uniqueCampaigns);
 
       // Aggregates
-      const totalRevenue = formattedJobs.reduce((acc, job: any) => acc + job.contractAmount, 0); // Added : any
-      const totalCost = formattedJobs.reduce((acc, job: any) => acc + job.costAmount, 0); // Added : any
+      const totalRevenue = formattedJobs.reduce((acc, job: any) => acc + job.contractAmount, 0); 
+      const totalCost = formattedJobs.reduce((acc, job: any) => acc + job.costAmount, 0); 
       const totalProfit = totalRevenue - totalCost;
       const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
@@ -237,9 +240,14 @@ export default function FinancialDashboard() {
     return { ...q, mode, potentialValue, optionsCount, isConverted };
   });
 
-  const totalPotentialRevenue = quotesViewData.reduce((sum, q: any) => sum + q.potentialValue, 0); // Added : any
+  const totalPotentialRevenue = quotesViewData.reduce((sum, q: any) => sum + q.potentialValue, 0); 
   const avgQuoteValue = quotesViewData.length > 0 ? totalPotentialRevenue / quotesViewData.length : 0;
   const avgDealSize = stats.wonJobs > 0 ? stats.totalRevenue / stats.wonJobs : 0;
+
+  // --- NEW STATUS COUNTS ---
+  const spamCount = quotesViewData.filter((q: any) => q.status?.toUpperCase() === 'SPAM').length;
+  const duplicateCount = quotesViewData.filter((q: any) => q.status?.toUpperCase() === 'DUPLICATE').length;
+  const officeCount = quotesViewData.filter((q: any) => q.status?.toUpperCase() === 'OFFICE').length;
 
   // --- EXPORTS ---
   const handleExportJobsCSV = () => {
@@ -455,10 +463,16 @@ export default function FinancialDashboard() {
         <div className="animate-in fade-in slide-in-from-bottom-2">
           
           <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-3 ml-2">Potential Pipeline Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* UPDATED GRID: Now holds 6 items and beautifully stacks them 3 per row on desktop! */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
             <StatCard title="Total Quotes" value={stats.totalQuotes} icon={<FileText className="text-blue-600" />} color="blue" />
             <StatCard title="Potential Revenue" value={`$${totalPotentialRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} icon={<DollarSign className="text-emerald-600" />} color="emerald" />
             <StatCard title="Avg Quote Value" value={`$${avgQuoteValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={<TrendingUp className="text-purple-600" />} color="purple" />
+            
+            {/* NEW METRICS */}
+            <StatCard title="Spam Jobs" value={spamCount} icon={<Ban className="text-red-500" />} color="red" />
+            <StatCard title="Duplicates" value={duplicateCount} icon={<Copy className="text-amber-500" />} color="amber" />
+            <StatCard title="Sent to Office" value={officeCount} icon={<Building className="text-zinc-500" />} color="zinc" />
           </div>
 
           <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
@@ -556,7 +570,8 @@ function StatCard({ title, value, icon, color }: { title: string, value: string 
     emerald: "bg-emerald-50 border-emerald-100",
     purple: "bg-purple-50 border-purple-100",
     amber: "bg-amber-50 border-amber-100",
-    zinc: "bg-zinc-50 border-zinc-200"
+    zinc: "bg-zinc-50 border-zinc-200",
+    red: "bg-red-50 border-red-100" // Added red color variant for Spam
   };
   return (
     <div className={`p-6 rounded-3xl border shadow-sm ${colors[color]}`}>
