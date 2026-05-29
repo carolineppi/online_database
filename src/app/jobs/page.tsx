@@ -18,6 +18,7 @@ export default async function ActiveJobsPage() {
   if (error) console.error("Jobs Fetch Error:", error);
 
   return (
+    <main className="pl-64 min-h-screen bg-gray-50">
     <div className="p-8 max-w-7xl mx-auto">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-zinc-900">Active Jobs</h1>
@@ -27,5 +28,6 @@ export default async function ActiveJobsPage() {
       {/* Pass the data to the Client Component table */}
       <JobsTable initialJobs={activeJobs || []} />
     </div>
+    </main>
   );
 }

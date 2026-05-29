@@ -151,7 +151,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto bg-zinc-50 min-h-screen">
+    <main className="pl-64 min-h-screen bg-gray-50">
+    <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-10">
         <h1 className="text-3xl font-black text-zinc-900 uppercase tracking-tight">System Settings</h1>
         <p className="text-zinc-500">Manage your team and application preferences.</p>
@@ -414,5 +415,6 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+    </main>
   );
 }

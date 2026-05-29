@@ -96,6 +96,7 @@ export default async function SubmittalDetails({
   const hasMultipleFiles = submittal.file_urls && Array.isArray(submittal.file_urls) && submittal.file_urls.length > 0;
 
   return (
+    <main className="pl-64 min-h-screen bg-gray-50">
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <Link href="/submittals" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-800 transition font-bold text-sm">
@@ -280,5 +281,6 @@ export default async function SubmittalDetails({
         initialDocuments={documents || []}
       />
     </div>
+    </main>
   );
 }

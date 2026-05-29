@@ -82,7 +82,8 @@ export default async function TrashPage(props: {
   ];
 
   return (
-    <main className="p-8 max-w-6xl mx-auto min-h-screen bg-zinc-50/50">
+    <main className="pl-64 min-h-screen bg-gray-50">
+    <div className="p-8 max-w-6xl mx-auto">
       <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-zinc-900 mb-8 transition font-bold text-xs uppercase tracking-widest">
         <ArrowLeft size={16} /> Back to Dashboard
       </Link>
@@ -166,6 +167,7 @@ export default async function TrashPage(props: {
             </div>
           )}
         </div>
+      </div>
       </div>
     </main>
   );
