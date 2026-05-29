@@ -233,10 +233,14 @@ export default function AccountingPage() {
     );
   }
 
-  return (
-    <div className="p-8 lg:p-12 max-w-[1600px] mx-auto min-h-screen bg-gray-50">
+return (
+    // Outer wrapper handles the background and the sidebar buffer (pl-64)
+    <main className="pl-64 min-h-screen bg-gray-50">
       
-      {/* Header & Date Filters */}
+      {/* Inner container handles the max-width, centering, and padding */}
+      <div className="p-8 lg:p-12 max-w-[1600px] mx-auto">
+      
+        {/* Header & Date Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
@@ -374,5 +378,6 @@ export default function AccountingPage() {
       </div>
       
     </div>
+    </main>
   );
 }
