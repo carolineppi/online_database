@@ -45,7 +45,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   // Modal States
   const [showAddOnForm, setShowAddOnForm] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false); 
-  const [showTrackingMailer, setShowTrackingMailer] = useState(false);
+  const [showTrackingMailer, setShowTrackingMailer] = useState(true);
   const [showEditFinancials, setShowEditFinancials] = useState(false);
   const [modalData, setModalData] = useState<any>(null); 
   

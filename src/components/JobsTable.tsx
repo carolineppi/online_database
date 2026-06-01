@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { TrendingUp, Edit3, PlusCircle, Truck, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client'; // <-- ADDED SUPABASE CLIENT
+import { TrendingUp, Edit3, PlusCircle, Truck, Calendar, Loader2 } from 'lucide-react';
 import EditJobFinancials from './EditJobFinancials';
 import AddOnForm from './AddOnForm'; 
 import TrackingMailer from './TrackingMailer'; 
@@ -25,33 +26,48 @@ const getDefaults = () => {
 };
 
 export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
+  const supabase = createClient();
+  
+  // Data State
+  const [jobs, setJobs] = useState<any[]>(initialJobs);
+  const [loading, setLoading] = useState(false);
+  
+  // Modal States
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [addonData, setAddonData] = useState<{ jobId: string; quoteId: string } | null>(null);
   const [trackingJob, setTrackingJob] = useState<any>(null);
 
-  // 1. Set up Date Filter State
+  // Date Filter States
   const defaults = getDefaults();
   const [startDate, setStartDate] = useState(defaults.start);
   const [endDate, setEndDate] = useState(defaults.end);
 
-  // 2. Filter the jobs using actual Date objects (Timezone safe!)
-  const filteredJobs = useMemo(() => {
-    // Create strict boundary dates using the local timezone
-    const start = new Date(`${startDate}T00:00:00`);
-    
-    // For the end date, we push it to the very last millisecond of the day 
-    // to ensure jobs created late in the afternoon are still included!
-    const end = new Date(`${endDate}T23:59:59.999`);
+  // --- NEW: ACTIVE SUPABASE FETCHING ---
+  // Instead of just filtering what the server gave us, we actively fetch from the DB when dates change
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      
+      // We pull the jobs AND the joined quote_submittals data 
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*, quote_submittals(*)')
+        .is('deleted_at', null)
+        .gte('created_at', `${startDate}T00:00:00`)
+        .lte('created_at', `${endDate}T23:59:59.999`)
+        .order('created_at', { ascending: false });
 
-    return initialJobs.filter(job => {
-      if (!job.created_at) return false;
+      if (error) {
+        console.error("Error fetching jobs:", error);
+      } else if (data) {
+        setJobs(data);
+      }
       
-      const jobDate = new Date(job.created_at);
-      
-      // Compare the exact timestamps
-      return jobDate >= start && jobDate <= end;
-    });
-  }, [initialJobs, startDate, endDate]);
+      setLoading(false);
+    };
+
+    fetchJobs();
+  }, [startDate, endDate, supabase]);
 
   return (
     <div className="space-y-4">
@@ -84,12 +100,13 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
           </div>
         </div>
         
-        <div className="text-sm text-zinc-500 font-medium px-2">
-          Showing <span className="font-black text-blue-600 text-base">{filteredJobs.length}</span> active jobs
+        <div className="flex items-center gap-3 text-sm text-zinc-500 font-medium px-2">
+          {loading && <Loader2 size={16} className="animate-spin text-blue-500" />}
+          <span>Showing <span className="font-black text-blue-600 text-base">{jobs.length}</span> active jobs</span>
         </div>
       </div>
 
-      {/* Existing Table */}
+      {/* Table */}
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-zinc-50 border-b border-zinc-200">
@@ -102,7 +119,7 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {filteredJobs.map((job) => (
+            {jobs.map((job) => (
               <tr key={job.id} className="hover:bg-zinc-50/50 transition">
                 <td className="px-6 py-4">
                   <span className="font-medium text-zinc-900 text-sm">
@@ -132,7 +149,7 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                 </td>
               </tr>
             ))}
-            {filteredJobs.length === 0 && (
+            {!loading && jobs.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center text-zinc-400 font-medium">
                   No active jobs found for this date range.
