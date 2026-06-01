@@ -26,19 +26,36 @@ export default function CreateSubmittalForm({ onClose, initialCustomer }: { onCl
 
     try {
       // 1. Get the current user's email to find their Name Code
-      // Logic for employee name code
       const savedEmployee = localStorage.getItem('employee');
       const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
       const nameCode = employee?.name_code || 'XX';
 
-      // 2. Generate the Secure Quote Number via the new Database RPC!
-      const { data: finalQuoteNumber, error: rpcError } = await supabase.rpc('generate_quote_number', {
-        name_code: nameCode
-      });
+      // 2. Generate the Secure Quote Number (MATCHES ROUTE.TS LOGIC EXACTLY)
+      const now = new Date();
+      const yearSuffix = now.getFullYear().toString().slice(-2);
 
-      if (rpcError || !finalQuoteNumber) {
-        throw new Error("Failed to generate a secure quote number.");
+      const { data: lastQuote } = await supabase
+        .from("quote_submittals")
+        .select("quote_number")
+        .ilike("quote_number", `${yearSuffix}-%`)
+        .order("quote_number", { ascending: false })
+        .limit(1)
+        .single();
+
+      let nextSequence = 1;
+      if (lastQuote?.quote_number) {
+        const parts = lastQuote.quote_number.split("-");
+        if (parts.length > 1) {
+          const numericMatch = parts[1].match(/^\d{4}/);
+          if (numericMatch) nextSequence = parseInt(numericMatch[0]) + 1;
+        }
       }
+
+      const paddedSeq = nextSequence.toString().padStart(4, "0");
+      const finalQuoteNumber = `${yearSuffix}-${paddedSeq}`;
+      
+      // Generate the Mask so PM initials are saved safely in the DB
+      const finalQuoteMask = `${finalQuoteNumber}${nameCode}`;
 
       // 3. Handle Customer Association
       let customerId = initialCustomer?.id; // Use existing ID if launched from the Customer Directory
@@ -70,12 +87,13 @@ export default function CreateSubmittalForm({ onClose, initialCustomer }: { onCl
         }
       }
 
-      // 4. Create the Submittal using the generated number
+      // 4. Create the Submittal using the synchronized sequence number
       const { data: submittal, error: subError } = await supabase
         .from('quote_submittals')
         .insert({
           job_name: formData.job_name,
           quote_number: finalQuoteNumber,
+          quote_number_mask: finalQuoteMask,
           customer: customerId,
           quote_source: 'PM Input', // Flags as a manual entry for financials
           status: 'PENDING'

@@ -131,21 +131,43 @@ export default function SubmittalsPage() {
     setDuplicatingId(submittal.id);
 
     try {
+      // 1. Get the current user's initials for the mask
       const savedEmployee = localStorage.getItem("employee");
       const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
       const nameCode = employee?.name_code || "XX";
 
-      const { data: newQuoteNumber, error: rpcError } = await supabase.rpc(
-        "generate_quote_number",
-        { name_code: nameCode },
-      );
-      if (rpcError) throw rpcError;
+      // 2. Generate the Secure Quote Number manually to stay in sync
+      const now = new Date();
+      const yearSuffix = now.getFullYear().toString().slice(-2);
 
+      const { data: lastQuote } = await supabase
+        .from("quote_submittals")
+        .select("quote_number")
+        .ilike("quote_number", `${yearSuffix}-%`)
+        .order("quote_number", { ascending: false })
+        .limit(1)
+        .single();
+
+      let nextSequence = 1;
+      if (lastQuote?.quote_number) {
+        const parts = lastQuote.quote_number.split("-");
+        if (parts.length > 1) {
+          const numericMatch = parts[1].match(/^\d{4}/);
+          if (numericMatch) nextSequence = parseInt(numericMatch[0]) + 1;
+        }
+      }
+
+      const paddedSeq = nextSequence.toString().padStart(4, "0");
+      const finalQuoteNumber = `${yearSuffix}-${paddedSeq}`;
+      const finalQuoteMask = `${finalQuoteNumber}${nameCode}`;
+
+      // 3. Create the duplicate Submittal record
       const { data: newSubmittal, error: subError } = await supabase
         .from("quote_submittals")
         .insert({
-          job_name: "Edit Name Here",
-          quote_number: newQuoteNumber,
+          job_name: submittal.job_name + " (Copy)",
+          quote_number: finalQuoteNumber,
+          quote_number_mask: finalQuoteMask,
           customer: submittal.customer,
           quote_source: "Duplicate",
           campaign_source: submittal.campaign_source,
@@ -159,6 +181,7 @@ export default function SubmittalsPage() {
 
       if (subError) throw subError;
 
+      // 4. Copy over the individual options
       const { data: options } = await supabase
         .from("individual_quotes")
         .select("*")

@@ -45,8 +45,8 @@ export default function SubmittalSearchBar() {
         .or(`first_name.ilike.${searchPattern},last_name.ilike.${searchPattern}`)
         .limit(10);
 
-      // 2. Build the OR query for the submittals table (Added quote_number_mask here!)
-      let orQuery = `quote_number.ilike.${searchPattern},quote_number_mask.ilike.${searchPattern},job_name.ilike.${searchPattern}`;
+      // 2. Build the OR query for the submittals table
+      let orQuery = `quote_number.ilike.${searchPattern},job_name.ilike.${searchPattern}`;
       
       // If we found matching customers, inject their IDs into the search
       if (customers && customers.length > 0) {
@@ -54,11 +54,10 @@ export default function SubmittalSearchBar() {
         orQuery += `,customer.in.(${custIds})`;
       }
 
-      // 3. Fetch the submittals matching the job name, quote number, mask, OR the customer IDs
-      // (Added quote_number_mask to the select statement)
+      // 3. Fetch the submittals matching the job name, quote number, OR the customer IDs
       const { data, error } = await supabase
         .from('quote_submittals')
-        .select('id, quote_number, quote_number_mask, job_name, linked_customer:customers!customer(first_name, last_name)')
+        .select('id, quote_number, job_name, linked_customer:customers!customer(first_name, last_name)')
         .or(orQuery)
         .limit(6);
 
@@ -140,11 +139,11 @@ export default function SubmittalSearchBar() {
                     <p className={`text-[10px] font-black uppercase ${
                       index === selectedIndex ? 'text-blue-600' : 'text-zinc-400'
                     }`}>
-                      {/* Show the mask if it exists, otherwise fallback to standard number */}
-                      {item.quote_number_mask || item.quote_number}
+                      {item.quote_number}
                     </p>
                     <p className="text-sm font-bold text-zinc-900 truncate">
                       {item.job_name} 
+                      {/* Added Customer Name to the dropdown UI */}
                       <span className="text-zinc-400 font-medium ml-2">
                         ({item.linked_customer?.first_name} {item.linked_customer?.last_name})
                       </span>
