@@ -124,8 +124,8 @@ export default function Page() {
         {/* Header */}
         <div className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-3xl font-black text-zinc-900 uppercase tracking-tight">Pipeline Dashboard</h1>
-            <p className="text-zinc-500">Manage incoming submittals and your active quotes.</p>
+            <h1 className="text-3xl font-black text-zinc-900 uppercase tracking-tight">New Quotes</h1>
+            <p className="text-zinc-500">Manage incoming submittals and woocommerce orders</p>
           </div>
           <NewSubmittalButton />
         </div>
