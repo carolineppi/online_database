@@ -21,7 +21,7 @@ export default async function ActiveJobsPage() {
     <main className="pl-64 min-h-screen bg-gray-50">
     <div className="p-8 max-w-7xl mx-auto">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-zinc-900">Active Jobs</h1>
+        <h1 className="text-3xl font-bold text-zinc-900">Sold Jobs</h1>
         <p className="text-zinc-500">Update estimated costs to finalize project margins.</p>
       </header>
 

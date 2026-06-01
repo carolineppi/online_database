@@ -17,7 +17,7 @@ import { hasAccess, isStrictlyAccounting, normalizeRoles } from '@/utils/rbac';
 const navItems = [
   { name: 'New Quotes', href: '/', icon: LayoutDashboard },
   { name: 'Dashboard', href: '/submittals', icon: FileText },
-  { name: 'Completed Jobs', href: '/jobs', icon: CheckCircle2 },
+  { name: 'Sold Jobs', href: '/jobs', icon: CheckCircle2 },
   { name: 'Accounting', href: '/accounting', icon: Calculator }, // Both tabs now exist!
   { name: 'Financials', href: '/financials', icon: DollarSign },
   { name: 'Customers', href: '/customers', icon: Users },

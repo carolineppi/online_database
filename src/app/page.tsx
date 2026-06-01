@@ -139,7 +139,7 @@ export default function Page() {
                     <ClipboardList size={20} />
                   </div>
                   <div>
-                    <h2 className="font-bold text-lg text-zinc-900">Pending Quotes</h2>
+                    <h2 className="font-bold text-lg text-zinc-900">New Quotes</h2>
                     <p className="text-xs text-zinc-500 uppercase font-black">Requires Attention</p>
                   </div>
                 </div>
