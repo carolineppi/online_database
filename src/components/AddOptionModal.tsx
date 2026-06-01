@@ -32,6 +32,7 @@ const MANUFACTURERS = [
   "Excel",
   "Global",
   "Hadrian",
+  "Hafele",
   "Hawa",
   "Jacknob",
   "Metpar",
