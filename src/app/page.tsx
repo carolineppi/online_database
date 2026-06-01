@@ -219,13 +219,6 @@ export default function Page() {
                         >
                           <Trash2 size={16} />
                         </button>
-
-                        <Link 
-                          href={`/submittals/${item.id}`}
-                          className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white hover:bg-blue-600 transition shadow-lg shadow-zinc-200 ml-1"
-                        >
-                          <Plus size={18} />
-                        </Link>
                       </div>
                     </div>
                   );
