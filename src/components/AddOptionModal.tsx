@@ -33,6 +33,7 @@ const MANUFACTURERS = [
   "Global",
   "Hadrian",
   "Hawa",
+  "Jacknob",
   "Metpar",
   "Partition Plus",
   "Scranton Products",
