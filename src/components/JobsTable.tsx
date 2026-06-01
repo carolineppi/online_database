@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/client'; // <-- ADDED SUPABASE CLIENT
+import { createClient } from '@/utils/supabase/client'; 
 import { TrendingUp, Edit3, PlusCircle, Truck, Calendar, Loader2 } from 'lucide-react';
 import EditJobFinancials from './EditJobFinancials';
 import AddOnForm from './AddOnForm'; 
@@ -42,13 +42,10 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
   const [startDate, setStartDate] = useState(defaults.start);
   const [endDate, setEndDate] = useState(defaults.end);
 
-  // --- NEW: ACTIVE SUPABASE FETCHING ---
-  // Instead of just filtering what the server gave us, we actively fetch from the DB when dates change
   useEffect(() => {
     const fetchJobs = async () => {
       setLoading(true);
       
-      // We pull the jobs AND the joined quote_submittals data 
       const { data, error } = await supabase
         .from('jobs')
         .select('*, quote_submittals(*)')
@@ -68,6 +65,9 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
 
     fetchJobs();
   }, [startDate, endDate, supabase]);
+
+  // --- NEW: Calculate Total Contract Value ---
+  const totalContractValue = jobs.reduce((sum, job) => sum + (Number(job.sale_amount) || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -102,7 +102,9 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
         
         <div className="flex items-center gap-3 text-sm text-zinc-500 font-medium px-2">
           {loading && <Loader2 size={16} className="animate-spin text-blue-500" />}
-          <span>Showing <span className="font-black text-blue-600 text-base">{jobs.length}</span> active jobs</span>
+          <span>
+            Showing <span className="font-black text-blue-600 text-base">{jobs.length}</span> active jobs at <span className="font-black text-emerald-600 text-base">${totalContractValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+          </span>
         </div>
       </div>
 
