@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone, Palette, Trash2, Loader2, Star } from 'lucide-react';
+import { UserPlus, Save, Users, Shield, Truck, Key, Megaphone, Palette, Trash2, Loader2, Star, Factory } from 'lucide-react';
 import { toast } from 'sonner';
 import ManageCarriers from '@/components/ManageCarriers';
 import ManageSources from '@/components/ManageSources';
 import ManageColors from '@/components/ManageColors';
 import ManageReviews from '@/components/ManageReviews';
+import ManageManufacturers from '@/components/ManageManufacturers'; // --- ADDED IMPORT ---
 
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security' | 'sources' | 'colors' | 'reviews'>('team');
+  // --- ADDED 'manufacturers' to state ---
+  const [activeTab, setActiveTab] = useState<'team' | 'carriers' | 'security' | 'sources' | 'colors' | 'reviews' | 'manufacturers'>('team');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   
@@ -180,6 +182,16 @@ export default function SettingsPage() {
             <Truck size={18} /> Freight Carriers
           </button>
 
+          {/* --- ADDED MANUFACTURERS BUTTON --- */}
+          <button 
+            onClick={() => setActiveTab('manufacturers')}
+            className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold border transition ${
+              activeTab === 'manufacturers' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'text-zinc-500 hover:bg-white hover:border-zinc-200 border-transparent'
+            }`}
+          >
+            <Factory size={18} /> Manufacturers
+          </button>
+
           <button 
             onClick={() => setActiveTab('security')}
             className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold border transition ${
@@ -332,6 +344,13 @@ export default function SettingsPage() {
           {activeTab === 'carriers' && (
             <div className="animate-in fade-in slide-in-from-bottom-2">
               <ManageCarriers />
+            </div>
+          )}
+
+          {/* --- NEW: MANUFACTURERS TAB --- */}
+          {activeTab === 'manufacturers' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2">
+              <ManageManufacturers />
             </div>
           )}
 

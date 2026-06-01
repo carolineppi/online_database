@@ -25,20 +25,7 @@ const MATERIALS = [
   "Bathroom Accessories per Attached Submittal",
   "Installation for New Toilet Partitions",
 ];
-const MANUFACTURERS = [
-  "ASI",
-  "Bobrick",
-  "Bradley",
-  "Excel",
-  "Global",
-  "Hadrian",
-  "Hafele",
-  "Hawa",
-  "Jacknob",
-  "Metpar",
-  "Partition Plus",
-  "Scranton Products",
-];
+
 const PRESET_ITEMS = [
   "Toilet Stalls",
   "Urinal Screens",
@@ -64,6 +51,9 @@ export default function AddOptionModal({
 }: AddOptionModalProps) {
   const [loading, setLoading] = useState(false);
   const [dynamicColors, setDynamicColors] = useState<string[]>(["TBD"]);
+  
+  // --- ADDED DYNAMIC MANUFACTURERS STATE ---
+  const [manufacturerList, setManufacturerList] = useState<string[]>([]);
 
   const [items, setItems] = useState<QuoteItem[]>(
     initialData?.itemized_breakdown || [{ item: "", qty: 0 }],
@@ -71,7 +61,7 @@ export default function AddOptionModal({
 
   const [formData, setFormData] = useState({
     material: initialData?.material || "",
-    manufacturer: initialData?.manufacturer || MANUFACTURERS[0],
+    manufacturer: initialData?.manufacturer || "", // Default to empty initially
     price: initialData?.price || "",
     details: initialData?.details || "",
     color: initialData?.color || "",
@@ -82,6 +72,28 @@ export default function AddOptionModal({
 
   const supabase = createClient();
   const router = useRouter();
+
+  // --- NEW: Fetch Dynamic Manufacturers ---
+  useEffect(() => {
+    const fetchManufacturers = async () => {
+      const { data, error } = await supabase
+        .from('manufacturers')
+        .select('name')
+        .order('name', { ascending: true });
+        
+      if (!error && data) {
+        const names = data.map(d => d.name);
+        setManufacturerList(names);
+        
+        // If creating a new quote and we don't have a manufacturer selected yet, default to the first one in the DB
+        if (!initialData?.manufacturer && names.length > 0) {
+          setFormData(prev => ({ ...prev, manufacturer: names[0] }));
+        }
+      }
+    };
+    fetchManufacturers();
+  }, [supabase, initialData]);
+
 
   // Fetch colors when the selected material changes
   useEffect(() => {
@@ -95,10 +107,9 @@ export default function AddOptionModal({
         .from("material_colors")
         .select("color")
         .eq("material", formData.material)
-        .order("order_index", { ascending: true }); // Respect the drag-and-drop order!
+        .order("order_index", { ascending: true }); 
 
       if (!error && data) {
-        // Ensure "TBD" is always the very first option, then append the database colors
         const fetchedColors = data
           .map((d) => d.color)
           .filter((c) => c !== "TBD");
@@ -158,7 +169,6 @@ export default function AddOptionModal({
 
         if (countError) throw countError;
 
-        // If count === 1, it means the insert above was the very first active quote
         if (count === 1) {
           const savedEmployee = localStorage.getItem("employee");
           const loggedInUser = savedEmployee ? JSON.parse(savedEmployee) : null;
@@ -228,7 +238,6 @@ export default function AddOptionModal({
           </div>
 
           <div className="space-y-6">
-            {/* 1. Material & Manufacturer Selects */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
@@ -256,6 +265,7 @@ export default function AddOptionModal({
                   Manufacturer
                 </label>
                 <div className="relative">
+                  {/* --- DYNAMIC MANUFACTURERS RENDERED HERE --- */}
                   <select
                     value={formData.manufacturer}
                     className="w-full p-4 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
@@ -263,7 +273,8 @@ export default function AddOptionModal({
                       setFormData({ ...formData, manufacturer: e.target.value })
                     }
                   >
-                    {MANUFACTURERS.map((m) => (
+                    {manufacturerList.length === 0 && <option value="">Loading...</option>}
+                    {manufacturerList.map((m) => (
                       <option key={m} value={m}>
                         {m}
                       </option>
@@ -277,7 +288,6 @@ export default function AddOptionModal({
               </div>
             </div>
 
-            {/* 2. Mounting Style & Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
@@ -322,7 +332,6 @@ export default function AddOptionModal({
               </div>
             </div>
 
-            {/* 3. Price & Shipping Select */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
@@ -375,7 +384,6 @@ export default function AddOptionModal({
               </div>
             </div>
 
-            {/* 4. Color */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
                 Color
@@ -395,7 +403,6 @@ export default function AddOptionModal({
                   }
                 />
                 <datalist id="color-options">
-                  {/* Pulls from the dynamic database array, preserving drag/drop sort order */}
                   {dynamicColors.map((colorOption) => (
                     <option key={colorOption} value={colorOption} />
                   ))}
@@ -403,7 +410,6 @@ export default function AddOptionModal({
               </div>
             </div>
 
-            {/* 5. Searchable Item + Quantity List */}
             <div className="bg-zinc-100 p-6 rounded-[2rem] border border-zinc-200">
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">
                 Itemized Breakdown
@@ -439,7 +445,6 @@ export default function AddOptionModal({
                         newItems[index].qty = parseInt(e.target.value) || 0;
                         setItems(newItems);
                       }}
-                      // NEW: Highlight text automatically when focused
                       onFocus={(e) => e.target.select()}
                     />
                     {items.length > 1 && (
