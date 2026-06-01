@@ -30,7 +30,7 @@ export default function CreateSubmittalForm({ onClose, initialCustomer }: { onCl
       const employee = savedEmployee ? JSON.parse(savedEmployee) : null;
       const nameCode = employee?.name_code || 'XX';
 
-      // 2. Generate the Secure Quote Number (MATCHES ROUTE.TS LOGIC EXACTLY)
+      // 2. Generate the Secure Quote Number
       const now = new Date();
       const yearSuffix = now.getFullYear().toString().slice(-2);
 
@@ -46,22 +46,21 @@ export default function CreateSubmittalForm({ onClose, initialCustomer }: { onCl
       if (lastQuote?.quote_number) {
         const parts = lastQuote.quote_number.split("-");
         if (parts.length > 1) {
+          // The regex cleanly extracts just the 4 digits, ignoring any attached letters
           const numericMatch = parts[1].match(/^\d{4}/);
           if (numericMatch) nextSequence = parseInt(numericMatch[0]) + 1;
         }
       }
 
       const paddedSeq = nextSequence.toString().padStart(4, "0");
-      const finalQuoteNumber = `${yearSuffix}-${paddedSeq}`;
       
-      // Generate the Mask so PM initials are saved safely in the DB
-      const finalQuoteMask = `${finalQuoteNumber}${nameCode}`;
+      // Bake the PM's initials directly into the actual quote number
+      const finalQuoteNumber = `${yearSuffix}-${paddedSeq}${nameCode}`;
 
       // 3. Handle Customer Association
-      let customerId = initialCustomer?.id; // Use existing ID if launched from the Customer Directory
+      let customerId = initialCustomer?.id;
 
       if (!customerId) {
-        // If not launched from directory, look up by email, or create new
         const { data: existingCustomer } = await supabase
           .from('customers')
           .select('id')
@@ -93,9 +92,9 @@ export default function CreateSubmittalForm({ onClose, initialCustomer }: { onCl
         .insert({
           job_name: formData.job_name,
           quote_number: finalQuoteNumber,
-          quote_number_mask: finalQuoteMask,
+          quote_number_mask: null, // Left empty as requested since it's baked into the quote number!
           customer: customerId,
-          quote_source: 'PM Input', // Flags as a manual entry for financials
+          quote_source: 'PM Input', 
           status: 'PENDING'
         })
         .select()
@@ -104,7 +103,7 @@ export default function CreateSubmittalForm({ onClose, initialCustomer }: { onCl
       if (subError) throw subError;
 
       toast.success("Submittal created!");
-      router.push(`/submittals/${submittal.id}`); // Route immediately to the new submittal
+      router.push(`/submittals/${submittal.id}`);
       onClose();
 
     } catch (err: any) {
