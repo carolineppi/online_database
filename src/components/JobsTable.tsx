@@ -34,22 +34,28 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
   const [startDate, setStartDate] = useState(defaults.start);
   const [endDate, setEndDate] = useState(defaults.end);
 
-  // 2. Filter the jobs based on the selected dates
+  // 2. Filter the jobs using actual Date objects (Timezone safe!)
   const filteredJobs = useMemo(() => {
+    // Create strict boundary dates using the local timezone
+    const start = new Date(`${startDate}T00:00:00`);
+    
+    // For the end date, we push it to the very last millisecond of the day 
+    // to ensure jobs created late in the afternoon are still included!
+    const end = new Date(`${endDate}T23:59:59.999`);
+
     return initialJobs.filter(job => {
       if (!job.created_at) return false;
       
-      // Extract just the "YYYY-MM-DD" portion from the Supabase timestamp (e.g. "2026-05-13T20:01:56...")
-      // String comparison is much safer here and prevents Timezone offset bugs!
-      const jobDateStr = job.created_at.split('T')[0] || job.created_at.split(' ')[0]; 
+      const jobDate = new Date(job.created_at);
       
-      return jobDateStr >= startDate && jobDateStr <= endDate;
+      // Compare the exact timestamps
+      return jobDate >= start && jobDate <= end;
     });
   }, [initialJobs, startDate, endDate]);
 
   return (
     <div className="space-y-4">
-      {/* NEW: Date Filters UI */}
+      {/* Date Filters UI */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm gap-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center p-2 bg-blue-50 text-blue-600 rounded-xl">
@@ -96,11 +102,9 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {/* Update the map to loop over filteredJobs instead of initialJobs */}
             {filteredJobs.map((job) => (
               <tr key={job.id} className="hover:bg-zinc-50/50 transition">
                 <td className="px-6 py-4">
-                  {/* Note: Kept empty to match your snippet structure, map your columns normally here! */}
                   <span className="font-medium text-zinc-900 text-sm">
                     {job.quote_submittals?.job_name || 'Untitled Project'}
                   </span>
