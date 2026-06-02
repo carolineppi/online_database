@@ -67,10 +67,11 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
   const projectTotal = Number(winnerPrice) + addonsTotal;
 
-  const mergedJob = activeJob ? {
-    ...activeJob,
+  // --- CHANGED: mergedJob is now ALWAYS an object so the buttons are always visible ---
+  const mergedJob = {
+    ...(activeJob || {}),
     quote_submittals: submittal
-  } : null;
+  };
 
   const toggleSelection = (optionId: string) => {
     setSelectedIds(prev => 
@@ -151,7 +152,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     }
   };
 
-  // NEW: Helper function to format quantity
   const formatQtyString = (opt: any) => {
     if (opt.itemized_breakdown && opt.itemized_breakdown.length > 0) {
       return opt.itemized_breakdown.map((item: any) => `(${item.qty || item.quantity || 0}) ${item.item || item.name || 'item'}`).join(', ');
@@ -159,20 +159,16 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
     return String(opt.quantity || "N/A");
   };
 
-  // NEW: Updated PDF Generation logic with Conflict Detection
   const handleGeneratePDF = () => {
     if (selectedIds.length === 0) return toast.error("Select at least one option.");
     
     try {
-      // 1. Get the full objects of the quotes the user checked
       const selectedOpts = options.filter((opt: any) => selectedIds.includes(opt.id));
       
-      // 2. Find all unique values
       const uniqueMountings = [...new Set(selectedOpts.map((o: any) => o.mounting_style).filter(Boolean))] as string[];
       const uniqueColors = [...new Set(selectedOpts.map((o: any) => o.color).filter(Boolean))] as string[];
       const uniqueQties = [...new Set(selectedOpts.map((o: any) => formatQtyString(o)).filter(Boolean))] as string[];
 
-      // 3. If any category has more than 1 distinct value, trigger the modal!
       if (uniqueMountings.length > 1 || uniqueColors.length > 1 || uniqueQties.length > 1) {
         setPdfConflicts({ mountings: uniqueMountings, colors: uniqueColors, qties: uniqueQties });
         setPdfOverrides({ 
@@ -182,7 +178,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
         });
         setShowPdfModal(true);
       } else {
-        // No conflicts! Generate directly.
         const quoteIdsString = selectedIds.join(',');
         window.open(`/api/generate-pdf?submittalId=${id}&quoteIds=${quoteIdsString}`, '_blank');
       }
@@ -506,22 +501,21 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                 </p>
               </div>
               
-              {mergedJob && (
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => setShowEditFinancials(true)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-widest transition backdrop-blur-md border border-white/10"
-                  >
-                    <Edit3 size={16} /> Job Cost
-                  </button>
-                  <button 
-                    onClick={() => setShowTrackingMailer(true)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-widest transition backdrop-blur-md border border-emerald-500/20"
-                  >
-                    <Truck size={16} /> Track
-                  </button>
-                </div>
-              )}
+              {/* --- CHANGED: Buttons are now unconditionally rendered --- */}
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowEditFinancials(true)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-widest transition backdrop-blur-md border border-white/10"
+                >
+                  <Edit3 size={16} /> Job Cost
+                </button>
+                <button 
+                  onClick={() => setShowTrackingMailer(true)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-widest transition backdrop-blur-md border border-emerald-500/20"
+                >
+                  <Truck size={16} /> Track
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -623,14 +617,15 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
         />
       )}
 
-      {showTrackingMailer && mergedJob && (
+      {/* --- CHANGED: Modals now unconditionally rely on the show flags --- */}
+      {showTrackingMailer && (
         <TrackingMailer 
           job={mergedJob} 
           onClose={() => setShowTrackingMailer(false)} 
         />
       )}
 
-      {showEditFinancials && mergedJob && (
+      {showEditFinancials && (
         <EditJobFinancials 
           job={mergedJob} 
           options={options}
@@ -698,7 +693,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <button 
                 onClick={() => {
                   setShowPdfModal(false);
-                  // Ensure we hit the correct api endpoint (/api/generate-pdf vs /api/pdf)
                   const url = `/api/generate-pdf?submittalId=${id}&quoteIds=${selectedIds.join(',')}&overrideMounting=${encodeURIComponent(pdfOverrides.mounting)}&overrideColor=${encodeURIComponent(pdfOverrides.color)}&overrideQty=${encodeURIComponent(pdfOverrides.qty)}`;
                   window.open(url, '_blank');
                 }}
