@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Truck, X, Search, Navigation, AlertTriangle } from "lucide-react";
+import { Truck, X, Search, Navigation, AlertTriangle, Edit3 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { toast } from "sonner";
 
@@ -13,16 +13,24 @@ export default function TrackingMailer({
   onClose: () => void;
 }) {
   const [customerEmail, setCustomerEmail] = useState("");
-  const [additionalEmail, setAdditionalEmail] = useState(""); // NEW STATE
+  const [additionalEmail, setAdditionalEmail] = useState("");
+  
+  // Keep the true database PO number for internal references
   const [poNumber] = useState(job.quote_submittals?.quote_number || "");
+  
+  // NEW: Editable Display PO Number (defaults to the mask or true PO)
+  const [displayPoNumber, setDisplayPoNumber] = useState(
+    job.quote_submittals?.quote_number_mask || job.quote_submittals?.quote_number || ""
+  );
+
   const [trackingNumber, setTrackingNumber] = useState("");
   const [freightWebsite, setFreightWebsite] = useState("");
   const [freightPhone, setFreightPhone] = useState("");
-  const [optOutReview, setOptOutReview] = useState(false); // NEW STATE
+  const [optOutReview, setOptOutReview] = useState(false);
   const [reviewSettings, setReviewSettings] = useState({
     delay_days: 7,
     cooldown_days: 30,
-  }); // NEW STATE
+  });
 
   const [isLoading, setIsLoading] = useState(false);
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
@@ -58,13 +66,12 @@ export default function TrackingMailer({
           id, created_at, tracking_number,
           jobs ( quote_submittals ( quote_number, quote_number_mask, customers!customer ( email ) ) )
         `,
-        ) // <-- Added quote_number_mask here
+        )
         .order("created_at", { ascending: false })
         .limit(5);
       if (data) setRecentSubmissions(data);
     };
 
-    // NEW: Fetch the global review settings
     const fetchReviewSettings = async () => {
       const { data } = await supabase
         .from("review_settings")
@@ -96,9 +103,9 @@ export default function TrackingMailer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer_email: customerEmail,
-          additional_email: additionalEmail, // NEW: Pass the additional email
-          po_number: poNumber,
-          display_job_number: job.quote_submittals?.quote_number_mask || "",
+          additional_email: additionalEmail,
+          po_number: poNumber, // The true database PO
+          display_job_number: displayPoNumber, // <-- Sends the PM's custom edited string!
           tracking_number: trackingNumber,
           freight_website: freightWebsite,
           freight_phone: freightPhone,
@@ -124,9 +131,8 @@ export default function TrackingMailer({
           "Email sent, but failed to log to database: " + dbError.message,
         );
 
-      // 3. NEW: SCHEDULE THE REVIEW EMAIL (IF NOT OPTED OUT)
+      // 3. SCHEDULE THE REVIEW EMAIL (IF NOT OPTED OUT)
       if (!optOutReview) {
-        // Check for spam cooldown
         const cooldownDate = new Date();
         cooldownDate.setDate(
           cooldownDate.getDate() - reviewSettings.cooldown_days,
@@ -141,20 +147,19 @@ export default function TrackingMailer({
 
         let finalStatus = "pending";
         if (recentReview && recentReview.length > 0) {
-          finalStatus = "skipped_spam"; // Flag it as skipped so it doesn't send, but we have a record
+          finalStatus = "skipped_spam";
         }
 
-        // Calculate Midday X days from now
         const scheduleDate = new Date();
         scheduleDate.setDate(
           scheduleDate.getDate() + reviewSettings.delay_days,
         );
-        scheduleDate.setHours(12, 0, 0, 0); // Noon
+        scheduleDate.setHours(12, 0, 0, 0);
 
         await supabase.from("review_emails").insert({
           job_id: job.id,
           customer_email: customerEmail,
-          additional_email: additionalEmail, // <-- NEW: Save this to the database!
+          additional_email: additionalEmail,
           scheduled_for: scheduleDate.toISOString(),
           status: finalStatus,
         });
@@ -170,7 +175,7 @@ export default function TrackingMailer({
           jobs: {
             quote_submittals: {
               quote_number: poNumber,
-              quote_number_mask: job.quote_submittals?.quote_number_mask || "", // <-- Added this line
+              quote_number_mask: displayPoNumber, // Shows the custom string in recent list
               customers: { email: customerEmail },
             },
           },
@@ -181,7 +186,7 @@ export default function TrackingMailer({
       setTrackingNumber("");
       setFreightWebsite("");
       setFreightPhone("");
-      setAdditionalEmail(""); // NEW: Clear after sending
+      setAdditionalEmail("");
       setOptOutReview(false);
     } catch (err: any) {
       console.error("Tracking Error:", err);
@@ -229,7 +234,6 @@ export default function TrackingMailer({
                 />
               </div>
 
-              {/* NEW: Additional Email Field */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
                   Additional Email (Optional)
@@ -243,18 +247,23 @@ export default function TrackingMailer({
                 />
               </div>
 
+              {/* ENABLED PO NUMBER FIELD */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
-                  PO Number
+                <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest flex items-center justify-between">
+                  <span>Display PO Number</span>
                 </label>
-                <input
-                  disabled
-                  type="text"
-                  value={job.quote_submittals?.quote_number_mask || poNumber}
-                  title={`Original PO: ${poNumber}`}
-                  className="w-full p-4 bg-zinc-100 rounded-2xl border-none text-zinc-500 font-bold cursor-not-allowed"
-                />
+                <div className="relative">
+                  <Edit3 className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+                  <input
+                    type="text"
+                    value={displayPoNumber}
+                    onChange={(e) => setDisplayPoNumber(e.target.value)}
+                    title={`Original DB PO: ${poNumber}`}
+                    className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 transition font-bold text-zinc-900"
+                  />
+                </div>
               </div>
+
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
                   PRO / Tracking #
@@ -328,7 +337,6 @@ export default function TrackingMailer({
                 </div>
               </div>
 
-              {/* NEW: Review Opt-Out Checkbox */}
               <div
                 className="mt-6 bg-red-50/50 border border-red-100 rounded-2xl p-4 flex items-start gap-3 cursor-pointer"
                 onClick={() => setOptOutReview(!optOutReview)}
@@ -362,6 +370,7 @@ export default function TrackingMailer({
                 setFreightPhone("");
                 setAdditionalEmail("");
                 setOptOutReview(false);
+                setDisplayPoNumber(job.quote_submittals?.quote_number_mask || poNumber); // Reset display PO as well
               }}
               className="flex-1 p-5 rounded-2xl font-black text-zinc-500 hover:bg-zinc-100 transition uppercase tracking-widest text-[10px]"
             >
@@ -396,7 +405,6 @@ export default function TrackingMailer({
                       const derivedEmail =
                         sub.jobs?.quote_submittals?.customers?.email ||
                         "Unknown";
-                      // NEW LOGIC: Try mask first, then fallback to original, then fallback to 'Unknown'
                       const submittalData = sub.jobs?.quote_submittals;
                       const derivedPo =
                         submittalData?.quote_number_mask ||
