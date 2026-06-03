@@ -66,7 +66,7 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
     fetchJobs();
   }, [startDate, endDate, supabase]);
 
-  // --- NEW: Calculate Total Contract Value ---
+  // Calculate Total Contract Value
   const totalContractValue = jobs.reduce((sum, job) => sum + (Number(job.sale_amount) || 0), 0);
 
   return (
@@ -127,8 +127,15 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                   <span className="font-medium text-zinc-900 text-sm">
                     {job.quote_submittals?.job_name || 'Untitled Project'}
                   </span>
-                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
-                    {new Date(job.created_at).toLocaleDateString()}
+                  {/* --- NEW: Added quote number alongside the date --- */}
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+                    <span>
+                      #{job.quote_submittals?.quote_number_mask || job.quote_submittals?.quote_number || 'Unknown'}
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {new Date(job.created_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm font-mono font-bold text-zinc-700">

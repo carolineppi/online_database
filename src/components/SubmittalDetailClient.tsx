@@ -49,10 +49,10 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const [showEditFinancials, setShowEditFinancials] = useState(false);
   const [modalData, setModalData] = useState<any>(null); 
   
-  // NEW: PDF Override States
+  // NEW: PDF Override States (Added details)
   const [showPdfModal, setShowPdfModal] = useState(false);
-  const [pdfConflicts, setPdfConflicts] = useState({ mountings: [] as string[], colors: [] as string[], qties: [] as string[] });
-  const [pdfOverrides, setPdfOverrides] = useState({ mounting: '', color: '', qty: '' });
+  const [pdfConflicts, setPdfConflicts] = useState({ mountings: [] as string[], colors: [] as string[], qties: [] as string[], details: [] as string[] });
+  const [pdfOverrides, setPdfOverrides] = useState({ mounting: '', color: '', qty: '', details: '' });
   
   const supabase = createClient();
   const router = useRouter();
@@ -67,7 +67,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
   const addonsTotal = addons?.reduce((sum: number, addon: any) => sum + (Number(addon.price) || 0), 0) || 0;
   const projectTotal = Number(winnerPrice) + addonsTotal;
 
-  // --- CHANGED: mergedJob is now ALWAYS an object so the buttons are always visible ---
   const mergedJob = {
     ...(activeJob || {}),
     quote_submittals: submittal
@@ -168,13 +167,23 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
       const uniqueMountings = [...new Set(selectedOpts.map((o: any) => o.mounting_style).filter(Boolean))] as string[];
       const uniqueColors = [...new Set(selectedOpts.map((o: any) => o.color).filter(Boolean))] as string[];
       const uniqueQties = [...new Set(selectedOpts.map((o: any) => formatQtyString(o)).filter(Boolean))] as string[];
+      
+      // We do NOT use .filter(Boolean) here so that empty strings ("") are treated as a distinct option 
+      // This ensures a conflict triggers if one option has a height and another doesn't
+      const uniqueDetails = [...new Set(selectedOpts.map((o: any) => o.details || ''))] as string[];
 
-      if (uniqueMountings.length > 1 || uniqueColors.length > 1 || uniqueQties.length > 1) {
-        setPdfConflicts({ mountings: uniqueMountings, colors: uniqueColors, qties: uniqueQties });
+      if (uniqueMountings.length > 1 || uniqueColors.length > 1 || uniqueQties.length > 1 || uniqueDetails.length > 1) {
+        setPdfConflicts({ 
+          mountings: uniqueMountings, 
+          colors: uniqueColors, 
+          qties: uniqueQties,
+          details: uniqueDetails
+        });
         setPdfOverrides({ 
           mounting: uniqueMountings[0] || '', 
           color: uniqueColors[0] || '', 
-          qty: uniqueQties[0] || '' 
+          qty: uniqueQties[0] || '',
+          details: uniqueDetails[0] || ''
         });
         setShowPdfModal(true);
       } else {
@@ -501,7 +510,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                 </p>
               </div>
               
-              {/* --- CHANGED: Buttons are now unconditionally rendered --- */}
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowEditFinancials(true)}
@@ -562,19 +570,16 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                 onClick={() => window.open(doc.file_url, '_blank')}
                 className="group cursor-pointer bg-white border border-zinc-200 rounded-3xl p-3 hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden"
               >
-                {/* Hover Overlay with Icon */}
                 <div className="absolute inset-0 bg-blue-50/0 group-hover:bg-blue-50/80 transition-all z-10 flex items-center justify-center pointer-events-none">
                   <div className="opacity-0 group-hover:opacity-100 bg-blue-600 text-white p-3 rounded-full shadow-xl transition-all scale-75 group-hover:scale-100">
                     <ExternalLink size={20} />
                   </div>
                 </div>
 
-                {/* File Name */}
                 <p className="text-xs font-black text-zinc-700 truncate mb-3 px-1 uppercase tracking-wider relative z-20" title={doc.file_name}>
                   {doc.file_name}
                 </p>
 
-                {/* Live PDF Preview via scaled iframe */}
                 <div className="relative aspect-[3/4] w-full bg-white rounded-2xl overflow-hidden pointer-events-none ring-1 ring-inset ring-zinc-200/50">
                   <iframe 
                     src={`${doc.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} 
@@ -584,7 +589,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                   />
                 </div>
 
-                {/* Delete Button */}
                 <button 
                   onClick={(e) => handleDeleteDoc(doc.id, e)}
                   className="absolute top-2 right-2 p-1.5 bg-white text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition z-20 shadow-sm border border-zinc-200"
@@ -617,7 +621,6 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
         />
       )}
 
-      {/* --- CHANGED: Modals now unconditionally rely on the show flags --- */}
       {showTrackingMailer && (
         <TrackingMailer 
           job={mergedJob} 
@@ -633,7 +636,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
         />
       )}
 
-      {/* NEW: PDF Conflict Resolution Modal */}
+      {/* PDF Conflict Resolution Modal */}
       {showPdfModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl">
@@ -681,6 +684,22 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
                   </select>
                 </div>
               )}
+
+              {/* NEW: Height Details Override */}
+              {pdfConflicts.details.length > 1 && (
+                <div>
+                  <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Height Details</label>
+                  <select 
+                    value={pdfOverrides.details}
+                    onChange={(e) => setPdfOverrides({...pdfOverrides, details: e.target.value})}
+                    className="w-full p-3 bg-zinc-50 rounded-xl border border-zinc-200 font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {pdfConflicts.details.map((d, i) => (
+                      <option key={i} value={d}>{d || 'None (Leave Blank)'}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-8">
@@ -693,7 +712,7 @@ export default function SubmittalDetailClient({ submittal, options, addons, id, 
               <button 
                 onClick={() => {
                   setShowPdfModal(false);
-                  const url = `/api/generate-pdf?submittalId=${id}&quoteIds=${selectedIds.join(',')}&overrideMounting=${encodeURIComponent(pdfOverrides.mounting)}&overrideColor=${encodeURIComponent(pdfOverrides.color)}&overrideQty=${encodeURIComponent(pdfOverrides.qty)}`;
+                  const url = `/api/generate-pdf?submittalId=${id}&quoteIds=${selectedIds.join(',')}&overrideMounting=${encodeURIComponent(pdfOverrides.mounting)}&overrideColor=${encodeURIComponent(pdfOverrides.color)}&overrideQty=${encodeURIComponent(pdfOverrides.qty)}&overrideDetails=${encodeURIComponent(pdfOverrides.details)}`;
                   window.open(url, '_blank');
                 }}
                 className="flex-1 p-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition"

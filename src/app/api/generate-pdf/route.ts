@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
     const overrideMounting = searchParams.get('overrideMounting');
     const overrideColor = searchParams.get('overrideColor');
     const overrideQty = searchParams.get('overrideQty');
+    const overrideDetails = searchParams.get('overrideDetails'); // NEW: Height details
     
     if (!submittalId || !quoteIdsParam) throw new Error("Missing parameters");
     
@@ -149,6 +150,7 @@ export async function GET(req: NextRequest) {
     const finalMounting = overrideMounting || options[0]?.mounting_style || "TBD";
     const finalColor = overrideColor || options[0]?.color || "TBD";
     const finalQty = overrideQty || formatQtyStr(options[0]);
+    const finalDetails = overrideDetails || options[0]?.details || ""; // NEW: Capture the height
 
     // --- DESCRIPTION ---
     doc.setFont("helvetica", "bold");
@@ -160,9 +162,15 @@ export async function GET(req: NextRequest) {
     doc.setFont("helvetica", "normal");
     
     // Conditionally set the description text
-    const descText = finalMounting !== "Accessories Only" 
-      ? `Toilet Compartments are ${finalMounting}` 
-      : (submittal.description || 'Bathroom Accessories');
+    let descText = submittal.description || 'Bathroom Accessories';
+    if (finalMounting !== "Accessories Only") {
+      descText = `Toilet Compartments are ${finalMounting}`;
+      if (finalDetails) {
+        // Strip out existing quotes so it doesn't double print if they type 96"
+        const cleanHeight = finalDetails.replace(/["']/g, '').trim();
+        descText += ` for ${cleanHeight}" ceilings`;
+      }
+    }
       
     const splitDesc = doc.splitTextToSize(descText, 530 - (40 + descWidth + 5));
     doc.text(splitDesc, 40 + descWidth + 5, yPos);

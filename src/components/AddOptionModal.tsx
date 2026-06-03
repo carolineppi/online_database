@@ -349,6 +349,7 @@ export default function AddOptionModal({
                   }
                 />
               </div>
+              {/* --- NEW: EDITABLE SHIPPING STATUS FIELD --- */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-400 uppercase ml-2 tracking-widest">
                   Shipping Status
@@ -358,28 +359,24 @@ export default function AddOptionModal({
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400"
                     size={18}
                   />
-                  <select
-                    className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition appearance-none font-bold text-zinc-900"
+                  <input
+                    list="shipping-options"
                     value={formData.shipping_included}
+                    placeholder="Select or type shipping..."
+                    className="w-full p-4 pl-12 bg-zinc-50 rounded-2xl border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-blue-500 transition font-bold text-zinc-900"
                     onChange={(e) =>
                       setFormData({
                         ...formData,
                         shipping_included: e.target.value,
                       })
                     }
-                  >
-                    <option value="Shipping Only">Includes Shipping</option>
-                    <option value="Shipping & Sales Tax">
-                      Includes Shipping & Sales Tax
-                    </option>
-                    <option value="Shipping with LIFTGATE">
-                      Includes Shipping with LIFTGATE
-                    </option>
-                  </select>
-                  <ChevronDown
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
-                    size={16}
                   />
+                  <datalist id="shipping-options">
+                    <option value="Includes Shipping" />
+                    <option value="Includes Shipping & Sales Tax" />
+                    <option value="Includes Shipping with LIFTGATE" />
+                    <option value="FOB Factory (Plus Freight)" />
+                  </datalist>
                 </div>
               </div>
             </div>
