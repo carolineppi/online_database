@@ -125,7 +125,10 @@ export default function FinancialDashboard() {
         {/* ACTIVE TAB CONTENT */}
         <div className="animate-in fade-in slide-in-from-bottom-2">
           {activeTab === 'jobs' && <ClosedJobsTab filters={filters} />}
+          {activeTab === 'quotes' && <PipelineQuotesTab filters={filters} />}
+          {activeTab === 'cohort' && <CohortAnalysisTab filters={filters} />}
           {activeTab === 'customers' && <CustomerAnalysisTab filters={filters} />}
+          {activeTab === 'mom' && <MonthOverMonthTab filters={filters} />}
         </div>
 
       </div>
