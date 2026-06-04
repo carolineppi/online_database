@@ -10,7 +10,6 @@ export default function PipelineQuotesTab({ filters }: { filters: any }) {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   
-  // Toggle preference for each quote ID ('avg' or 'sum')
   const [calcModes, setCalcModes] = useState<Record<string, 'avg' | 'sum'>>({});
   
   const [data, setData] = useState({
@@ -25,60 +24,72 @@ export default function PipelineQuotesTab({ filters }: { filters: any }) {
     const fetchQuotes = async () => {
       setLoading(true);
       try {
-        // Query quotes strictly by their creation date
-        const { data: rawQuotes, error } = await supabase
-          .from('quote_submittals')
-          .select(`
-            *,
-            options:individual_quotes(id, price, deleted_at),
-            addons:add_ons(price, deleted_at),
-            jobs(id, winning_quote_ids, accepted_individual_quote)
-          `)
-          .gte('created_at', `${filters.dateRange.start}T00:00:00`)
-          .lte('created_at', `${filters.dateRange.end}T23:59:59`)
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false });
+        const [quotesRes, campaignRes] = await Promise.all([
+          supabase.from('quote_submittals')
+            .select('*')
+            .gte('created_at', `${filters.dateRange.start}T00:00:00`)
+            .lte('created_at', `${filters.dateRange.end}T23:59:59`)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false }),
+          supabase.from('campaign_sources').select('*')
+        ]);
 
-        if (error) throw error;
-        if (!rawQuotes) return;
+        const rawQuotes = quotesRes.data || [];
+        const campaignMap = new Map(campaignRes.data?.map(c => [c.campaign_id, c.campaign_name]) || []);
 
-        // Apply filters
-        const filteredQuotes = rawQuotes.filter((q: any) => {
+        const quoteIds = rawQuotes.map(q => q.id);
+        let optsData: any[] = [];
+        let addonsData: any[] = [];
+        let jobsData: any[] = [];
+
+        // Fetch related data manually using the Quote IDs
+        if (quoteIds.length > 0) {
+          const [oRes, aRes, jRes] = await Promise.all([
+            supabase.from('individual_quotes').select('id, quote_id, price').in('quote_id', quoteIds).is('deleted_at', null),
+            supabase.from('add_ons').select('price, quote_id').in('quote_id', quoteIds).is('deleted_at', null),
+            supabase.from('jobs').select('id, quote_id, winning_quote_ids, accepted_individual_quote').in('quote_id', quoteIds).is('deleted_at', null)
+          ]);
+          optsData = oRes.data || [];
+          addonsData = aRes.data || [];
+          jobsData = jRes.data || [];
+        }
+
+        const filteredQuotes = rawQuotes.map(q => {
+          // Attach relations manually
+          q.options = optsData.filter(o => o.quote_id === q.id);
+          q.addons = addonsData.filter(a => a.quote_id === q.id);
+          q.jobs = jobsData.filter(j => j.quote_id === q.id);
+
+          // Standardized Origin Logic
           const isWoo = q.source === 'WooCommerce';
           const isManual = q.quote_source === 'PM Input';
-          const isPaid = !isWoo && !isManual && q.quote_source !== 'Organic / Direct' && q.quote_source !== 'Unknown';
-          const displayCampaign = q.campaign_source || q.quote_source;
+          const isOrganic = q.quote_source === 'Organic / Direct';
+          const isPaid = /^\d+$/.test(q.quote_source || ''); 
+          
+          const displayCampaign = isPaid ? (campaignMap.get(q.quote_source) || q.quote_source) : '';
 
-          // Origin Filter
-          if (filters.originFilter === 'woo' && !isWoo) return false;
-          if (filters.originFilter === 'manual' && !isManual) return false;
-          if (filters.originFilter === 'organic' && (isWoo || isManual || isPaid)) return false;
-
-          // Campaign Filter
-          if (filters.campaignFilter !== 'all' && displayCampaign !== filters.campaignFilter) return false;
-
-          // Inject helpful flags for rendering
           q.is_woo = isWoo;
           q.is_manual = isManual;
+          q.is_organic = isOrganic;
           q.is_paid = isPaid;
           q.display_campaign_name = displayCampaign;
 
+          return q;
+        }).filter(q => {
+          // Apply Global Filters
+          if (filters.originFilter === 'woo' && !q.is_woo) return false;
+          if (filters.originFilter === 'manual' && !q.is_manual) return false;
+          if (filters.originFilter === 'organic' && !q.is_organic) return false;
+          if (filters.campaignFilter !== 'all' && q.display_campaign_name !== filters.campaignFilter) return false;
           return true;
         });
 
-        // Clean out soft-deleted options/addons for accurate calculations
-        const cleanedQuotes = filteredQuotes.map(q => {
-          q.options = q.options?.filter((o: any) => !o.deleted_at) || [];
-          q.addons = q.addons?.filter((a: any) => !a.deleted_at) || [];
-          return q;
-        });
-
         setData({
-          quotesList: cleanedQuotes,
-          totalQuotes: cleanedQuotes.length,
-          spamCount: cleanedQuotes.filter(q => q.status?.toUpperCase() === 'SPAM').length,
-          duplicateCount: cleanedQuotes.filter(q => q.status?.toUpperCase() === 'DUPLICATE').length,
-          officeCount: cleanedQuotes.filter(q => q.status?.toUpperCase() === 'OFFICE').length,
+          quotesList: filteredQuotes,
+          totalQuotes: filteredQuotes.length,
+          spamCount: filteredQuotes.filter(q => q.status?.toUpperCase() === 'SPAM').length,
+          duplicateCount: filteredQuotes.filter(q => q.status?.toUpperCase() === 'DUPLICATE').length,
+          officeCount: filteredQuotes.filter(q => q.status?.toUpperCase() === 'OFFICE').length,
         });
       } catch (err) {
         console.error(err);
@@ -103,13 +114,11 @@ export default function PipelineQuotesTab({ filters }: { filters: any }) {
     let baseValue = 0;
     
     if (isConverted && q.jobs?.[0]) {
-      // It's a Won Job! Sum only the selected winners
       const linkedJob = q.jobs[0];
       const winningIds = linkedJob.winning_quote_ids || (linkedJob.accepted_individual_quote ? [linkedJob.accepted_individual_quote] : []);
       const winningOptions = q.options.filter((o: any) => winningIds.includes(o.id));
       baseValue = winningOptions.reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0);
     } else {
-      // Standard open quote pipeline calculation
       const optionsSum = q.options.reduce((sum: number, o: any) => sum + (Number(o.price) || 0), 0);
       if (optionsCount > 0) {
         baseValue = mode === 'avg' ? optionsSum / optionsCount : optionsSum;
@@ -129,7 +138,7 @@ export default function PipelineQuotesTab({ filters }: { filters: any }) {
     if (quotesViewData.length === 0) return;
     const headers = ['Project Name', 'Quote #', 'Status', 'Marketing Category', 'Specific Campaign', 'Options Count', 'Calculation Mode', 'Potential Revenue'];
     const rows = quotesViewData.map(q => {
-      const sourceCat = q.is_paid ? 'Paid Ad' : q.is_manual ? 'PM Input' : q.is_woo ? 'WooCommerce' : (q.quote_source || 'Unknown');
+      const sourceCat = q.is_paid ? 'Paid Ad' : q.is_manual ? 'PM Input' : q.is_woo ? 'WooCommerce' : q.is_organic ? 'Organic / Direct' : 'Unknown';
       return [
         `"${(q.job_name || 'Untitled Project').replace(/"/g, '""')}"`, 
         `"${q.quote_number || 'N/A'}"`,
@@ -201,7 +210,7 @@ export default function PipelineQuotesTab({ filters }: { filters: any }) {
                   <td className="px-6 py-4">
                     <div className="font-bold text-zinc-900">{q.job_name || "Untitled Project"}</div>
                     <span className={`text-[10px] font-black uppercase tracking-widest ${q.is_paid ? 'text-amber-600' : q.is_manual ? 'text-purple-600' : 'text-zinc-400'}`}>
-                      {q.is_paid ? `Paid Ad: ${q.display_campaign_name}` : q.is_manual ? 'PM Input' : q.is_woo ? 'WooCommerce' : (q.quote_source || 'Unknown')}
+                      {q.is_paid ? `Paid Ad: ${q.display_campaign_name}` : q.is_manual ? 'PM Input' : q.is_woo ? 'WooCommerce' : q.is_organic ? 'Organic / Direct' : 'Unknown'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-zinc-500 font-mono font-medium">#{q.quote_number || "N/A"}</td>
@@ -255,14 +264,11 @@ export default function PipelineQuotesTab({ filters }: { filters: any }) {
   );
 }
 
-function StatCard({ title, value, icon, color }: { title: string, value: string | number, icon: any, color: string }) {
+function StatCard({ title, value, icon, color }: any) {
   const colors: any = {
-    blue: "bg-blue-50 border-blue-100",
-    emerald: "bg-emerald-50 border-emerald-100",
-    purple: "bg-purple-50 border-purple-100",
-    amber: "bg-amber-50 border-amber-100",
-    zinc: "bg-zinc-50 border-zinc-200",
-    red: "bg-red-50 border-red-100" 
+    blue: "bg-blue-50 border-blue-100", emerald: "bg-emerald-50 border-emerald-100",
+    purple: "bg-purple-50 border-purple-100", amber: "bg-amber-50 border-amber-100",
+    zinc: "bg-zinc-50 border-zinc-200", red: "bg-red-50 border-red-100" 
   };
   return (
     <div className={`p-6 rounded-3xl border shadow-sm ${colors[color]}`}>

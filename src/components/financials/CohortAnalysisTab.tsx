@@ -20,20 +20,31 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
     const fetchCohortData = async () => {
       setLoading(true);
       try {
-        // Query quotes strictly by their creation date to establish the cohort
-        const { data: rawQuotes, error } = await supabase
-          .from('quote_submittals')
-          .select(`
-            *,
-            jobs(id, sale_amount, actual_cost, created_at),
-            addons:add_ons(price, deleted_at)
-          `)
-          .gte('created_at', `${filters.dateRange.start}T00:00:00`)
-          .lte('created_at', `${filters.dateRange.end}T23:59:59`)
-          .is('deleted_at', null);
+        const [quotesRes, campaignRes] = await Promise.all([
+          supabase.from('quote_submittals')
+            .select('*')
+            .gte('created_at', `${filters.dateRange.start}T00:00:00`)
+            .lte('created_at', `${filters.dateRange.end}T23:59:59`)
+            .is('deleted_at', null),
+          supabase.from('campaign_sources').select('*')
+        ]);
 
-        if (error) throw error;
-        if (!rawQuotes) return;
+        const rawQuotes = quotesRes.data || [];
+        const campaignMap = new Map(campaignRes.data?.map(c => [c.campaign_id, c.campaign_name]) || []);
+
+        const quoteIds = rawQuotes.map(q => q.id);
+        let addonsData: any[] = [];
+        let jobsData: any[] = [];
+
+        // Manually fetch associated jobs and addons by Quote IDs
+        if (quoteIds.length > 0) {
+          const [aRes, jRes] = await Promise.all([
+            supabase.from('add_ons').select('price, quote_id').in('quote_id', quoteIds).is('deleted_at', null),
+            supabase.from('jobs').select('id, quote_id, sale_amount, actual_cost').in('quote_id', quoteIds).is('deleted_at', null)
+          ]);
+          addonsData = aRes.data || [];
+          jobsData = jRes.data || [];
+        }
 
         let totalQuotes = 0;
         let totalWon = 0;
@@ -43,42 +54,35 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
         const groups = new Map();
 
         rawQuotes.forEach((q: any) => {
-          // Identify source category
+          // Standard Category Logic
           const isWoo = q.source === 'WooCommerce';
           const isManual = q.quote_source === 'PM Input';
-          const isPaid = !isWoo && !isManual && q.quote_source !== 'Organic / Direct' && q.quote_source !== 'Unknown';
-          const displayCampaign = q.campaign_source || q.quote_source || 'Unknown';
+          const isOrganic = q.quote_source === 'Organic / Direct';
+          const isPaid = /^\d+$/.test(q.quote_source || ''); 
+          const displayCampaign = isPaid ? (campaignMap.get(q.quote_source) || q.quote_source) : 'Unknown';
 
           // Apply Global Filters
           if (filters.originFilter === 'woo' && !isWoo) return;
           if (filters.originFilter === 'manual' && !isManual) return;
-          if (filters.originFilter === 'organic' && (isWoo || isManual || isPaid)) return;
+          if (filters.originFilter === 'organic' && !isOrganic) return;
           if (filters.campaignFilter !== 'all' && displayCampaign !== filters.campaignFilter) return;
 
           totalQuotes++;
 
-          // Determine Group Key (e.g., "Paid: Google Ads" or "Organic")
-          const groupKey = isPaid ? `Paid Ad: ${displayCampaign}` : isManual ? 'PM Input' : isWoo ? 'WooCommerce' : 'Organic / Direct';
+          // Determine Group Key 
+          const groupKey = isPaid ? `Paid Ad: ${displayCampaign}` : isManual ? 'PM Input' : isWoo ? 'WooCommerce' : isOrganic ? 'Organic / Direct' : 'Unknown';
 
           if (!groups.has(groupKey)) {
-            groups.set(groupKey, { 
-              name: groupKey, 
-              isPaid, 
-              quotes: 0, 
-              won: 0, 
-              revenue: 0, 
-              cost: 0 
-            });
+            groups.set(groupKey, { name: groupKey, isPaid, quotes: 0, won: 0, revenue: 0, cost: 0 });
           }
 
           const g = groups.get(groupKey);
           g.quotes += 1;
 
           // Trace forward to see if it became a job
-          if (q.jobs && q.jobs.length > 0) {
-            const job = q.jobs[0];
-            const addonsSum = q.addons?.filter((a: any) => !a.deleted_at).reduce((sum: number, a: any) => sum + (Number(a.price) || 0), 0) || 0;
-            
+          const job = jobsData.find(j => j.quote_id === q.id);
+          if (job) {
+            const addonsSum = addonsData.filter(a => a.quote_id === q.id).reduce((sum, a) => sum + (Number(a.price) || 0), 0);
             const contract = (Number(job.sale_amount) || 0) + addonsSum;
             const actualCost = Number(job.actual_cost) || 0;
 
@@ -92,7 +96,6 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
           }
         });
 
-        // Format and calculate margins for the table
         const finalGroupedData = Array.from(groups.values()).map(g => {
           const profit = g.revenue - g.cost;
           const margin = g.revenue > 0 ? (profit / g.revenue) * 100 : 0;
@@ -100,7 +103,6 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
           return { ...g, profit, margin, winRate };
         });
 
-        // Sort by revenue descending
         finalGroupedData.sort((a, b) => b.revenue - a.revenue);
 
         setData({
@@ -120,19 +122,11 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
     fetchCohortData();
   }, [filters, supabase]);
 
-  // --- EXPORT ---
   const handleExportCohortCSV = () => {
     if (data.groupedData.length === 0) return;
     const headers = ['Marketing Source', 'Quotes Generated', 'Deals Won', 'Win Rate (%)', 'Realized Revenue', 'Realized Cost', 'Realized Gross Profit', 'Gross Margin (%)'];
     const rows = data.groupedData.map(g => [
-      `"${g.name}"`, 
-      g.quotes, 
-      g.won, 
-      g.winRate.toFixed(1), 
-      g.revenue.toFixed(2), 
-      g.cost.toFixed(2), 
-      g.profit.toFixed(2), 
-      g.margin.toFixed(1)
+      `"${g.name}"`, g.quotes, g.won, g.winRate.toFixed(1), g.revenue.toFixed(2), g.cost.toFixed(2), g.profit.toFixed(2), g.margin.toFixed(1)
     ]);
     
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -147,7 +141,6 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
   };
 
   const cohortWinRate = data.cohortQuotes > 0 ? (data.cohortWon / data.cohortQuotes) * 100 : 0;
-  const cohortMargin = data.cohortRevenue > 0 ? (data.cohortProfit / data.cohortRevenue) * 100 : 0;
 
   if (loading) return <div className="flex justify-center p-12 text-zinc-400"><Loader2 className="animate-spin" size={32} /></div>;
 
@@ -232,12 +225,10 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
   );
 }
 
-function StatCard({ title, value, icon, color }: { title: string, value: string | number, icon: any, color: string }) {
+function StatCard({ title, value, icon, color }: any) {
   const colors: any = {
-    blue: "bg-blue-50 border-blue-100",
-    emerald: "bg-emerald-50 border-emerald-100",
-    purple: "bg-purple-50 border-purple-100",
-    amber: "bg-amber-50 border-amber-100",
+    blue: "bg-blue-50 border-blue-100", emerald: "bg-emerald-50 border-emerald-100",
+    purple: "bg-purple-50 border-purple-100", amber: "bg-amber-50 border-amber-100",
   };
   return (
     <div className={`p-6 rounded-3xl border shadow-sm ${colors[color]}`}>

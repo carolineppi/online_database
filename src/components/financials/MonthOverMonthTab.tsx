@@ -1,15 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { 
-  TrendingUp, TrendingDown, Minus, DollarSign, Target, Briefcase, FileText, Percent, Loader2 
+  TrendingUp, TrendingDown, Minus, DollarSign, Target, Briefcase, FileText, Percent, Loader2, Calendar, ArrowRight
 } from 'lucide-react';
 
 export default function MonthOverMonthTab({ filters }: { filters: any }) {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   
+  // Calculate the default previous period to use as an initial state
+  const defaultPrev = useMemo(() => {
+    const currentStart = new Date(`${filters.dateRange.start}T00:00:00`);
+    const currentEnd = new Date(`${filters.dateRange.end}T23:59:59`);
+    const diffTime = currentEnd.getTime() - currentStart.getTime();
+    const prevEnd = new Date(currentStart.getTime() - 1); 
+    const prevStart = new Date(prevEnd.getTime() - diffTime);
+    return {
+      start: prevStart.toISOString().split('T')[0],
+      end: prevEnd.toISOString().split('T')[0]
+    };
+  }, [filters.dateRange]);
+
+  // Secondary date state specifically for the comparison period
+  const [compareRange, setCompareRange] = useState(defaultPrev);
+
+  // Auto-sync the comparison range if the user changes the global date range
+  useEffect(() => {
+    setCompareRange(defaultPrev);
+  }, [defaultPrev]);
+
   const [metrics, setMetrics] = useState({
     current: { quotes: 0, jobs: 0, winRate: 0, revenue: 0, cost: 0, profit: 0, margin: 0, avgDeal: 0 },
     previous: { quotes: 0, jobs: 0, winRate: 0, revenue: 0, cost: 0, profit: 0, margin: 0, avgDeal: 0 },
@@ -23,32 +44,34 @@ export default function MonthOverMonthTab({ filters }: { filters: any }) {
         const currentStart = new Date(`${filters.dateRange.start}T00:00:00`);
         const currentEnd = new Date(`${filters.dateRange.end}T23:59:59`);
         
-        const diffTime = currentEnd.getTime() - currentStart.getTime();
-        const prevEnd = new Date(currentStart.getTime() - 1); 
-        const prevStart = new Date(prevEnd.getTime() - diffTime); 
+        const prevStart = new Date(`${compareRange.start}T00:00:00`);
+        const prevEnd = new Date(`${compareRange.end}T23:59:59`);
 
         const labels = {
           current: `${currentStart.toLocaleDateString()} - ${currentEnd.toLocaleDateString()}`,
           previous: `${prevStart.toLocaleDateString()} - ${prevEnd.toLocaleDateString()}`
         };
 
+        // To fetch efficiently, grab the widest possible envelope that covers BOTH date ranges
+        const minStart = currentStart < prevStart ? currentStart : prevStart;
+        const maxEnd = currentEnd > prevEnd ? currentEnd : prevEnd;
+
         const [quotesRes, jobsRes, campaignRes] = await Promise.all([
           supabase.from('quote_submittals')
             .select('id, source, quote_source, created_at')
-            .gte('created_at', prevStart.toISOString())
-            .lte('created_at', currentEnd.toISOString())
+            .gte('created_at', minStart.toISOString())
+            .lte('created_at', maxEnd.toISOString())
             .is('deleted_at', null),
           
           supabase.from('jobs')
             .select('id, sale_amount, actual_cost, created_at, quote_submittals(source, quote_source, add_ons(price, deleted_at))')
-            .gte('created_at', prevStart.toISOString())
-            .lte('created_at', currentEnd.toISOString())
+            .gte('created_at', minStart.toISOString())
+            .lte('created_at', maxEnd.toISOString())
             .is('deleted_at', null),
 
           supabase.from('campaign_sources').select('*')
         ]);
 
-        // Fix TypeScript errors by asserting type as any[]
         const rawQuotes = (quotesRes.data as any[]) || [];
         const rawJobs = (jobsRes.data as any[]) || [];
         const campaignMap = new Map(campaignRes.data?.map(c => [c.campaign_id, c.campaign_name]) || []);
@@ -58,7 +81,6 @@ export default function MonthOverMonthTab({ filters }: { filters: any }) {
             const qDate = new Date(q.created_at).getTime();
             if (qDate < start.getTime() || qDate > end.getTime()) return false;
 
-            // Simplified Clean Logic
             const isWoo = q.source === 'WooCommerce';
             const isManual = q.quote_source === 'PM Input';
             const isOrganic = q.quote_source === 'Organic / Direct';
@@ -126,18 +148,39 @@ export default function MonthOverMonthTab({ filters }: { filters: any }) {
     };
 
     fetchMoMData();
-  }, [filters, supabase]);
+  }, [filters, compareRange, supabase]);
 
   if (loading) return <div className="flex justify-center p-12 text-zinc-400"><Loader2 className="animate-spin" size={32} /></div>;
 
   return (
     <div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 px-2 gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 px-2 gap-4">
         <div>
           <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest">Executive Comparison</h3>
           <p className="text-sm font-medium text-zinc-500 mt-1">
             Comparing <span className="font-bold text-zinc-800">{metrics.periodLabels.current}</span> vs <span className="font-bold text-zinc-800">{metrics.periodLabels.previous}</span>
           </p>
+        </div>
+
+        {/* SECONDARY DATE SELECTOR */}
+        <div className="flex items-center gap-3 bg-zinc-100 p-1.5 rounded-3xl border shadow-inner">
+          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-3">Compare To:</span>
+          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border shadow-sm">
+            <Calendar size={18} className="text-zinc-400 ml-2" />
+            <input 
+              type="date" 
+              value={compareRange.start}
+              onChange={(e) => setCompareRange({...compareRange, start: e.target.value})}
+              className="text-sm font-medium border-none focus:ring-0 p-1 outline-none cursor-pointer"
+            />
+            <ArrowRight size={14} className="text-zinc-300" />
+            <input 
+              type="date" 
+              value={compareRange.end}
+              onChange={(e) => setCompareRange({...compareRange, end: e.target.value})}
+              className="text-sm font-medium border-none focus:ring-0 p-1 outline-none cursor-pointer"
+            />
+          </div>
         </div>
       </div>
 

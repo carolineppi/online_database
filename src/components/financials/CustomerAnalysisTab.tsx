@@ -19,21 +19,38 @@ export default function CustomerAnalysisTab({ filters }: { filters: any }) {
     const fetchCustomerData = async () => {
       setLoading(true);
       try {
-        // 1. Fetch all quotes created in this period
         const { data: quotes } = await supabase
           .from('quote_submittals')
-          .select('id, customer, created_at, jobs(sale_amount)')
+          .select('id, customer, created_at')
           .gte('created_at', `${filters.dateRange.start}T00:00:00`)
           .lte('created_at', `${filters.dateRange.end}T23:59:59`)
           .is('deleted_at', null);
 
         if (!quotes) return;
 
-        // Group activity by customer ID for this period
+        const quoteIds = quotes.map(q => q.id);
+        let jobsData: any[] = [];
+        let addonsData: any[] = [];
+
+        // Fetch associated financial data for accurate revenue calculation
+        if (quoteIds.length > 0) {
+          const [jRes, aRes] = await Promise.all([
+            supabase.from('jobs').select('quote_id, sale_amount').in('quote_id', quoteIds).is('deleted_at', null),
+            supabase.from('add_ons').select('quote_id, price').in('quote_id', quoteIds).is('deleted_at', null)
+          ]);
+          jobsData = jRes.data || [];
+          addonsData = aRes.data || [];
+        }
+
         const periodActivity = new Map();
+        
         quotes.forEach(q => {
           if (!q.customer) return;
-          const revenue = q.jobs?.[0]?.sale_amount || 0;
+
+          // Connect the independent jobs data
+          const job = jobsData.find(j => j.quote_id === q.id);
+          const addonsSum = addonsData.filter(a => a.quote_id === q.id).reduce((sum, a) => sum + (Number(a.price) || 0), 0);
+          const revenue = job ? (Number(job.sale_amount) || 0) + addonsSum : 0;
           
           if (periodActivity.has(q.customer)) {
             const current = periodActivity.get(q.customer);
@@ -46,9 +63,7 @@ export default function CustomerAnalysisTab({ filters }: { filters: any }) {
 
         const customerIds = Array.from(periodActivity.keys());
 
-        // 2. Check historical data to determine New vs Repeat
         if (customerIds.length > 0) {
-          // Look for any quotes by these customers BEFORE the start date
           const { data: historicalQuotes } = await supabase
             .from('quote_submittals')
             .select('customer')
@@ -57,7 +72,6 @@ export default function CustomerAnalysisTab({ filters }: { filters: any }) {
 
           const repeatIds = new Set(historicalQuotes?.map(h => h.customer) || []);
 
-          // Also fetch their actual names/emails to display
           const { data: customerDetails } = await supabase
             .from('customers')
             .select('id, first_name, last_name, email')
@@ -82,7 +96,6 @@ export default function CustomerAnalysisTab({ filters }: { filters: any }) {
             finalData.push(data);
           });
 
-          // Sort by revenue descending
           finalData.sort((a, b) => b.revenue - a.revenue);
 
           setMetrics({
