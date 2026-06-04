@@ -6,6 +6,16 @@ const darkText = [50, 50, 50] as const;   // #323232
 const redColor = [183, 0, 32] as const;   // #b70020
 const lightGray = [243, 243, 243] as const; // #f3f3f3
 
+// Define the specific materials that SHOULD have "Toilet Partitions" appended
+const STANDARD_PARTITION_MATERIALS = [
+  "Powder Coated Steel",
+  "Series 1552 High Pressure Laminate",
+  "HinyHiders Solid Plastic",
+  "HDPE - Solid Plastic",
+  "Series 1082 Solid Phenolic",
+  "Stainless Steel"
+];
+
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
@@ -16,7 +26,7 @@ export async function GET(req: NextRequest) {
     const overrideMounting = searchParams.get('overrideMounting');
     const overrideColor = searchParams.get('overrideColor');
     const overrideQty = searchParams.get('overrideQty');
-    const overrideDetails = searchParams.get('overrideDetails'); // NEW: Height details
+    const overrideDetails = searchParams.get('overrideDetails'); 
     
     if (!submittalId || !quoteIdsParam) throw new Error("Missing parameters");
     
@@ -150,7 +160,7 @@ export async function GET(req: NextRequest) {
     const finalMounting = overrideMounting || options[0]?.mounting_style || "TBD";
     const finalColor = overrideColor || options[0]?.color || "TBD";
     const finalQty = overrideQty || formatQtyStr(options[0]);
-    const finalDetails = overrideDetails || options[0]?.details || ""; // NEW: Capture the height
+    const finalDetails = overrideDetails || options[0]?.details || ""; 
 
     // --- DESCRIPTION ---
     doc.setFont("helvetica", "bold");
@@ -207,24 +217,39 @@ export async function GET(req: NextRequest) {
     yPos += (splitFinalColor.length * 14) + 5;
     yPos += 20;
 
-// --- OPTIONS LOOP ---
-    const OPTION_BLOCK_HEIGHT = 35; // Fixed height allocated for EACH option
+    // --- OPTIONS LOOP ---
+    const DEFAULT_OPTION_BLOCK_HEIGHT = 35; // Base height allocated for EACH option
     let itemsOnCurrentPage = 0;
 
     options.forEach((opt: any) => {
-      // Check if this new option block will push us over the page limit
-      const newY = checkPageBreak(yPos, OPTION_BLOCK_HEIGHT);
+      // Setup font FIRST so our text wrapping calculation uses the exact right width metrics
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
       
-      // If checkPageBreak returned 60, it means it created a new page!
+      let materialDisplayName = opt.material || "Unknown Material";
+      if (STANDARD_PARTITION_MATERIALS.includes(materialDisplayName)) {
+        materialDisplayName += " Toilet Partitions";
+      }
+      
+      // NEW: Wrap text to max width of 420 to avoid running into the price
+      const splitMaterial = doc.splitTextToSize(materialDisplayName, 420);
+      
+      // Calculate dynamic block height based on how many lines the material name takes
+      const textHeightOffset = (splitMaterial.length - 1) * 14;
+      const currentBlockHeight = DEFAULT_OPTION_BLOCK_HEIGHT + textHeightOffset;
+
+      // Check if this dynamically sized block will push us over the page limit
+      const newY = checkPageBreak(yPos, currentBlockHeight);
+      
       if (newY === 60) {
         yPos = newY;
-        itemsOnCurrentPage = 0; // Reset counter for the new page 
+        itemsOnCurrentPage = 0; 
       }
 
       doc.setTextColor(...redColor);
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${opt.material} Toilet Partitions`, 40, yPos);
+      
+      // Print the wrapped material name (jsPDF automatically spaces the lines beautifully)
+      doc.text(splitMaterial, 40, yPos);
 
       const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.price);
       doc.text(priceFmt, 515, yPos, { align: 'center' });
@@ -233,35 +258,35 @@ export async function GET(req: NextRequest) {
       doc.setFontSize(10);
       
       let currentX = 40;
+      
+      // Push the manufacturer/shipping line down dynamically if the material name wrapped
+      const manufacturerY = yPos + 14 + textHeightOffset;
+
       doc.setFont("helvetica", "bold");
-      doc.text("Manufacturer: ", currentX, yPos + 14);
+      doc.text("Manufacturer: ", currentX, manufacturerY);
       currentX += doc.getTextWidth("Manufacturer: ");
 
       doc.setFont("helvetica", "normal");
-      doc.text(opt.manufacturer || 'HADRIAN', currentX, yPos + 14);
+      doc.text(opt.manufacturer || 'HADRIAN', currentX, manufacturerY);
 
       doc.setFont("helvetica", "normal");
-      doc.text(`** ${opt.shipping_included || "Includes Shipping"} **`, 515, yPos + 14, { align: 'center' });
+      doc.text(`** ${opt.shipping_included || "Includes Shipping"} **`, 515, manufacturerY, { align: 'center' });
       
-      // Advance by the strict, fixed block height
-      yPos += OPTION_BLOCK_HEIGHT; 
+      // Advance by the dynamic block height
+      yPos += currentBlockHeight; 
       itemsOnCurrentPage++;
     });
 
     // PADDING LOGIC:
-    // We want a max of 4 items per page. If there are fewer than 4 items 
-    // on the current page, add "dummy padding" to simulate the missing items.
-    // This pushes the hardware banner and terms down consistently.
     if (itemsOnCurrentPage > 0 && itemsOnCurrentPage < 4) {
         const missingItems = 4 - itemsOnCurrentPage;
-        yPos += (missingItems * OPTION_BLOCK_HEIGHT); 
+        // Keep the default block height for the padding so the banner stays securely at the bottom
+        yPos += (missingItems * DEFAULT_OPTION_BLOCK_HEIGHT); 
     }
 
     // --- HARDWARE BANNER ---
-    // Double check that our artificial padding didn't push the banner off the page!
     yPos = checkPageBreak(yPos, 40); 
     
-    // We remove the arbitrary yPos -= 10 here so it aligns perfectly with the grid
     doc.setFillColor(...redColor);
     doc.rect(40, yPos, 530, 25, 'F');
     doc.setTextColor(255);
