@@ -115,6 +115,8 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
             <tr>
               <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Project</th>
               <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Contract</th>
+              {/* --- NEW: Estimated Cost Header --- */}
+              <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Estimated Cost</th>
               <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Actual Cost</th>
               <th className="px-6 py-4 text-xs font-bold uppercase text-zinc-400">Markup</th>
               <th className="px-6 py-4 text-right text-xs font-bold uppercase text-zinc-400">Actions</th>
@@ -127,7 +129,6 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                   <span className="font-medium text-zinc-900 text-sm">
                     {job.quote_submittals?.job_name || 'Untitled Project'}
                   </span>
-                  {/* --- NEW: Added quote number alongside the date --- */}
                   <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
                     <span>
                       #{job.quote_submittals?.quote_number_mask || job.quote_submittals?.quote_number || 'Unknown'}
@@ -140,6 +141,10 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
                 </td>
                 <td className="px-6 py-4 text-sm font-mono font-bold text-zinc-700">
                   ${Number(job.sale_amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                </td>
+                {/* --- NEW: Estimated Cost Column Data --- */}
+                <td className="px-6 py-4 text-sm font-mono font-bold text-zinc-700">
+                  ${Number(job.estimated_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
                 </td>
                 <td className="px-6 py-4 text-sm font-mono font-bold text-zinc-700">
                   ${Number(job.actual_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
@@ -160,7 +165,8 @@ export default function JobsTable({ initialJobs }: { initialJobs: any[] }) {
             ))}
             {!loading && jobs.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-zinc-400 font-medium">
+                {/* --- CHANGED: colSpan increased to 6 because we added a new column --- */}
+                <td colSpan={6} className="px-6 py-12 text-center text-zinc-400 font-medium">
                   No active jobs found for this date range.
                 </td>
               </tr>
