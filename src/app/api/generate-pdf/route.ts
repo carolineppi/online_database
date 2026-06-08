@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     doc.text("to Buy Toilet Partitions", 140, 95, { align: 'center' });
 
     doc.setTextColor(0);
-    const quoteDate = new Date(submittal.created_at || new Date()).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const quoteDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     doc.setFontSize(12);
     doc.text(quoteDate, 570, 45, { align: 'right' });
     doc.setFontSize(10);
