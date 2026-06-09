@@ -121,14 +121,17 @@ export async function GET(req: NextRequest) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
 
-    const firstName = submittal.linked_customer?.first_name || '';
-    const lastName = submittal.linked_customer?.last_name || '';
+    // Uppercase the names
+    const firstName = (submittal.linked_customer?.first_name || '').toUpperCase();
+    const lastName = (submittal.linked_customer?.last_name || '').toUpperCase();
     const phoneStr = formatPhoneNumber(submittal.linked_customer?.phone);
 
     doc.text(`Attention: ${firstName} ${lastName}${phoneStr}`, 50, 127);
     
     doc.setFontSize(12);
-    doc.text(submittal.job_name || "PROPOSAL", 50, 145);
+    // Uppercase the job name
+    const displayJobName = (submittal.job_name || "PROPOSAL").toUpperCase();
+    doc.text(displayJobName, 50, 145);
 
     const displayQuoteNumber = String(submittal.quote_number_mask || submittal.quote_number || "");
     doc.setFontSize(14);
