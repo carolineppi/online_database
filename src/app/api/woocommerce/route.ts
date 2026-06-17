@@ -163,9 +163,7 @@ export async function POST(request: Request) {
           first_name: firstName,
           last_name: lastName,
           email: billing.email || 'no-email@woocommerce.com',
-          phone: billing.phone || null,
-          company_name: company || null,
-          source: 'WooCommerce'
+          phone: billing.phone || null
         }])
         .select('id')
         .single();
