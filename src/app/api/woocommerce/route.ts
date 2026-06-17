@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-wc-webhook-topic',
+  // ADDED: Added x-wc-webhook-topic so the delay fix can read it
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-wc-webhook-topic', 
 };
 
 // --- PREFLIGHT HANDLER ---
@@ -23,10 +24,14 @@ const getMetaValue = (metaArray: any[], keysToFind: string[]) => {
 export async function POST(request: Request) {
   console.log(">>> [WOOCOMMERCE WEBHOOK] Hit Received");
 
+  // --- NEW FIX: WEBHOOK TOPIC DELAY ---
+  // Pauses execution for 'order.updated' events to allow concurrent 'order.created' webhooks to insert first
+  const topic = request.headers.get('x-wc-webhook-topic') || '';
+  if (topic === 'order.updated') {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+
   let body;
-  
-  // NEW: Grab the webhook topic from the headers to handle race conditions
-  const topic = request.headers.get('x-wc-webhook-topic') || ''; 
 
   // 1. BULLETPROOF PAYLOAD PARSING
   try {
@@ -38,148 +43,171 @@ export async function POST(request: Request) {
     }
 
     body = JSON.parse(rawText);
-  } catch (parseError: any) {
-    console.error(">>> [WOOCOMMERCE] JSON Parse Error:", parseError);
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders });
+  } catch (e) {
+    console.error(">>> [WOOCOMMERCE PARSE ERROR]: Could not parse JSON.", e);
+    return NextResponse.json({ message: "Unprocessable payload, but acknowledged" }, { status: 200, headers: corsHeaders });
   }
 
-  // 2. VALIDATE REQUIRED WOOCOMMERCE FIELDS
-  if (!body || !body.id) {
-    console.log(">>> [WOOCOMMERCE] Missing body.id. Acknowledging.");
-    return NextResponse.json({ message: "No ID, ignoring" }, { status: 200, headers: corsHeaders });
+  // 2. HANDLE WOOCOMMERCE PING EVENT
+  if (body?.webhook_id) {
+    console.log(">>> [WOOCOMMERCE] Webhook Ping Successful! ID:", body.webhook_id);
+    return NextResponse.json({ message: "Webhook ping received" }, { status: 200, headers: corsHeaders });
   }
 
-  const validStatuses = ['processing', 'completed', 'on-hold', 'pending'];
-  if (!validStatuses.includes(body.status)) {
-    console.log(`>>> [WOOCOMMERCE] Order ${body.id} status is '${body.status}'. Ignoring.`);
-    return NextResponse.json({ message: "Status ignored" }, { status: 200, headers: corsHeaders });
+  // 3. IGNORE NON-ACTIONABLE ORDERS
+  if (body?.status === 'failed' || body?.status === 'cancelled') {
+    return NextResponse.json({ message: "Ignored order status" }, { status: 200, headers: corsHeaders });
   }
 
+  // FIX 1: Removed the strict email block. Only require an order ID. 
+  // If an order comes in without an email, we still want the order!
+  if (!body?.id) {
+    return NextResponse.json({ message: "Missing order_id, ignoring." }, { status: 200, headers: corsHeaders });
+  }
+
+  // --- NEW FIX: AGE THRESHOLD ---
+  // Prevents ancient orders from creating quotes if they randomly trigger an update webhook
+  if (body?.date_created) {
+    const orderDate = new Date(body.date_created);
+    const now = new Date();
+    const daysOld = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
+
+    if (daysOld > 14) { 
+      console.log(`>>> [WOOCOMMERCE] Order ${body.id} is ${Math.round(daysOld)} days old. Ignoring creation.`);
+      return NextResponse.json({ message: "Order too old to create new quote" }, { status: 200, headers: corsHeaders });
+    }
+  }
+
+  // --- SAFE DATABASE OPERATIONS BEGIN HERE ---
   try {
     const supabase = await createClient();
 
-    // --- STEP 3: SEARCH FOR EXISTING QUOTE ---
-    const quoteNumber = `${body.id}WC`;
+    const { 
+      id: order_id, 
+      billing, 
+      shipping, 
+      line_items, 
+      total, 
+      customer_note,
+      meta_data
+    } = body;
 
-    // NEW: If this is an update webhook, pause for 2 seconds. 
-    // This allows concurrent 'order.created' webhooks to finish inserting first, eliminating duplicates.
-    if (topic === 'order.updated') {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
+    const billingEmail = billing?.email || null;
+    const rawPhone = billing?.phone ? billing.phone.toString().replace(/\D/g, '') : '';
+    const numericPhone = rawPhone.length >= 10 ? parseInt(rawPhone, 10) : null;
 
-    // FIX: Included 'WC' in the ilike query to prevent Order #12 from matching Order #1234WC
-    const { data: existingSubmittals, error: searchError } = await supabase
+    // Generate Base Number (YY-XXXX)
+    const now = new Date();
+    const yearSuffix = now.getFullYear().toString().slice(-2); 
+
+    const { data: lastQuote } = await supabase
       .from('quote_submittals')
-      .select('id, quote_number')
-      .ilike('quote_number', `${quoteNumber}%`);
+      .select('quote_number')
+      .ilike('quote_number', `${yearSuffix}-%`)
+      .order('quote_number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (searchError) throw searchError;
-
-    // --- STEP 4: UPDATE EXISTING QUOTE ---
-    if (existingSubmittals && existingSubmittals.length > 0) {
-      console.log(`>>> [WOOCOMMERCE] Found existing quote for Order ${body.id}. Updating status only.`);
-      
-      let dbStatus = 'PENDING';
-      if (['processing', 'completed'].includes(body.status)) dbStatus = 'WON';
-
-      const { error: updateError } = await supabase
-        .from('quote_submittals')
-        .update({ status: dbStatus })
-        .eq('id', existingSubmittals[0].id);
-
-      if (updateError) throw updateError;
-      return NextResponse.json({ success: true, message: "Status updated" }, { headers: corsHeaders });
-    }
-
-    // --- STEP 5: CREATING A NEW QUOTE ---
-    console.log(`>>> [WOOCOMMERCE] Order ${body.id} not found in DB. Verifying age before creation...`);
-
-    // NEW: Prevent year-old orders from ghost-creating new quotes
-    if (body.date_created) {
-      const orderDate = new Date(body.date_created);
-      const now = new Date();
-      const daysOld = (now.getTime() - orderDate.getTime()) / (1000 * 3600 * 24);
-
-      if (daysOld > 14) { 
-        console.log(`>>> [WOOCOMMERCE] Order ${body.id} is ${Math.round(daysOld)} days old. Ignoring creation to prevent ghost quotes.`);
-        return NextResponse.json({ message: "Order too old to create new quote" }, { status: 200, headers: corsHeaders });
+    let nextSequence = 1;
+    if (lastQuote?.quote_number) {
+      const parts = lastQuote.quote_number.split('-');
+      if (parts.length > 1) {
+        const numericMatch = parts[1].match(/^\d{4}/);
+        if (numericMatch) nextSequence = parseInt(numericMatch[0]) + 1;
       }
     }
 
-    // --- Proceed with creation ---
-    const metaInfo = body.meta_data || [];
+    const paddedSeq = nextSequence.toString().padStart(4, '0');
+    const quoteNumber = `${yearSuffix}-${paddedSeq}`;
+
+    // --- FIX 2 & 3: BULLETPROOF CUSTOMER LOOKUP ---
+    let customer = null;
+    const orConditions = [];
     
-    const quoteSource = getMetaValue(metaInfo, ['_quote_source', 'quote_source']) || 'Organic / Direct';
-    const campaignSource = getMetaValue(metaInfo, ['_campaign_source', 'campaign_source']);
-    const termSource = getMetaValue(metaInfo, ['_term_source', 'term_source']);
-    const contentSource = getMetaValue(metaInfo, ['_content_source', 'content_source']);
-    const sourceUrl = getMetaValue(metaInfo, ['_source_url', 'source_url']);
-    
-    let dbStatus = 'PENDING';
-    if (['processing', 'completed'].includes(body.status)) dbStatus = 'WON';
+    // Build the Supabase 'or' query safely without inserting raw quotation marks
+    if (billingEmail) orConditions.push(`email.eq.${billingEmail}`);
+    if (numericPhone) orConditions.push(`phone.eq.${numericPhone}`);
 
-    const lineItems = body.line_items || [];
-    const itemizedBreakdown = lineItems.map((item: any) => ({
-      item: item.name,
-      qty: item.quantity
-    }));
-    
-    const totalQuantity = lineItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
-    const total = body.total || 0;
-
-    const billing = body.billing || {};
-    const shipping = body.shipping || {};
-    const company = billing.company || shipping.company;
-    const firstName = billing.first_name || shipping.first_name || 'Online';
-    const lastName = billing.last_name || shipping.last_name || 'Customer';
-    
-    const jobName = company ? `${company} - WooCommerce` : `${firstName} ${lastName} - WooCommerce`;
-
-    const shippingAddress = [
-      shipping.address_1,
-      shipping.address_2,
-      shipping.city ? `${shipping.city},` : '',
-      shipping.state,
-      shipping.postcode
-    ].filter(Boolean).join(' ').trim() || 'No shipping address provided';
-
-    const customerNotes = body.customer_note ? `Customer Note: ${body.customer_note}` : '';
-    const formattedNotes = [
-      customerNotes,
-      `Payment Method: ${body.payment_method_title || 'Unknown'}`
-    ].filter(Boolean).join('\n\n');
-
-    // --- STEP 6: UPSERT CUSTOMER ---
-    let { data: customer, error: customerError } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('email', billing.email || 'no-email@woocommerce.com')
-      .single();
-
-    if (!customer) {
-      const { data: newCustomer, error: createCustError } = await supabase
+    if (orConditions.length > 0) {
+      const { data } = await supabase
         .from('customers')
-        .insert([{
-          first_name: firstName,
-          last_name: lastName,
-          email: billing.email || 'no-email@woocommerce.com',
-          phone: billing.phone || null
-        }])
         .select('id')
-        .single();
+        .or(orConditions.join(','))
+        .order('created_at', { ascending: false }) // Get the most recent if there are duplicates
+        .limit(1) // Prevents fatal crash if multiple customers match
+        .maybeSingle();
         
-      if (createCustError) throw createCustError;
-      customer = newCustomer;
+      customer = data;
     }
 
-    // --- STEP 7: CREATE THE NEW SUBMITTAL ---
+    // If no customer matched, safely create one
+    if (!customer) {
+      const { data: newCust, error: custError } = await supabase
+        .from('customers')
+        .insert([{
+          first_name: billing?.first_name || 'Web',
+          last_name: billing?.last_name || 'Customer',
+          email: billingEmail,
+          phone: numericPhone
+        }])
+        .select()
+        .single();
+      
+      if (custError) throw custError;
+      customer = newCust;
+    }
+
+    // --- STEP 5: DATA PREPARATION ---
+    
+    // Map the cart items into the exact JSON array expected by AddOptionModal
+    const itemizedBreakdown = line_items?.map((item: any) => ({
+      item: item.name,
+      qty: item.quantity
+    })) || [];
+
+    // Calculate the total item quantity
+    const totalQuantity = itemizedBreakdown.reduce((sum: number, i: any) => sum + (Number(i.qty) || 0), 0);
+
+    // Keep the general notes clean, stripping out the cart items since they will be their own quote option now
+    const formattedNotes = `WOOCOMMERCE CART QUOTE REQUEST
+Order ID: #${order_id}
+
+--- CUSTOMER NOTES ---
+${customer_note || 'None provided.'}`;
+
+    const shippingAddress = shipping?.address_1 
+      ? `${shipping.address_1}${shipping.address_2 ? ' ' + shipping.address_2 : ''}, ${shipping.city}, ${shipping.state} ${shipping.postcode}`
+      : null;
+
+    // Check for duplicate order submissions
+    const jobName = `WooCommerce Order #${order_id}`;
+    
+    // --- NEW FIX: STRICTER DB SEARCH ---
+    // Ensuring we search using exact match (.eq) on jobName to prevent false overlaps
+    const { data: existingSubmittal } = await supabase
+        .from('quote_submittals')
+        .select('id')
+        .eq('job_name', jobName)
+        .maybeSingle();
+
+    if (existingSubmittal) {
+        return NextResponse.json({ message: "Order already exists" }, { status: 200, headers: corsHeaders });
+    }
+
+    // Attribution Parsing
+    const quoteSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_source', '_wc_order_attribution_source_type', 'utm_source']) || 'WooCommerce / Direct';
+    const campaignSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_campaign', 'utm_campaign', 'gad_campaignid']);
+    const termSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_term', 'utm_term']);
+    const contentSource = getMetaValue(meta_data, ['_wc_order_attribution_utm_content', 'utm_content']);
+    const sourceUrl = getMetaValue(meta_data, ['_wc_order_attribution_session_entry', 'submission_url']);
+
+    // --- STEP 6: INSERT RECORD ---
     const { data: newSubmittal, error: subError } = await supabase
       .from('quote_submittals')
       .insert([{
         job_name: jobName,
-        quote_number: quoteNumber, 
-        quote_number_mask: quoteNumber,
-        status: dbStatus,
+        quote_number: quoteNumber,
+        status: 'Pending',
         customer: customer!.id,
         notes: formattedNotes,
         zip_code: shipping?.postcode || billing?.postcode || null,
@@ -196,7 +224,7 @@ export async function POST(request: Request) {
 
     if (subError) throw subError;
 
-    // --- STEP 8: CREATE AUTOMATIC QUOTE OPTION ---
+    // --- STEP 7: CREATE AUTOMATIC QUOTE OPTION ---
     if (newSubmittal && itemizedBreakdown.length > 0) {
       const { error: quoteError } = await supabase
         .from('individual_quotes')
@@ -220,6 +248,6 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error(">>> [WOOCOMMERCE DB ERROR]:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: "Database operation failed, check Vercel logs" }, { status: 200, headers: corsHeaders });
   }
 }
