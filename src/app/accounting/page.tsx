@@ -15,6 +15,7 @@ interface LedgerRow {
   saleAmount: number;
   estimatedCost: number;
   actualCost: number;
+  originalActualCost: number; // <--- ADD THIS
   manufacturer: string;
 }
 
@@ -133,6 +134,7 @@ export default function AccountingPage() {
             saleAmount: Number(quote.price) || 0,
             estimatedCost: Number(quote.estimated_cost) || 0,
             actualCost: Number(quote.actual_cost) || 0,
+            originalActualCost: Number(quote.actual_cost) || 0, // <--- ADD THIS
             manufacturer: quote.manufacturer || 'Unknown'
           });
         });
@@ -157,8 +159,9 @@ export default function AccountingPage() {
     ));
   };
 
-  const handleActualCostBlur = async (quoteId: string, newCost: number, oldCost: number) => {
-    if (newCost === oldCost) return;
+  const handleActualCostBlur = async (quoteId: string, newCost: number, originalCost: number) => {
+    // Check against the original cost, not the dynamically changing state!
+    if (newCost === originalCost) return; 
 
     setSavingId(quoteId);
     try {
@@ -169,10 +172,16 @@ export default function AccountingPage() {
 
       if (error) throw error;
       toast.success('Cost updated!');
+
+      // Success! Update the original cost so it doesn't trigger again on subsequent clicks
+      setRows(prev => prev.map(row => 
+        row.quoteId === quoteId ? { ...row, originalActualCost: newCost } : row
+      ));
     } catch (err: any) {
       toast.error('Error saving cost');
+      // Revert the visual input back to the original database cost if it failed
       setRows(prev => prev.map(row => 
-        row.quoteId === quoteId ? { ...row, actualCost: oldCost } : row
+        row.quoteId === quoteId ? { ...row, actualCost: originalCost } : row
       ));
     } finally {
       setSavingId(null);
@@ -347,7 +356,9 @@ return (
                             step="0.01"
                             value={row.actualCost || ''}
                             onChange={(e) => handleActualCostChange(row.quoteId, e.target.value)}
-                            onBlur={(e) => handleActualCostBlur(row.quoteId, Number(e.target.value) || 0, row.actualCost)}
+
+                            onBlur={(e) => handleActualCostBlur(row.quoteId, Number(e.target.value) || 0, row.originalActualCost)}
+                            
                             className={`w-full text-right py-2.5 pr-4 pl-8 rounded-xl font-black outline-none transition-all ${
                               row.actualCost === 0 
                                 ? 'bg-amber-50 text-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-400' 
