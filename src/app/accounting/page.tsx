@@ -10,12 +10,13 @@ import { toast } from 'sonner';
 interface LedgerRow {
   quoteId: string;
   submittalId: string;
+  jobId: string; // <--- ADD THIS
   poNumber: string;
   customerName: string;
   saleAmount: number;
   estimatedCost: number;
   actualCost: number;
-  originalActualCost: number; // <--- ADD THIS
+  originalActualCost: number;
   manufacturer: string;
 }
 
@@ -129,12 +130,13 @@ export default function AccountingPage() {
           assembledRows.push({
             quoteId: quote.id,
             submittalId: jobSubmittal.id,
+            jobId: job.id, // <--- ADD THIS (Adjust variable name to match your fetch logic if needed)
             poNumber,
             customerName,
             saleAmount: Number(quote.price) || 0,
             estimatedCost: Number(quote.estimated_cost) || 0,
             actualCost: Number(quote.actual_cost) || 0,
-            originalActualCost: Number(quote.actual_cost) || 0, // <--- ADD THIS
+            originalActualCost: Number(quote.actual_cost) || 0, 
             manufacturer: quote.manufacturer || 'Unknown'
           });
         });
@@ -159,27 +161,25 @@ export default function AccountingPage() {
     ));
   };
 
-  const handleActualCostBlur = async (quoteId: string, newCost: number, originalCost: number) => {
-    // Check against the original cost, not the dynamically changing state!
+  const handleActualCostBlur = async (quoteId: string, jobId: string, newCost: number, originalCost: number) => {
     if (newCost === originalCost) return; 
 
     setSavingId(quoteId);
     try {
+      // Safely target the specific job using its primary key (id)
       const { error } = await supabase
-        .from('individual_quotes')
+        .from('jobs')
         .update({ actual_cost: newCost })
-        .eq('id', quoteId);
+        .eq('id', jobId); 
 
       if (error) throw error;
       toast.success('Cost updated!');
 
-      // Success! Update the original cost so it doesn't trigger again on subsequent clicks
       setRows(prev => prev.map(row => 
         row.quoteId === quoteId ? { ...row, originalActualCost: newCost } : row
       ));
     } catch (err: any) {
       toast.error('Error saving cost');
-      // Revert the visual input back to the original database cost if it failed
       setRows(prev => prev.map(row => 
         row.quoteId === quoteId ? { ...row, actualCost: originalCost } : row
       ));
@@ -356,8 +356,8 @@ return (
                             step="0.01"
                             value={row.actualCost || ''}
                             onChange={(e) => handleActualCostChange(row.quoteId, e.target.value)}
-
-                            onBlur={(e) => handleActualCostBlur(row.quoteId, Number(e.target.value) || 0, row.originalActualCost)}
+                            
+                            onBlur={(e) => handleActualCostBlur(row.quoteId, row.jobId, Number(e.target.value) || 0, row.originalActualCost)}
                             
                             className={`w-full text-right py-2.5 pr-4 pl-8 rounded-xl font-black outline-none transition-all ${
                               row.actualCost === 0 
