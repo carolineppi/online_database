@@ -37,6 +37,16 @@ export default function SubmittalsPage() {
   const lastDay = today.toISOString().split("T")[0];
   const [dateRange, setDateRange] = useState({ start: firstDay, end: lastDay });
 
+  // NEW: Locks the boundary to exactly Midnight Eastern Time, respecting DST
+  const getEasternISO = (dateString: string, isEnd: boolean) => {
+    if (!dateString) return '';
+    const time = isEnd ? '23:59:59.999' : '00:00:00.000';
+    const d = new Date(`${dateString}T12:00:00Z`);
+    const tzString = d.toLocaleString("en-US", { timeZone: "America/New_York", timeZoneName: "short" });
+    const offset = tzString.includes("EDT") ? "-04:00" : "-05:00";
+    return `${dateString}T${time}${offset}`;
+  };
+
   // 1. Debounce Effect: Triggers automatically when Search, Dates, or Status change
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -103,12 +113,15 @@ export default function SubmittalsPage() {
 
       // Limit to 100 to prevent crashing the browser if they search something broad like "The"
       request = request.or(orString).limit(100);
-    } else {
-      // MODE 2: Browse by Date Range
-      request = request
-        .gte("created_at", `${dateRange.start}T00:00:00`)
-        .lte("created_at", `${dateRange.end}T23:59:59`);
-    }
+      } else {
+        // MODE 2: Browse by Date Range
+        const exactStart = getEasternISO(dateRange.start, false);
+        const exactEnd = getEasternISO(dateRange.end, true);
+
+        request = request
+          .gte("created_at", exactStart)
+          .lte("created_at", exactEnd);
+      }
 
     request = request.order("created_at", { ascending: false });
 
