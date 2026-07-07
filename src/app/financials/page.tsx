@@ -42,9 +42,22 @@ export default function FinancialDashboard() {
     fetchCampaigns();
   }, [supabase]);
 
+// NEW: Locks the boundary to exactly Midnight Eastern Time, respecting DST
+  const getEasternISO = (dateString: string, isEnd: boolean) => {
+    if (!dateString) return '';
+    const time = isEnd ? '23:59:59.999' : '00:00:00.000';
+    // Use Noon UTC to safely determine if this specific day is EST or EDT
+    const d = new Date(`${dateString}T12:00:00Z`);
+    const tzString = d.toLocaleString("en-US", { timeZone: "America/New_York", timeZoneName: "short" });
+    const offset = tzString.includes("EDT") ? "-04:00" : "-05:00";
+    return `${dateString}T${time}${offset}`;
+  };
+
   // Pack filters into a single object to pass as props cleanly
   const filters = {
     dateRange,
+    exactStart: getEasternISO(dateRange.start, false),
+    exactEnd: getEasternISO(dateRange.end, true),
     campaignFilter,
     originFilter
   };

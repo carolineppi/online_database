@@ -24,8 +24,8 @@ export default function ClosedJobsTab({ filters }: { filters: any }) {
         const { data: rawJobs } = await supabase
           .from('jobs')
           .select('*, quote_submittals(*, add_ons(price))')
-          .gte('created_at', `${filters.dateRange.start}T00:00:00`)
-          .lte('created_at', `${filters.dateRange.end}T23:59:59`)
+          .gte('created_at', filters.exactStart)
+          .lte('created_at', filters.exactEnd)
           .is('deleted_at', null);
 
         if (!rawJobs) return;

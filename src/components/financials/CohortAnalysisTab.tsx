@@ -23,8 +23,8 @@ export default function CohortAnalysisTab({ filters }: { filters: any }) {
         const [quotesRes, campaignRes] = await Promise.all([
           supabase.from('quote_submittals')
             .select('*')
-            .gte('created_at', `${filters.dateRange.start}T00:00:00`)
-            .lte('created_at', `${filters.dateRange.end}T23:59:59`)
+            .gte('created_at', filters.exactStart)
+            .lte('created_at', filters.exactEnd)
             .is('deleted_at', null),
           supabase.from('campaign_sources').select('*')
         ]);

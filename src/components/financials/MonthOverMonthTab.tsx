@@ -12,16 +12,18 @@ export default function MonthOverMonthTab({ filters }: { filters: any }) {
   
   // Calculate the default previous period to use as an initial state
   const defaultPrev = useMemo(() => {
-    const currentStart = new Date(`${filters.dateRange.start}T00:00:00`);
-    const currentEnd = new Date(`${filters.dateRange.end}T23:59:59`);
+    // Feed the exact Eastern Time boundaries into the JS Date objects
+    const currentStart = new Date(filters.exactStart);
+    const currentEnd = new Date(filters.exactEnd);
     const diffTime = currentEnd.getTime() - currentStart.getTime();
+    
     const prevEnd = new Date(currentStart.getTime() - 1); 
     const prevStart = new Date(prevEnd.getTime() - diffTime);
     return {
       start: prevStart.toISOString().split('T')[0],
       end: prevEnd.toISOString().split('T')[0]
     };
-  }, [filters.dateRange]);
+  }, [filters.exactStart, filters.exactEnd]);
 
   // Secondary date state specifically for the comparison period
   const [compareRange, setCompareRange] = useState(defaultPrev);
@@ -37,15 +39,28 @@ export default function MonthOverMonthTab({ filters }: { filters: any }) {
     periodLabels: { current: '', previous: '' }
   });
 
+
   useEffect(() => {
+    const getEasternISO = (dateString: string, isEnd: boolean) => {
+      if (!dateString) return '';
+      const time = isEnd ? '23:59:59.999' : '00:00:00.000';
+      // Use Noon UTC to safely determine if this specific day is EST or EDT
+      const d = new Date(`${dateString}T12:00:00Z`);
+      const tzString = d.toLocaleString("en-US", { timeZone: "America/New_York", timeZoneName: "short" });
+      const offset = tzString.includes("EDT") ? "-04:00" : "-05:00";
+      return `${dateString}T${time}${offset}`;
+    };
+
     const fetchMoMData = async () => {
       setLoading(true);
       try {
-        const currentStart = new Date(`${filters.dateRange.start}T00:00:00`);
-        const currentEnd = new Date(`${filters.dateRange.end}T23:59:59`);
+        // Feed the exact Eastern Time boundaries into the JS Date objects
+        const currentStart = new Date(filters.exactStart);
+        const currentEnd = new Date(filters.exactEnd);
         
-        const prevStart = new Date(`${compareRange.start}T00:00:00`);
-        const prevEnd = new Date(`${compareRange.end}T23:59:59`);
+        // Use our helper to lock the comparison date range to Eastern time as well
+        const prevStart = new Date(getEasternISO(compareRange.start, false));
+        const prevEnd = new Date(getEasternISO(compareRange.end, true));
 
         const labels = {
           current: `${currentStart.toLocaleDateString()} - ${currentEnd.toLocaleDateString()}`,
@@ -59,14 +74,14 @@ export default function MonthOverMonthTab({ filters }: { filters: any }) {
         const [quotesRes, jobsRes, campaignRes] = await Promise.all([
           supabase.from('quote_submittals')
             .select('id, source, quote_source, created_at')
-            .gte('created_at', minStart.toISOString())
-            .lte('created_at', maxEnd.toISOString())
+            .gte('created_at', filters.exactStart)
+            .lte('created_at', filters.exactEnd)
             .is('deleted_at', null),
           
           supabase.from('jobs')
             .select('id, sale_amount, actual_cost, created_at, quote_submittals(source, quote_source, add_ons(price, deleted_at))')
-            .gte('created_at', minStart.toISOString())
-            .lte('created_at', maxEnd.toISOString())
+            .gte('created_at', filters.exactStart)
+            .lte('created_at', filters.exactEnd)
             .is('deleted_at', null),
 
           supabase.from('campaign_sources').select('*')
