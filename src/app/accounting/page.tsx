@@ -130,13 +130,17 @@ export default function AccountingPage() {
           assembledRows.push({
             quoteId: quote.id,
             submittalId: jobSubmittal.id,
-            jobId: job.id, // <--- ADD THIS (Adjust variable name to match your fetch logic if needed)
+            jobId: job.id, 
             poNumber,
             customerName,
             saleAmount: Number(quote.price) || 0,
-            estimatedCost: Number(quote.estimated_cost) || 0,
-            actualCost: Number(quote.actual_cost) || 0,
-            originalActualCost: Number(quote.actual_cost) || 0, 
+            // (Optional: If estimated_cost was also moved to jobs, pull it from job. If not, leave it as quote)
+            estimatedCost: Number(job.estimated_cost) || Number(quote.estimated_cost) || 0,
+            
+            // FIX: Pull actual_cost directly from the JOB table!
+            actualCost: Number(job.actual_cost) || 0,
+            originalActualCost: Number(job.actual_cost) || 0, 
+            
             manufacturer: quote.manufacturer || 'Unknown'
           });
         });
