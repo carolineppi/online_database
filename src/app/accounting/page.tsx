@@ -351,11 +351,29 @@ return (
               ) : (
                 filteredRows.map((row) => {
                   let markupString = 'N/A';
+                  let markupColor = 'bg-zinc-100 text-zinc-400'; // Default gray for uncalculated/missing
+
                   if (row.actualCost > 0) {
                     const markupNum = ((row.saleAmount - row.actualCost) / row.actualCost) * 100;
                     markupString = `${markupNum.toFixed(1)}%`;
+
+                    if (markupNum <= -50) {
+                      // Error / Questionable Input (Less than -50%) -> Amber
+                      markupColor = 'bg-amber-100 text-amber-700 ring-1 ring-amber-300 shadow-sm';
+                    } else if (markupNum < 0) {
+                      // Loss (Negative) -> Red
+                      markupColor = 'bg-red-100 text-red-700';
+                    } else if (markupNum > 0) {
+                      // Profit (Positive) -> Green
+                      markupColor = 'bg-emerald-100 text-emerald-700';
+                    } else {
+                      // Exactly 0% Breakeven -> Neutral
+                      markupColor = 'bg-zinc-100 text-zinc-600';
+                    }
                   } else if (row.saleAmount > 0 && row.actualCost === 0) {
+                    // Not inputted yet
                     markupString = '100.0%';
+                    markupColor = 'bg-zinc-100 text-zinc-400';
                   }
 
                   return (
@@ -403,9 +421,7 @@ return (
                       </td>
 
                       <td className="p-5 text-right pr-6">
-                        <span className={`font-black text-xs px-2.5 py-1 rounded-md ${
-                          row.actualCost === 0 ? 'bg-zinc-100 text-zinc-400' : 'bg-blue-50 text-blue-600'
-                        }`}>
+                        <span className={`font-black text-xs px-2.5 py-1 rounded-md ${markupColor}`}>
                           {markupString}
                         </span>
                       </td>
