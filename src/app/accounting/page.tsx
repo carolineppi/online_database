@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { hasAccess, normalizeRoles } from '@/utils/rbac';
-import { DollarSign, Loader2, Calendar, Download } from 'lucide-react';
+import { DollarSign, Loader2, Calendar, Download, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface LedgerRow {
   quoteId: string;
   submittalId: string;
-  jobId: string; // <--- ADD THIS
+  jobId: string; 
   poNumber: string;
+  maskNumber: string; // <-- Added Mask Number
   customerName: string;
   saleAmount: number;
   estimatedCost: number;
@@ -31,6 +32,7 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState(''); // <-- Added Search State
 
   // Date Filter State (Defaults to 1st of current month -> Today)
   const today = new Date();
@@ -132,15 +134,15 @@ export default function AccountingPage() {
             submittalId: jobSubmittal.id,
             jobId: job.id, 
             poNumber,
+            maskNumber: jobSubmittal.quote_number_mask || '', // <-- Added Mask Number mapping
             customerName,
             saleAmount: Number(quote.price) || 0,
-            // (Optional: If estimated_cost was also moved to jobs, pull it from job. If not, leave it as quote)
-            estimatedCost: Number(job.estimated_cost) || Number(quote.estimated_cost) || 0,
             
-            // FIX: Pull actual_cost directly from the JOB table!
+            // FIX: Exclusively pull the individual quote's estimated cost
+            estimatedCost: Number(quote.estimated_cost) || 0,
+            
             actualCost: Number(job.actual_cost) || 0,
             originalActualCost: Number(job.actual_cost) || 0, 
-            
             manufacturer: quote.manufacturer || 'Unknown'
           });
         });
@@ -170,7 +172,6 @@ export default function AccountingPage() {
 
     setSavingId(quoteId);
     try {
-      // Safely target the specific job using its primary key (id)
       const { error } = await supabase
         .from('jobs')
         .update({ actual_cost: newCost })
@@ -194,16 +195,14 @@ export default function AccountingPage() {
 
   // --- 4. CSV EXPORT LOGIC ---
   const handleExportCSV = () => {
-    if (rows.length === 0) {
+    if (filteredRows.length === 0) {
       toast.error('No data to export.');
       return;
     }
 
-    // Define CSV Headers
-    const headers = ['PO Number', 'Customer Name', 'Sale Amount', 'Estimated Cost', 'Actual Cost', 'Markup'];
+    const headers = ['PO Number', 'Mask Number', 'Customer Name', 'Sale Amount', 'Estimated Cost', 'Actual Cost', 'Markup'];
     
-    // Map data to CSV string format
-    const csvData = rows.map(row => {
+    const csvData = filteredRows.map(row => {
       let markupString = 'N/A';
       if (row.actualCost > 0) {
         const markupNum = ((row.saleAmount - row.actualCost) / row.actualCost) * 100;
@@ -212,9 +211,9 @@ export default function AccountingPage() {
         markupString = '100.0%';
       }
 
-      // Escape quotes in customer names just in case, and wrap strings in quotes to avoid comma breaks
       return [
         `"${row.poNumber}"`,
+        `"${row.maskNumber}"`,
         `"${row.customerName.replace(/"/g, '""')}"`,
         row.saleAmount,
         row.estimatedCost,
@@ -223,10 +222,8 @@ export default function AccountingPage() {
       ].join(',');
     });
 
-    // Combine headers and rows
     const csvContent = [headers.join(','), ...csvData].join('\n');
     
-    // Create a Blob and trigger a temporary download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -246,14 +243,21 @@ export default function AccountingPage() {
     );
   }
 
+  // Filter rows based on search query
+  const filteredRows = rows.filter(row => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      row.poNumber.toLowerCase().includes(query) ||
+      row.customerName.toLowerCase().includes(query) ||
+      (row.maskNumber && row.maskNumber.toLowerCase().includes(query))
+    );
+  });
+
 return (
-    // Outer wrapper handles the background and the sidebar buffer (pl-64)
     <main className="pl-64 min-h-screen bg-gray-50">
-      
-      {/* Inner container handles the max-width, centering, and padding */}
       <div className="p-8 lg:p-12 max-w-[1600px] mx-auto">
       
-        {/* Header & Date Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
@@ -265,8 +269,20 @@ return (
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Date Filter Box */}
+        <div className="flex items-center gap-3 flex-wrap">
+          
+          {/* NEW: Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search PO, mask, or customer..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-white border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm font-medium shadow-sm w-[260px]"
+            />
+          </div>
+
           <div className="flex items-center bg-white p-2 rounded-2xl border border-zinc-200 shadow-sm">
             <div className="flex items-center gap-2 px-3 border-r border-zinc-100">
               <Calendar size={18} className="text-zinc-400" />
@@ -288,10 +304,9 @@ return (
             </div>
           </div>
           
-          {/* CSV Export Button */}
           <button 
             onClick={handleExportCSV}
-            disabled={loading || rows.length === 0}
+            disabled={loading || filteredRows.length === 0}
             className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-emerald-600 transition disabled:opacity-50"
             title="Export to CSV"
           >
@@ -300,7 +315,6 @@ return (
         </div>
       </div>
 
-      {/* Spreadsheet Table */}
       <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
@@ -328,8 +342,14 @@ return (
                     <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">No completed jobs found in this date range.</p>
                   </td>
                 </tr>
+              ) : filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-16 text-center">
+                    <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">No results match your search.</p>
+                  </td>
+                </tr>
               ) : (
-                rows.map((row) => {
+                filteredRows.map((row) => {
                   let markupString = 'N/A';
                   if (row.actualCost > 0) {
                     const markupNum = ((row.saleAmount - row.actualCost) / row.actualCost) * 100;
@@ -340,9 +360,17 @@ return (
 
                   return (
                     <tr key={row.quoteId} className="hover:bg-blue-50/30 transition group">
+                      
+                      {/* Subtly display Mask Number next to PO Number */}
                       <td className="p-5 pl-6">
-                        <span className="font-bold text-zinc-900 bg-zinc-100 px-3 py-1.5 rounded-lg">{row.poNumber}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-zinc-900 bg-zinc-100 px-3 py-1.5 rounded-lg">{row.poNumber}</span>
+                          {row.maskNumber && (
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">#{row.maskNumber}</span>
+                          )}
+                        </div>
                       </td>
+                      
                       <td className="p-5 font-bold text-zinc-700">{row.customerName}</td>
                       <td className="p-5 text-right font-black text-emerald-600">
                         ${row.saleAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -360,9 +388,7 @@ return (
                             step="0.01"
                             value={row.actualCost || ''}
                             onChange={(e) => handleActualCostChange(row.quoteId, e.target.value)}
-                            
                             onBlur={(e) => handleActualCostBlur(row.quoteId, row.jobId, Number(e.target.value) || 0, row.originalActualCost)}
-                            
                             className={`w-full text-right py-2.5 pr-4 pl-8 rounded-xl font-black outline-none transition-all ${
                               row.actualCost === 0 
                                 ? 'bg-amber-50 text-amber-600 focus:bg-white focus:ring-2 focus:ring-amber-400' 
