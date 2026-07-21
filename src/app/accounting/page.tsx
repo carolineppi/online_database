@@ -357,10 +357,7 @@ return (
                     const markupNum = ((row.saleAmount - row.actualCost) / row.actualCost) * 100;
                     markupString = `${markupNum.toFixed(1)}%`;
 
-                    if (markupNum <= -50) {
-                      // Error / Questionable Input (Less than -50%) -> Amber
-                      markupColor = 'bg-amber-100 text-amber-700 ring-1 ring-amber-300 shadow-sm';
-                    } else if (markupNum < 0) {
+                    if (markupNum < 0) {
                       // Loss (Negative) -> Red
                       markupColor = 'bg-red-100 text-red-700';
                     } else if (markupNum > 0) {
