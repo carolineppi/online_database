@@ -13,6 +13,7 @@ import {
   UserPlus,
   Search,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,6 +42,16 @@ export default function SubmittalHeader({
   const [isSearching, setIsSearching] = useState(false);
   const [isReassigning, setIsReassigning] = useState(false);
 
+  // NEW: Create Customer State inside Reassign Modal
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newCustomerData, setNewCustomerData] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+  });
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -51,20 +62,20 @@ export default function SubmittalHeader({
     quote_number_mask: submittal.quote_number_mask || "",
     first_name: customer.first_name || "",
     last_name: customer.last_name || "",
-    phone: customer.phone ? String(customer.phone) : "", // <-- Wrap in String()
+    phone: customer.phone ? String(customer.phone) : "", 
     email: customer.email || "",
   });
 
   // Debounced search for the Reassign Modal
   useEffect(() => {
-    if (!showReassignModal) return;
+    if (!showReassignModal || isCreatingNew) return;
 
     const delayDebounceFn = setTimeout(() => {
       fetchCustomersForReassign(searchQuery);
     }, 400);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, showReassignModal]);
+  }, [searchQuery, showReassignModal, isCreatingNew]);
 
   const fetchCustomersForReassign = async (query = "") => {
     setIsSearching(true);
@@ -113,7 +124,7 @@ export default function SubmittalHeader({
             last_name: formData.last_name,
             phone: formData.phone
               ? String(formData.phone).replace(/\D/g, "")
-              : null, // <-- Wrap in String()
+              : null, 
             email: formData.email,
           })
           .eq("id", customer.id);
@@ -140,7 +151,7 @@ export default function SubmittalHeader({
 
       if (error) throw error;
 
-      toast.success("Quote successfully reassigned to new customer!");
+      toast.success("Quote successfully reassigned!");
       setShowReassignModal(false);
       setIsEditing(false);
       router.refresh();
@@ -149,6 +160,61 @@ export default function SubmittalHeader({
     } finally {
       setIsReassigning(false);
     }
+  };
+
+  // NEW: Handle Creating a brand new customer & assigning it
+  const handleCreateAndReassign = async () => {
+    if (!newCustomerData.first_name || !newCustomerData.last_name) {
+      toast.error("First and Last name are required.");
+      return;
+    }
+    
+    setIsCreating(true);
+    try {
+      // Clean phone number to digits only
+      const cleanPhone = newCustomerData.phone ? newCustomerData.phone.replace(/\D/g, "") : null;
+
+      // 1. Insert New Customer
+      const { data: newCustomer, error: createError } = await supabase
+        .from("customers")
+        .insert({
+          first_name: newCustomerData.first_name,
+          last_name: newCustomerData.last_name,
+          email: newCustomerData.email || null,
+          phone: cleanPhone || null,
+        })
+        .select("id")
+        .single();
+
+      if (createError) throw createError;
+
+      // 2. Assign Quote to New Customer
+      const { error: assignError } = await supabase
+        .from("quote_submittals")
+        .update({ customer: newCustomer.id })
+        .eq("id", submittal.id);
+
+      if (assignError) throw assignError;
+
+      toast.success("New customer created and quote reassigned!");
+      setShowReassignModal(false);
+      setIsEditing(false);
+      setIsCreatingNew(false);
+      setNewCustomerData({ first_name: "", last_name: "", email: "", phone: "" });
+      router.refresh();
+
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create new customer.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Helper to close modal and reset creation state
+  const handleCloseModal = () => {
+    setShowReassignModal(false);
+    setIsCreatingNew(false);
+    setNewCustomerData({ first_name: "", last_name: "", email: "", phone: "" });
   };
 
   return (
@@ -259,7 +325,6 @@ export default function SubmittalHeader({
       ) : (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pr-10">
           <div>
-            {/* --- NEW DISPLAY LOGIC FOR MASK vs ORIGINAL --- */}
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-2xl font-black text-zinc-900">{submittal.job_name}</h1>
               {submittal.quote_number_mask ? (
@@ -312,16 +377,21 @@ export default function SubmittalHeader({
         </div>
       )}
 
-      {/* REASSIGN MODAL */}
+      {/* REASSIGN / CREATE MODAL */}
       {showReassignModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+            
             <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
               <h3 className="font-bold text-zinc-900 text-lg flex items-center gap-2">
-                <UserPlus size={20} className="text-blue-600" /> Reassign Quote
+                {isCreatingNew ? (
+                  <><UserPlus size={20} className="text-emerald-600" /> Create New Customer</>
+                ) : (
+                  <><Search size={20} className="text-blue-600" /> Search Customers</>
+                )}
               </h3>
               <button 
-                onClick={() => setShowReassignModal(false)}
+                onClick={handleCloseModal}
                 className="text-zinc-400 hover:text-zinc-600 transition p-1"
               >
                 <X size={20} />
@@ -329,47 +399,117 @@ export default function SubmittalHeader({
             </div>
             
             <div className="p-6 flex flex-col gap-4 overflow-hidden">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <input 
-                  type="text" 
-                  autoFocus
-                  placeholder="Search by name, email, or phone..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
-                />
-              </div>
+              
+              {isCreatingNew ? (
+                // --- CREATE NEW CUSTOMER FORM ---
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 tracking-widest">First Name *</label>
+                      <input 
+                        value={newCustomerData.first_name}
+                        onChange={(e) => setNewCustomerData({...newCustomerData, first_name: e.target.value})}
+                        className="w-full p-2.5 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 rounded-xl font-medium text-sm text-zinc-900 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 tracking-widest">Last Name *</label>
+                      <input 
+                        value={newCustomerData.last_name}
+                        onChange={(e) => setNewCustomerData({...newCustomerData, last_name: e.target.value})}
+                        className="w-full p-2.5 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 rounded-xl font-medium text-sm text-zinc-900 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 tracking-widest">Email Address</label>
+                      <input 
+                        type="email"
+                        value={newCustomerData.email}
+                        onChange={(e) => setNewCustomerData({...newCustomerData, email: e.target.value})}
+                        className="w-full p-2.5 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 rounded-xl font-medium text-sm text-zinc-900 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase mb-1.5 tracking-widest">Phone Number</label>
+                      <input 
+                        value={newCustomerData.phone}
+                        onChange={(e) => setNewCustomerData({...newCustomerData, phone: e.target.value})}
+                        className="w-full p-2.5 bg-zinc-50 border-none ring-1 ring-zinc-200 focus:ring-2 focus:ring-emerald-500 rounded-xl font-medium text-sm text-zinc-900 outline-none"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 pt-4 mt-4 border-t border-zinc-100">
+                    <button 
+                      onClick={() => setIsCreatingNew(false)}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-bold text-zinc-500 hover:bg-zinc-100 transition"
+                    >
+                      Back to Search
+                    </button>
+                    <button 
+                      onClick={handleCreateAndReassign}
+                      disabled={isCreating}
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition disabled:opacity-50 shadow-sm"
+                    >
+                      {isCreating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                      Create & Assign
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // --- EXISTING SEARCH UI ---
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                    <input 
+                      type="text" 
+                      autoFocus
+                      placeholder="Search by name, email, or phone..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
+                    />
+                  </div>
 
-              <div className="flex-1 overflow-y-auto min-h-[200px] border border-zinc-100 rounded-xl p-2 bg-zinc-50/50">
-                {isSearching ? (
-                  <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-2 py-8">
-                    <Loader2 className="animate-spin" size={24} />
-                    <span className="text-xs font-bold uppercase tracking-widest">Searching...</span>
+                  <div className="flex-1 overflow-y-auto min-h-[200px] border border-zinc-100 rounded-xl p-2 bg-zinc-50/50">
+                    {isSearching ? (
+                      <div className="flex flex-col items-center justify-center h-full text-zinc-400 gap-2 py-8">
+                        <Loader2 className="animate-spin" size={24} />
+                        <span className="text-xs font-bold uppercase tracking-widest">Searching...</span>
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {searchResults.map((res) => (
+                          <button
+                            key={res.id}
+                            onClick={() => handleReassignCustomer(res.id)}
+                            disabled={isReassigning}
+                            className="flex flex-col items-start p-3 bg-white border border-zinc-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition disabled:opacity-50 text-left"
+                          >
+                            <span className="font-black text-zinc-900 text-sm">{res.full_name || 'Unknown Name'}</span>
+                            <div className="flex gap-3 mt-1 text-xs text-zinc-500 font-medium">
+                              {res.email && <span>{res.email}</span>}
+                              {res.phone && <span>{formatPhoneNumber(res.phone)}</span>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-zinc-400 py-8 text-sm">
+                        No customers found.
+                      </div>
+                    )}
                   </div>
-                ) : searchResults.length > 0 ? (
-                  <div className="flex flex-col gap-2">
-                    {searchResults.map((res) => (
-                      <button
-                        key={res.id}
-                        onClick={() => handleReassignCustomer(res.id)}
-                        disabled={isReassigning}
-                        className="flex flex-col items-start p-3 bg-white border border-zinc-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition disabled:opacity-50 text-left"
-                      >
-                        <span className="font-black text-zinc-900 text-sm">{res.full_name || 'Unknown Name'}</span>
-                        <div className="flex gap-3 mt-1 text-xs text-zinc-500 font-medium">
-                          {res.email && <span>{res.email}</span>}
-                          {res.phone && <span>{formatPhoneNumber(res.phone)}</span>}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-zinc-400 py-8 text-sm">
-                    No customers found.
-                  </div>
-                )}
-              </div>
+
+                  <button 
+                    onClick={() => setIsCreatingNew(true)}
+                    className="w-full mt-2 py-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2"
+                  >
+                    <Plus size={18} /> Add New Customer
+                  </button>
+                </>
+              )}
+              
             </div>
           </div>
         </div>
